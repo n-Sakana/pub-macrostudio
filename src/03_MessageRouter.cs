@@ -148,8 +148,6 @@ namespace MacroStudio
                     return services.GetAppInfo();
                 case "getTargetEnvironment":
                     return services.GetTargetEnvironment();
-                case "getHostRuntime":
-                    return services.GetHostRuntime();
                 case "pickBook":
                     return services.PickBook();
                 case "attachBook":

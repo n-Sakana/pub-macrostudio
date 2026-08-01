@@ -340,6 +340,13 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* Inside the box the detail is the row's body, not an indented aside. */
+.occurrence-row > .finding-detail {
+  margin: var(--space-2) 0 0;
+  padding-left: 0;
+  border-left: 0;
+}
+
 .finding-detail > p,
 .finding-detail-block > p {
   margin: 0;
@@ -484,9 +491,12 @@
    so it can always be traced back to a fact on the page before. */
 /* A mark at the far edge of the card, not a sentence in its body. */
 .choice-recommended {
+  /* Far enough from the edge to read as a label on the card rather than
+     something clinging to its border. */
+  margin-right: var(--space-3);
   color: var(--accent-text);
-  font-size: var(--type-micro-size);
-  font-weight: var(--type-micro-weight);
+  font-size: var(--type-label-size);
+  font-weight: var(--weight-semibold);
   white-space: nowrap;
 }
 
@@ -535,14 +545,12 @@
 }
 
 .group-toggle:focus-visible,
-.occurrence-toggle:focus-visible,
 .group-reveal:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
 
 .group-row.is-open > .group-toggle .disclosure-chevron,
-.occurrence-row.is-open .disclosure-chevron,
 .repair-finding-row.is-open > .group-reveal .disclosure-chevron {
   transform: rotate(90deg);
 }
@@ -558,32 +566,31 @@
   white-space: nowrap;
 }
 
+/* One accordion opens onto one box, and the box scrolls. The places are
+   laid out flat inside it: a second tier of accordion made the reader
+   open a thing to find more things to open. */
 .group-panel {
+  max-height: calc(var(--space-8) * 9);
   margin: 0 var(--space-3) var(--space-3);
-  border-left: var(--rail-w) solid var(--border-subtle);
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.occurrence-row {
+  padding: var(--space-3);
 }
 
 .occurrence-row + .occurrence-row {
   border-top: 1px solid var(--border-subtle);
 }
 
-.occurrence-toggle {
-  display: grid;
-  width: 100%;
+.occurrence-head {
+  display: flex;
   min-width: 0;
   align-items: center;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  background: transparent;
-  color: var(--text-sub);
-  cursor: pointer;
   gap: var(--space-3);
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  text-align: left;
-}
-
-.occurrence-toggle:hover {
-  background: var(--surface-hover);
 }
 
 .occurrence-location {
@@ -675,34 +682,16 @@
   overflow-wrap: break-word;
 }
 
-/* The machine in front of the reader, kept visibly apart from the target
-   the diagnosis assumes. */
-.runtime-title {
-  margin: var(--space-4) 0 0;
-  color: var(--text);
-  font-size: var(--type-label-size);
-  font-weight: var(--type-label-weight);
-}
-
-.runtime-note {
+/* What the AI is told about the target, shown word for word so the
+   screen and the request cannot disagree. */
+.environment-source {
+  max-height: calc(var(--space-8) * 8);
   margin: 0;
-  color: var(--text-muted);
-  font-size: var(--type-meta-size);
-}
-
-.runtime-list {
-  margin: var(--space-1) 0 0;
-  padding-left: var(--space-5);
+  overflow: auto;
   color: var(--text-sub);
-  font-size: var(--type-meta-size);
-}
-
-.runtime-list li {
-  margin: var(--space-1) 0;
+  font-family: var(--font-mono);
+  font-size: var(--type-micro-size);
+  line-height: var(--line-relaxed);
+  white-space: pre-wrap;
   overflow-wrap: break-word;
-}
-
-.runtime-list .runtime-mismatch {
-  color: var(--danger-text);
-  font-weight: var(--weight-semibold);
 }

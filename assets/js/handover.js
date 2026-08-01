@@ -18,10 +18,6 @@
     "": "対象環境の指定がない指摘"
   };
 
-  // Work this tool cannot do. It only ever reads and rewrites VBA code,
-  // so anything living outside the modules is found, named, and handed to
-  // a person. Each entry says what was looked for and what was found, so
-  // "見つかりませんでした" is a reported observation rather than silence.
   function inventoryOf(state) {
     return state && state.bookInventory ? state.bookInventory : null;
   }
@@ -30,61 +26,51 @@
     return Array.isArray(value) ? value : [];
   }
 
+  // Work this tool cannot do, and only the work that is actually there.
+  // A thing the workbook does not carry is not a task, so it is not
+  // listed: an absence tells the reader nothing to do. Each line names
+  // what was found and what the person has to settle about it.
   function humanTasks(state) {
     var inventory = inventoryOf(state);
     var tasks = [];
 
-    function add(key, title, reason, found, detail) {
+    function add(key, title, found, detail) {
+      if (!found) {
+        return;
+      }
       tasks.push({
         key: key,
         title: title,
-        reason: reason,
-        found: found === true,
+        found: true,
         detail: text(detail)
       });
     }
 
     if (!inventory) {
-      add("inventory", "ブックの棚卸し",
-        "参照設定・接続・ActiveX・フォントを読み取れていません。" +
-          "ブックを読み込み直してください。",
-        true, "");
       return tasks;
     }
-    add("references", "参照設定の棚卸しと整理",
-      "参照設定はコードの外にあり、このツールは読み書きしません。",
+    add("references", "参照設定が対象の端末にあるか確かめる",
       list(inventory.references).length > 0,
-      list(inventory.references).length > 0
-        ? list(inventory.references).join("、")
-        : "参照は見つかりませんでした。");
-    add("powerQuery", "Power Query の接続先と資格情報の再設定",
-      "クエリ定義はモジュールの外にあり、このツールは読み書きしません。",
+      "このブックが参照しているライブラリ: " +
+        list(inventory.references).join("、"));
+    add("powerQuery", "クエリの接続先と資格情報を設定し直す",
       inventory.hasPowerQuery === true ||
         list(inventory.connections).length > 0,
       list(inventory.connections).length > 0
         ? "接続: " + list(inventory.connections).join("、")
-        : (inventory.hasPowerQuery === true
-          ? "Power Query の定義があります。"
-          : "クエリと接続は見つかりませんでした。"));
-    add("activeX", "ActiveX コントロールと信頼設定の確認",
-      "コントロールと信頼設定はブックと端末の設定で、コードではありません。",
+        : "Power Query の定義があります。");
+    add("activeX", "ActiveX コントロールが対象の端末で動くか確かめる",
       Number(inventory.activeXCount || 0) > 0,
-      Number(inventory.activeXCount || 0) > 0
-        ? "ActiveX の部品が " + inventory.activeXCount + " 件あります。"
-        : "ActiveX の部品は見つかりませんでした。");
-    add("barcode", "バーコードの生成方式と実機読取の確認",
-      "フォントとコントロールの有無は端末側の状態で、コードでは決まりません。",
+      "シート上のコントロール " + inventory.activeXCount + " 件。" +
+        "無効化された端末では読み込まれません。");
+    add("barcode", "バーコードを実機のスキャナで読めるか確かめる",
       list(inventory.barcodeFonts).length > 0,
-      list(inventory.barcodeFonts).length > 0
-        ? "バーコード用らしいフォント: " +
-          list(inventory.barcodeFonts).join("、")
-        : "バーコード用らしいフォントは見つかりませんでした。");
-    add("externalLinks", "外部ブックへのリンクの確認",
-      "リンク先はブックの設定で、コードではありません。",
+      "使っているフォント: " + list(inventory.barcodeFonts).join("、") +
+        "。対象の端末に無ければ別の字形で表示され、読み取れません。");
+    add("externalLinks", "外部ブックへのリンク先を新しい場所へ向け直す",
       Number(inventory.externalLinkCount || 0) > 0,
-      Number(inventory.externalLinkCount || 0) > 0
-        ? "外部リンクが " + inventory.externalLinkCount + " 件あります。"
-        : "外部リンクは見つかりませんでした。");
+      "リンク " + inventory.externalLinkCount + " 件。" +
+        "リンク先はブックの設定で、コードではありません。");
     return tasks;
   }
 
@@ -236,50 +222,6 @@
     return done;
   }
 
-  // What this terminal reports about itself, and - only when the target
-  // environment says what it expects - whether the two agree. A silence
-  // in the target file is not a match; it is nothing to compare against.
-  function runtimeComparison(state) {
-    var runtime = state && state.hostRuntime ? state.hostRuntime : null;
-    var expected = state && state.targetEnvironment &&
-      state.targetEnvironment.expectedRuntime
-      ? state.targetEnvironment.expectedRuntime
-      : null;
-    var rows = [];
-
-    function compare(label, measured, want) {
-      var known = measured && measured !== "unknown";
-
-      rows.push({
-        label: label,
-        measured: known ? measured : "unknown",
-        expected: want ? String(want) : "",
-        verdict: !want
-          ? "期待値の指定なし"
-          : (!known
-            ? "この端末では読み取れませんでした"
-            : (String(want) === String(measured) ? "一致" : "不一致"))
-      });
-    }
-
-    if (!runtime) {
-      return {available: false, rows: rows, notes: []};
-    }
-    compare("OS のアーキテクチャ", runtime.osArchitecture,
-      expected ? expected.osArchitecture : null);
-    compare("MacroStudio のプロセス", runtime.processArchitecture,
-      expected ? expected.processArchitecture : null);
-    compare("Excel / Office の版", runtime.officeVersion,
-      expected ? expected.officeVersion : null);
-    compare("Excel / Office のビット数", runtime.officeBitness,
-      expected ? expected.officeBitness : null);
-    return {
-      available: true,
-      rows: rows,
-      notes: list(runtime.notes)
-    };
-  }
-
   function environmentRows(state) {
     var seen = {};
     var rows = [];
@@ -306,7 +248,6 @@
     var lines = [];
     var list = problems(state);
     var rows = environmentRows(state);
-    var runtime = runtimeComparison(state);
     var verified = verifiedByTool(state);
 
     lines.push("## 改修対象一覧");
@@ -337,30 +278,6 @@
         : "（読み込めていません）"));
     lines.push("- 実値（保存先・接続先・機器名）はこのメモに書きません。" +
       "環境ごとの設定として別に管理してください。");
-    lines.push("");
-    lines.push("### この端末で確認できた実行環境（参考）");
-    lines.push("");
-    lines.push("次はこのメモを作った端末を読み取った値で、**ブックの属性では" +
-      "ありません**。配布先の端末では別の値になります。");
-    lines.push("");
-    if (!runtime.available) {
-      lines.push("（読み取れていません。人が確認してください）");
-    } else {
-      lines.push("| 項目 | この端末 | 期待値 | 判定 |");
-      lines.push("|---|---|---|---|");
-      runtime.rows.forEach(function (row) {
-        lines.push(
-          "| " + cell(row.label) +
-          " | " + cell(row.measured) +
-          " | " + cell(row.expected || "—") +
-          " | " + cell(row.verdict) + " |");
-      });
-      runtime.notes.forEach(function (note) {
-        lines.push("");
-        lines.push("- " + note);
-      });
-    }
-    lines.push("");
     if (rows.length === 0) {
       lines.push("（この診断が名指しした環境の制約はありません）");
     } else {
@@ -404,12 +321,10 @@
     lines.push("## 既知の制約");
     lines.push("");
     lines.push("このツールが読み書きするのは VBA のコードだけです。" +
-      "次はコードの外にあるため、探して名前を出すだけで、改修はしていません。");
+      "次はコードの外にあるため、改修していません。");
     lines.push("");
     humanTasks(state).forEach(function (task) {
-      lines.push("- [ ] " + task.title +
-        (task.found ? "（該当あり）" : "（該当なし）") +
-        " … " + task.detail + " " + task.reason);
+      lines.push("- [ ] " + task.title + " … " + task.detail);
     });
     lines.push("");
     list.filter(function (problem) {
@@ -437,7 +352,6 @@
     axisLabels: AXIS_LABELS,
     problems: problems,
     environmentRows: environmentRows,
-    runtimeComparison: runtimeComparison,
     testViewpoints: testViewpoints,
     verifiedByTool: verifiedByTool,
     humanTasks: humanTasks,

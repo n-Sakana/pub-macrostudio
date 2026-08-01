@@ -446,6 +446,76 @@
     return raw ? {entry: status.entry, raw: raw} : null;
   }
 
+  // The reply did not come back in the shape the request asked for. The
+  // chat can usually fix that if it is told again, so the first failure
+  // puts the asking back on the clipboard rather than leaving the reader
+  // to compose it. The output rules come from the template that made the
+  // request - this is not the place to re-author the contract.
+  function retryText(stage) {
+    var state = global.MacroStudioState.getState();
+    var rules = null;
+    var selected;
+    var parsed;
+
+    if (stage === "repair") {
+      rules = state.outputRules;
+    } else {
+      selected = diagnosisPreset(state);
+      if (selected) {
+        parsed = global.MacroStudioPreset.parse(
+          selected.raw.content,
+          "diagnose");
+        if (parsed.valid && parsed.output) {
+          rules = fillRequestId(
+            parsed.output.body,
+            state.diagnosisRequestId);
+        }
+      }
+    }
+    if (!rules) {
+      return "";
+    }
+    return "さきほどの返答をそのまま取り込めませんでした。" +
+      "内容は変えず、次の書き方のとおりにもう一度返してください。" +
+      CRLF + CRLF + rules;
+  }
+
+  // Twice in a row means the chat is not going to produce the shape this
+  // request needs, so asking it the same way a third time wastes the
+  // reader's turn. Say why, and point somewhere else.
+  function handleIntakeFailure(stage, message) {
+    var store = global.MacroStudioState;
+    var count = store.noteIntakeFailure(stage);
+    var text;
+
+    if (count >= 2) {
+      global.MacroStudioApp.showToast(
+        message + CRLF +
+          "同じAIで2回続けて形が崩れました。返答の形を直せないAIもあります。" +
+          "別のAIに、同じ依頼文をそのまま渡してみてください。",
+        "error");
+      return false;
+    }
+    text = retryText(stage);
+    if (!text) {
+      global.MacroStudioApp.showToast(message, "error");
+      return false;
+    }
+    return global.hostBridge.request("writeClipboard", {text: text}).then(
+      function () {
+        global.MacroStudioApp.showToast(
+          message + CRLF +
+            "言い直す文をクリップボードに入れました。" +
+            "同じチャットにそのまま貼り付けてください。",
+          "error");
+        return false;
+      },
+      function () {
+        global.MacroStudioApp.showToast(message, "error");
+        return false;
+      });
+  }
+
   function failHost(error, toastAction) {
     global.MacroStudioApp.handleHostError(
       error || {code: "E-SYS-02"},
@@ -548,6 +618,7 @@
       markdown: markdown
     }).then(function (result) {
       store.commitDiagnosis(diagnosis, result.path);
+      store.clearIntakeFailures("diagnose");
       store.setBusyAction(null);
       global.MacroStudioApp.showToast("診断結果を取り込みました。", "success");
       return diagnosis;
@@ -572,10 +643,9 @@
       ? global.MacroStudioDiagnosis.parsePart(text, options)
       : global.MacroStudioDiagnosis.parse(text, options);
     if (!parsed.ok) {
-      global.MacroStudioApp.showToast(
-        "診断結果を取り込めませんでした。コードブロック全体をコピーし直してください。",
-        "error");
-      return Promise.resolve(null);
+      return Promise.resolve(handleIntakeFailure(
+        "diagnose",
+        "診断結果を取り込めませんでした。"));
     }
     // A reply whose line breaks the chat folded away is importable, but
     // the reader is told it was rebuilt rather than left to assume the
@@ -593,11 +663,11 @@
       state.diagnosisParts || global.MacroStudioDiagnosis.createPartCollection(),
       parsed);
     if (!added.ok) {
-      global.MacroStudioApp.showToast(
-        "診断結果の分割を取り込めませんでした。届いた番号を確認してください。",
-        "error");
-      return Promise.resolve(null);
+      return Promise.resolve(handleIntakeFailure(
+        "diagnose",
+        "診断結果の分割を取り込めませんでした。届いた番号を確認してください。"));
     }
+    store.clearIntakeFailures("diagnose");
     store.setDiagnosisParts(added.collection);
     if (!added.complete) {
       global.MacroStudioApp.showToast(
@@ -788,6 +858,7 @@
       return true;
     }
     store.importPackage(described);
+    store.clearIntakeFailures("repair");
     global.MacroStudioApp.showToast(
       described.total + "個のモジュールを取り込みました。",
       "success");
@@ -795,13 +866,13 @@
   }
 
   function showRepairIntakeError(message) {
+    var text = String(message || "改修結果を取り込めませんでした。");
+
     global.MacroStudioState.setLastError({
       code: "E-INTAKE-01",
-      message: String(message || "改修結果を取り込めませんでした。")
+      message: text
     });
-    global.MacroStudioApp.showToast(
-      String(message || "改修結果を取り込めませんでした。"),
-      "error");
+    handleIntakeFailure("repair", text);
     return false;
   }
 
@@ -1003,50 +1074,6 @@
       read,
       false,
       state.modules.length + " モジュール"));
-    appendOutsideCode(root, state);
-    return root;
-  }
-
-  // The workbook carries more than its code, and this tool changes none
-  // of it. What was found is named here so the reader knows before the
-  // diagnosis that some of the work will be theirs. Counts on the line,
-  // the list inside.
-  function appendOutsideCode(root, state) {
-    var tasks = global.MacroStudioHandover.humanTasks(state);
-    var found = tasks.filter(function (task) {
-      return task.found;
-    });
-    var body = element("div", "outside-code");
-    var list = element("ul", "outside-code-list");
-    var inventory = state.bookInventory;
-
-    if (!inventory) {
-      return root;
-    }
-    body.appendChild(element(
-      "p",
-      "task-note",
-      "このツールが読み書きするのは VBA のコードだけです。" +
-        "次はコードの外にあるので、見つけて名前を出すだけにします。"));
-    tasks.forEach(function (task) {
-      list.appendChild(element(
-        "li",
-        task.found ? "outside-code-found" : "",
-        task.title + " … " + task.detail));
-    });
-    body.appendChild(list);
-    if (inventory.sha256) {
-      body.appendChild(element(
-        "p",
-        "outside-code-hash",
-        "SHA-256: " + inventory.sha256));
-    }
-    root.appendChild(createDisclosure(
-      "book-outside-code",
-      "コードの外にあるもの",
-      body,
-      false,
-      found.length > 0 ? found.length + " 件あり" : "該当なし"));
     return root;
   }
 
@@ -1055,45 +1082,6 @@
     return profile
       ? profile.displayName + "（" + profile.revision + " 版）"
       : "想定動作環境を読み込み中";
-  }
-
-  function appendRuntimeFacts(root, state) {
-    // This renderer runs inside notify(). A throw here would abandon the
-    // whole update, so an absent module reads as "nothing was read"
-    // rather than taking the screen down with it.
-    var runtime = global.MacroStudioHandover
-      ? global.MacroStudioHandover.runtimeComparison(state)
-      : {available: false, rows: [], notes: []};
-    var list = element("ul", "runtime-list");
-
-    root.appendChild(element(
-      "h3",
-      "runtime-title",
-      "この端末で確認できた実行環境"));
-    root.appendChild(element(
-      "p",
-      "runtime-note",
-      "ブックの属性ではありません。配布先の端末では別の値になります。"));
-    if (!runtime.available) {
-      root.appendChild(element(
-        "p",
-        "runtime-note",
-        "読み取れていません。人が確認してください。"));
-      return root;
-    }
-    runtime.rows.forEach(function (row) {
-      list.appendChild(element(
-        "li",
-        row.verdict === "不一致" ? "runtime-mismatch" : "",
-        row.label + ": " + row.measured +
-          (row.expected ? "（期待 " + row.expected + " / " +
-            row.verdict + "）" : "")));
-    });
-    root.appendChild(list);
-    runtime.notes.forEach(function (note) {
-      root.appendChild(element("p", "runtime-note", note));
-    });
-    return root;
   }
 
   function createHandoffActions(state, stage) {
@@ -1135,20 +1123,12 @@
       "診断の依頼文はできています。AIへ渡して、返ってきた答えをこの画面へ" +
         "戻してください。"));
 
-    // Someone who already knows what to change does not need the
-    // diagnosis. Skipping is offered here, in front, rather than hidden
-    // as a way of getting unstuck later.
-    root.appendChild(optionRow(
-      "diagnosis-skip",
-      "診断を飛ばして、直したいことを自分で書く",
-      state.diagnosisSkipped === true,
-      state.busyAction !== null,
-      "diagnosis-skip"));
     if (state.diagnosisSkipped) {
       root.appendChild(element(
         "p",
         "task-note",
         "診断は行いません。右下の「次へ」で、次にすることを選びます。"));
+      appendDiagnosisSkip(root, state);
       return root;
     }
 
@@ -1167,16 +1147,15 @@
     appendDiagnoseIntake(root, state);
 
     // ---- everything below is optional reading ----
-    if (state.targetEnvironment) {
+    // What the AI is actually being told, word for word. Showing a
+    // shorter version here would mean the screen and the request disagree
+    // about what this diagnosis assumes.
+    if (state.targetEnvironmentSnapshot) {
       environment.appendChild(element(
-        "p",
-        "environment-description",
-        state.targetEnvironment.summary));
+        "pre",
+        "environment-source",
+        state.targetEnvironmentSnapshot));
     }
-    // The environment the diagnosis assumes, and underneath it what this
-    // terminal actually reports. They are labelled apart on purpose: one
-    // is the target, the other is the machine in front of the reader.
-    appendRuntimeFacts(environment, state);
     optional.appendChild(createDisclosure(
       "diagnose-environment",
       "この診断が前提にしている環境",
@@ -1208,6 +1187,20 @@
       true));
 
     root.appendChild(optional);
+    appendDiagnosisSkip(root, state);
+    return root;
+  }
+
+  // The way through this screen is to ask the AI. Someone who already
+  // knows what to change can skip it, but that is the exception, so it
+  // sits after the ordinary route rather than in front of it.
+  function appendDiagnosisSkip(root, state) {
+    root.appendChild(optionRow(
+      "diagnosis-skip",
+      "診断を飛ばして、直したいことを自分で書く",
+      state.diagnosisSkipped === true,
+      state.busyAction !== null,
+      "diagnosis-skip"));
     return root;
   }
 
@@ -1264,32 +1257,18 @@
   }
 
   // One occurrence of a grouped problem: where it is and why it counts.
+  // Flat, not a second thing to open. One accordion opens onto a box and
+  // the box scrolls; two tiers of accordion is a maze.
   function createOccurrenceRow(state, finding) {
     var row = element("div", "occurrence-row");
-    var button = element("button", "occurrence-toggle");
-    var id = "occurrence-detail-" + finding.number;
-    var key = "finding-" + finding.number;
-    var open = disclosureState[key] === true;
-    var details = createFindingDetails(state, finding);
+    var head = element("div", "occurrence-head");
 
-    button.type = "button";
-    button.setAttribute("data-action", "toggle-finding");
-    button.setAttribute("data-finding-key", key);
-    button.setAttribute("data-finding-toggle", "true");
-    button.setAttribute("aria-expanded", open ? "true" : "false");
-    button.setAttribute("aria-controls", id);
-    button.appendChild(icon("chevron", "flow-icon--small disclosure-chevron"));
-    button.appendChild(element("code", "occurrence-location",
+    head.appendChild(element("code", "occurrence-location",
       formatLocation(finding)));
-    button.appendChild(element("span", "confidence-chip",
+    head.appendChild(element("span", "confidence-chip",
       CONFIDENCE_LABELS[finding.confidence]));
-    details.id = id;
-    details.hidden = !open;
-    if (open) {
-      row.classList.add("is-open");
-    }
-    row.appendChild(button);
-    row.appendChild(details);
+    row.appendChild(head);
+    row.appendChild(createFindingDetails(state, finding));
     return row;
   }
 
@@ -1386,16 +1365,7 @@
           ? state.appInfo.presets.repair
           : [],
       "repair");
-    var pathCandidateCount = null;
 
-    if (global.MacroStudioPathMap && entries.some(function (entry) {
-      return entry.valid && entry.engine === "固定パス置換";
-    })) {
-      pathCandidateCount = global.MacroStudioPathMap.countOccurrences(
-        state.pathMap && global.MacroStudioPathMap.isProductResult(state.pathMap)
-          ? state.pathMap
-          : global.MacroStudioPathMap.detect(state.modules));
-    }
     entries.forEach(function (entry) {
       var card;
       if (!entry.valid) {
@@ -1430,12 +1400,6 @@
       body.appendChild(element("span", "choice-title", entry.name));
       if (entry.description) {
         body.appendChild(element("span", "choice-description", entry.description));
-      }
-      if (entry.engine === "固定パス置換") {
-        body.appendChild(element(
-          "span",
-          "choice-meta",
-          "固定パスの候補 " + pathCandidateCount + "件"));
       }
       card.appendChild(body);
       // The mark sits at the far edge, on its own, and says only that
@@ -1624,13 +1588,14 @@
     return box;
   }
 
-  // A finding already says what is wrong and what has to change. Asking
-  // the reader to restate it per finding added a form to fill in and
-  // nothing to the request, so the row is now only the choice of whether
-  // to include it.
-  // The reader decides per problem, not per place. Ticking the row takes
-  // in every occurrence behind it; opening the row shows what those
-  // occurrences are.
+  // This screen asks one thing: which problems to send. The problem's
+  // detail was read on the page before, so repeating it here adds a
+  // second copy and no decision. The row is the tick, the problem and
+  // how many places it has.
+  //
+  // A question the AI asked about a finding is the exception. It is not
+  // a restatement, it is something only the reader can settle, so it
+  // stays in the open.
   function createRepairFindingRow(state, group) {
     var row = element("div", "repair-finding-row");
     var header = element("label", "repair-finding-select");
@@ -1641,11 +1606,6 @@
     var chosen = ids.filter(function (id) {
       return state.selectedFindings.indexOf(id) >= 0;
     });
-    var key = "repair-group-" + (group.key || "none");
-    var open = disclosureState[key] === true;
-    var panel = element("div", "group-panel");
-    var reveal = element("button", "group-reveal");
-    var panelId = "repair-panel-" + (group.key || "none");
 
     checkbox.type = "checkbox";
     checkbox.checked = chosen.length === ids.length;
@@ -1662,25 +1622,9 @@
       "該当 " + ids.length + " か所"));
     row.appendChild(header);
 
-    reveal.type = "button";
-    reveal.setAttribute("data-action", "toggle-finding");
-    reveal.setAttribute("data-finding-key", key);
-    reveal.setAttribute("data-finding-toggle", "true");
-    reveal.setAttribute("aria-expanded", open ? "true" : "false");
-    reveal.setAttribute("aria-controls", panelId);
-    reveal.appendChild(icon("chevron", "flow-icon--small disclosure-chevron"));
-    reveal.appendChild(element("span", "", "該当箇所を見る"));
-    panel.id = panelId;
-    panel.hidden = !open;
     group.findings.forEach(function (finding) {
-      panel.appendChild(createOccurrenceRow(state, finding));
-      appendDecisionQuotes(panel, decisionQuotes(state, String(finding.number)));
+      appendDecisionQuotes(row, decisionQuotes(state, String(finding.number)));
     });
-    if (open) {
-      row.classList.add("is-open");
-    }
-    row.appendChild(reveal);
-    row.appendChild(panel);
     return row;
   }
 
@@ -2054,6 +1998,11 @@
       box.setAttribute("data-open", open ? "true" : "false");
     } else if (panel) {
       panel.hidden = !open;
+      // The chevron turns from is-open. Without this the row opened but
+      // the mark went on pointing right, which reads as "still closed".
+      if (box && box.classList) {
+        box.classList.toggle("is-open", open);
+      }
     }
     return true;
   }

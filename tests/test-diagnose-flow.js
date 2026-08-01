@@ -100,6 +100,9 @@ windowObject.hostBridge = {
     if (action === "writeLog") {
       return Promise.resolve({});
     }
+    if (action === "writeClipboard") {
+      return Promise.resolve({});
+    }
     return Promise.reject({code: "E-SYS-02", message: action});
   }
 };
@@ -217,14 +220,43 @@ function zeroFindingPackage(requestId) {
   // Parser failure leaves diagnosis and its version untouched.
   var accepted = state.diagnosis;
   var version = state.diagnosisVersion;
+  var clipboardBefore = calls.filter(function (call) {
+    return call.action === "writeClipboard";
+  }).length;
+
   await workflow.applyDiagnosisText("not a package");
   assert(store.getState().diagnosis === accepted &&
     store.getState().diagnosisVersion === version,
   "E-DIAG-01 must leave accepted state unchanged.");
+
+  // A reply in the wrong shape is usually fixable by asking again, so
+  // the first failure hands the reader the asking instead of a
+  // description of what went wrong.
+  var retryWrites = calls.filter(function (call) {
+    return call.action === "writeClipboard";
+  });
+
+  assert(retryWrites.length === clipboardBefore + 1,
+    "The first failed intake must put the retry on the clipboard.");
+  assert(retryWrites[retryWrites.length - 1].parameters.text
+    .indexOf("ひとつだけのコードブロック") >= 0,
+  "The retry must carry the template's own output rules, not a second " +
+    "copy of them written here.");
   assert(toasts.some(function (toast) {
     return toast.tone === "error" &&
-      toast.message.indexOf("コードブロック全体") >= 0;
-  }), "E-DIAG-01 must tell the user what to do next without internals.");
+      toast.message.indexOf("クリップボードに入れました") >= 0;
+  }), "The first failure must tell the reader what is on the clipboard.");
+
+  // Twice in a row means asking the same chat again is not the answer.
+  toasts.length = 0;
+  await workflow.applyDiagnosisText("not a package either");
+  assert(calls.filter(function (call) {
+    return call.action === "writeClipboard";
+  }).length === retryWrites.length,
+  "A second failure must not put the same retry on the clipboard again.");
+  assert(toasts.some(function (toast) {
+    return toast.tone === "error" && toast.message.indexOf("別のAI") >= 0;
+  }), "A second failure must point somewhere other than the same chat.");
 
   // Split progress is product collection data, including exact missing parts.
   var collection = diagnosisApi.createPartCollection();
@@ -291,8 +323,8 @@ function zeroFindingPackage(requestId) {
 
   console.log("test-diagnose-flow: PASS");
   console.log("screen-1 generation, transaction rollback, zero findings, " +
-    "split progress, E-ENV stop and one filled button at a time behave " +
-    "as specified");
+    "split progress, E-ENV stop, one filled button at a time and the " +
+    "two-stage retry after a failed intake behave as specified");
 }()).catch(function (error) {
   console.error(error && error.stack || error);
   process.exitCode = 1;

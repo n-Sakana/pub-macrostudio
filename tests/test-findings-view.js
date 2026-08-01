@@ -112,16 +112,23 @@ var occurrences = dom.collect(groupRows[0], function (node) {
 assert(occurrences.length === 5,
   "Every occurrence must still be reachable: " + occurrences.length);
 
+// One accordion opens onto one box, and the places lie flat inside it.
+// A second tier of accordion made the reader open a thing only to find
+// more things to open, so the detail is simply there.
 var details = occurrences[0].querySelector(".finding-detail");
 var detailText = dom.text(details);
-assert(details.hidden === true &&
+assert(details.hidden !== true &&
   detailText.indexOf("成立条件") >= 0 &&
   detailText.indexOf("影響") >= 0 &&
   detailText.indexOf("該当箇所") >= 0 &&
   detailText.indexOf("根拠") >= 0 &&
   detailText.indexOf("Excel は 64 bit") >= 0,
-"The third tier must contain condition, impact, location, evidence and " +
-  "the referenced environment constraint.");
+"Inside the box a place shows its condition, impact, location, evidence " +
+  "and the referenced environment constraint without a second click.");
+assert(dom.collect(groupRows[0], function (node) {
+  return node.classList && node.classList.contains("occurrence-toggle");
+}).length === 0,
+"A place must not be a second thing to open.");
 
 // The macro's own description sits under the headline as four rows that
 // open, drawn the same way the finding rows are.

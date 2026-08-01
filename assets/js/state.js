@@ -33,7 +33,6 @@
       selectedModuleName: null,
       pasteEditing: false,
 
-      hostRuntime: null,
       targetEnvironment: null,
       targetEnvironmentSnapshot: "",
       diagnosisConcern: "",
@@ -52,6 +51,10 @@
       diagnosisVersion: 0,
       diagnosisFilePath: null,
 
+      // How many times in a row a reply could not be taken in. The first
+      // failure is worth a retry; a second means retrying the same way
+      // is not the answer.
+      intakeFailures: {diagnose: 0, repair: 0},
       presetFile: null,
       presetName: "",
       presetContent: "",
@@ -415,13 +418,6 @@
     invalidateDiagnosisResult();
   }
 
-  // The machine, not the book. It survives attaching another workbook
-  // because it never depended on one.
-  function setHostRuntime(runtime) {
-    state.hostRuntime = runtime || null;
-    notify();
-  }
-
   // What the workbook carries besides its code. It belongs to the book,
   // so it arrives and departs with it.
   function setBookInventory(inventory) {
@@ -432,12 +428,9 @@
   function setBook(book, modules) {
     var api = screenApi();
     var appInfo = state.appInfo;
-    // The machine does not change because another workbook was opened.
-    var hostRuntime = state.hostRuntime;
 
     state = createInitialState();
     state.appInfo = appInfo;
-    state.hostRuntime = hostRuntime;
     state.screen = api ? api.bookScreen : 0;
     state.book = book || null;
     state.modules = modules || [];
@@ -594,6 +587,27 @@
     state.diagnosisFilePath = filePath || null;
     state.diagnosisParts = null;
     clearRepairInput();
+    notify();
+    return true;
+  }
+
+  // A reply that could not be taken in. Counted per stage so the second
+  // failure can say something different from the first.
+  function noteIntakeFailure(stage) {
+    var key = stage === "repair" ? "repair" : "diagnose";
+
+    state.intakeFailures[key] = Number(state.intakeFailures[key] || 0) + 1;
+    notify();
+    return state.intakeFailures[key];
+  }
+
+  function clearIntakeFailures(stage) {
+    var key = stage === "repair" ? "repair" : "diagnose";
+
+    if (!state.intakeFailures[key]) {
+      return false;
+    }
+    state.intakeFailures[key] = 0;
     notify();
     return true;
   }
@@ -1148,10 +1162,7 @@
   }
 
   function reset() {
-    var hostRuntime = state.hostRuntime;
-
     state = createInitialState();
-    state.hostRuntime = hostRuntime;
     notify();
   }
 
@@ -1207,7 +1218,6 @@
     goBack: goBack,
     setBook: setBook,
     setBookInventory: setBookInventory,
-    setHostRuntime: setHostRuntime,
     setAppInfo: setAppInfo,
     setTargetEnvironment: setTargetEnvironment,
     setDiagnosisConcern: setDiagnosisConcern,
@@ -1219,6 +1229,8 @@
     setDiagnosisParts: setDiagnosisParts,
     commitDiagnosis: commitDiagnosis,
     setRepairPreset: setRepairPreset,
+    noteIntakeFailure: noteIntakeFailure,
+    clearIntakeFailures: clearIntakeFailures,
     setAnswer: setAnswer,
     setFindingSelected: setFindingSelected,
     setDesiredBehaviour: setDesiredBehaviour,

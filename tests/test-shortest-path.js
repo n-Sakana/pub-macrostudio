@@ -136,14 +136,13 @@ assert(store.goNext() && store.getState().screen === screens.findingsScreen,
 
 var findings = workflow.createFindingsScreen(Object.assign(
   store.getState(), {appInfo: {presets: {repair: []}}}));
-// Two tiers stay shut on the shortest path: the places a problem was
-// found in, and the evidence behind each place.
+// One tier stays shut on the shortest path: the box holding the places a
+// problem was found in. Inside that box nothing else has to be opened.
 var groupPanel = findings.querySelector(".group-panel");
-var findingDetail = findings.querySelector(".finding-detail");
 assert(groupPanel && groupPanel.hidden === true,
   "The shortest path may leave the occurrences unopened.");
-assert(findingDetail && findingDetail.hidden === true,
-  "The shortest path may leave the finding evidence layer unread.");
+assert(findings.querySelector(".occurrence-toggle") === null,
+  "There is no second tier to leave unopened.");
 
 var presetPath = path.join(root, "presets", "02_改修",
   "01_Win32 API を使わない形へ直す.md");
