@@ -239,13 +239,17 @@ try {
         $findings.nextReady
     ) 'The diagnosis page must show the facts and no template at all.'
     # A recommendation is earned by a named constraint. With none named
-    # nothing is starred; with one named, at most one template is.
+    # nothing is starred and nothing is ticked, so the page waits. With
+    # one named, the diagnosis's own answer arrives already chosen and
+    # the page is ready - the reader may untick it.
     $expectedStars = 0
-    $starRule = 'star nothing when the finding names no environment constraint'
+    $expectedReady = $false
+    $starRule = 'star nothing and wait when the finding names no constraint'
     if (-not [string]::IsNullOrEmpty($EnvironmentKey) -and
         $EnvironmentKey -ne '-') {
         $expectedStars = [int]$nextStep.recommended
-        $starRule = 'star at most one template when the finding names one'
+        $expectedReady = $expectedStars -gt 0
+        $starRule = 'arrive with the recommended template already ticked'
         Assert-True ($expectedStars -le 1) `
             'A named constraint must not star more than one template.'
     }
@@ -254,7 +258,7 @@ try {
         $nextStep.presetCards -eq 4 -and
         ([string]$nextStep.firstCard).Contains('01_Win32') -and
         $nextStep.recommended -eq $expectedStars -and
-        -not $nextStep.nextReady
+        $nextStep.nextReady -eq $expectedReady
     ) ('The choice page must list the templates in the fixed order, and ' +
        $starRule + '.')
     Assert-True (

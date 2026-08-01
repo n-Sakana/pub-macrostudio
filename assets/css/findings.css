@@ -491,12 +491,15 @@
    so it can always be traced back to a fact on the page before. */
 /* A mark at the far edge of the card, not a sentence in its body. */
 .choice-recommended {
-  /* Far enough from the edge to read as a label on the card rather than
-     something clinging to its border. */
-  margin-right: var(--space-3);
   color: var(--accent-text);
   font-size: var(--type-label-size);
   font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.choice-note {
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
   white-space: nowrap;
 }
 
@@ -624,32 +627,18 @@
 /* What is left to do after the workbook is built. It is a list of tasks,
    folded behind a line that says how many, so the result stays the
    headline. */
+/* The done screen centres its headline, and this block sat inside that
+   panel and inherited it - bullets on the left, sentences down the
+   middle. Reading runs left to right here, whatever the panel does. */
 .remaining-work {
   display: grid;
   gap: var(--space-2);
+  text-align: left;
 }
 
 .remaining-note {
   margin: 0;
   color: var(--text-sub);
-}
-
-.remaining-title {
-  margin: var(--space-3) 0 0;
-  color: var(--text);
-  font-size: var(--type-label-size);
-  font-weight: var(--type-label-weight);
-}
-
-.remaining-list {
-  margin: 0;
-  padding-left: var(--space-5);
-  color: var(--text-sub);
-}
-
-.remaining-list li {
-  margin: var(--space-1) 0;
-  overflow-wrap: break-word;
 }
 
 /* What the workbook carries besides its code. Named, never changed. */
@@ -682,16 +671,23 @@
   overflow-wrap: break-word;
 }
 
-/* What the AI is told about the target, shown word for word so the
-   screen and the request cannot disagree. */
-.environment-source {
+/* Text the app did not write, shown the way it was written: the target
+   environment given to the AI, and the memo handed over at the end. One
+   shape for one purpose, so the reader meets the same thing twice
+   instead of two arrangements of the same facts. */
+.source-block {
   max-height: calc(var(--space-8) * 8);
   margin: 0;
+  padding: var(--space-3);
   overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
   color: var(--text-sub);
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: var(--type-micro-size);
-  line-height: var(--line-relaxed);
+  line-height: var(--type-label-line);
+  text-align: left;
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }

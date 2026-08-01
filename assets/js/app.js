@@ -1480,48 +1480,34 @@
     return task;
   }
 
-  // What this run could not do, in the order a person would do it. Every
-  // line is a task, not a description: the tool has already said what it
-  // verified, and this is the rest.
+  // What this run could not do. The memo beside the workbook already
+  // says it, so this shows those parts of the memo word for word rather
+  // than laying the same facts out a second way in code. It is drawn
+  // with the component the target environment uses, because it is the
+  // same thing: a file, shown as written.
   function createRemainingWork(state) {
     var body = createElement("div", "remaining-work");
-    var handover = global.MacroStudioHandover;
-    var human = handover.humanTasks(state);
-    var viewpoints = handover.testViewpoints(state);
-    var total = human.length;
+    var workflow = global.MacroStudioWorkflow;
+    var markdown = createResultMarkdown(state);
+    var sections = ["テスト仕様・結果", "既知の制約"];
+    var text = sections.map(function (heading) {
+      return workflow.markdownSection(markdown, heading);
+    }).filter(function (part) {
+      return part.length > 0;
+    }).join("\r\n\r\n");
+    var count = (text.match(/^- \[ \] /gm) || []).length;
 
-    viewpoints.forEach(function (group) {
-      total += group.items.length;
-    });
     body.appendChild(createElement(
       "p",
       "remaining-note",
       "このツールはマクロを実行しません。次の確認は行っていません。" +
-        "同じ一覧が result.md にも入っています。"));
-    // Only work that is actually here. A group with nothing in it is not
-    // a heading with an empty list under it; it is left out.
-    [{
-      title: "コードの外にあるので、このツールでは直せないこと",
-      items: human.map(function (task) {
-        return task.title + " … " + task.detail;
-      })
-    }].concat(viewpoints).forEach(function (group) {
-      var list = createElement("ul", "remaining-list");
-
-      if (group.items.length === 0) {
-        return;
-      }
-      body.appendChild(createElement("h3", "remaining-title", group.title));
-      group.items.forEach(function (item) {
-        list.appendChild(createElement("li", "", item));
-      });
-      body.appendChild(list);
-    });
+        "同じ内容が result.md にも入っています。"));
+    body.appendChild(workflow.sourceBlock(text));
     return createDisclosure(
       "remaining-work",
       "このあと人が確かめること",
       body,
-      { note: total + " 件" });
+      { note: count + " 件" });
   }
 
   // ---- shell rendering ----

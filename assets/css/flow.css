@@ -516,6 +516,9 @@
   gap: var(--space-3);
 }
 
+/* Four columns, each sized for what it holds: the checkbox, the icon,
+   the words, and the mark. The mark column takes its own width, so a
+   label in it cannot be pushed past the card's edge. */
 .choice-card {
   display: grid;
   width: 100%;
@@ -526,7 +529,7 @@
   border-radius: var(--radius-md);
   background: var(--surface);
   gap: var(--space-3);
-  grid-template-columns: var(--icon-xl) minmax(0, 1fr) var(--icon-lg);
+  grid-template-columns: auto var(--icon-xl) minmax(0, 1fr) auto;
   text-align: left;
 }
 
@@ -610,6 +613,29 @@
   color: var(--text-muted);
   font-size: var(--type-meta-size);
   line-height: var(--type-label-line);
+}
+
+/* A card cannot hold a real input, so the box is drawn. It has to read
+   as the same control as every other checkbox in the flow, because it
+   is the same decision: this one, and possibly that one too. */
+.choice-checkbox {
+  display: grid;
+  width: var(--intake-step-number-size);
+  height: var(--intake-step-number-size);
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-on-accent);
+}
+
+.choice-card.is-selected .choice-checkbox {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.choice-card:hover:not(:disabled) .choice-checkbox {
+  border-color: var(--accent);
 }
 
 .choice-state,

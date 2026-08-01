@@ -95,6 +95,45 @@
     return element("div", "task" + (wide ? " task--wide" : ""));
   }
 
+  // Text the app did not write, shown the way it was written. The
+  // environment the diagnosis assumes and the memo handed over at the end
+  // are both files; both are shown through this, so the reader learns one
+  // shape and meets it everywhere rather than a different arrangement of
+  // headings and bullets each time.
+  function sourceBlock(text) {
+    return element("pre", "source-block", String(text || ""));
+  }
+
+  // One section of a Markdown document, from its "## " heading to the
+  // next one. Used to show the part of a memo that answers the question
+  // on this screen, without rebuilding the memo in code.
+  function markdownSection(markdown, heading) {
+    var lines = String(markdown || "").split(/\r\n|\n|\r/);
+    var collected = [];
+    var inside = false;
+    var index;
+
+    for (index = 0; index < lines.length; index += 1) {
+      if (/^##\s+/.test(lines[index])) {
+        if (inside) {
+          break;
+        }
+        inside = lines[index].replace(/^##\s+/, "").trim() === heading;
+        if (inside) {
+          collected.push(lines[index]);
+        }
+        continue;
+      }
+      if (inside) {
+        collected.push(lines[index]);
+      }
+    }
+    while (collected.length && collected[collected.length - 1].trim() === "") {
+      collected.pop();
+    }
+    return collected.join(CRLF);
+  }
+
   function intro(text) {
     return element("p", "task-intro", text);
   }
@@ -1175,10 +1214,7 @@
     // shorter version here would mean the screen and the request disagree
     // about what this diagnosis assumes.
     if (state.targetEnvironmentSnapshot) {
-      environment.appendChild(element(
-        "pre",
-        "environment-source",
-        state.targetEnvironmentSnapshot));
+      environment.appendChild(sourceBlock(state.targetEnvironmentSnapshot));
     }
     optional.appendChild(createDisclosure(
       "diagnose-environment",
@@ -1399,42 +1435,52 @@
           entry.file + " — " + entry.message));
         return;
       }
-      // β1's choice card is three columns: icon, body, check mark. The
-      // title and the description belong inside the body, never in the
-      // icon and check columns - that is what stood the titles on end.
-      // More than one may be chosen, so the card is a toggle and says so
-      // to a screen reader.
+      // More than one may be chosen, so the card carries a checkbox and
+      // looks like one. A card that only changed colour when pressed did
+      // not say that a second one could be pressed too.
+      //
+      // Four columns, and each holds what it was sized for: the box, the
+      // icon, the words, the mark. The mark column is sized to its own
+      // text - putting a label in a column sized for an icon is what
+      // pushed 推奨 off the edge.
       var selected = (state.presetFiles || []).indexOf(entry.file) >= 0;
       var body = element("span", "choice-body");
       var mark = element("span", "choice-state");
+      var box = element("span", "option-checkbox choice-checkbox");
+      var basis = recommendedBy(state, entry);
 
       card = element("button", "choice-card");
       card.type = "button";
       card.setAttribute("data-action", "select-repair-preset");
       card.setAttribute("data-preset-file", entry.file);
-      card.setAttribute("aria-pressed", selected ? "true" : "false");
+      card.setAttribute("role", "checkbox");
+      card.setAttribute("aria-checked", selected ? "true" : "false");
       if (selected) {
         card.classList.add("is-selected");
       }
-      var basis = recommendedBy(state, entry);
-
       card.disabled = state.busyAction !== null;
       if (basis.length > 0) {
         card.classList.add("is-recommended");
       }
+      if (selected) {
+        box.appendChild(icon("check", "flow-icon--small"));
+      }
+      card.appendChild(box);
       card.appendChild(icon("template", "choice-icon"));
       body.appendChild(element("span", "choice-title", entry.name));
       if (entry.description) {
         body.appendChild(element("span", "choice-description", entry.description));
       }
       card.appendChild(body);
-      // The mark sits at the far edge, on its own, and says only that
-      // the diagnosis points here. The reasons are the page before.
+      // The mark says only that the diagnosis points here. The reasons
+      // are the page before.
       if (basis.length > 0) {
         mark.appendChild(element("span", "choice-recommended", "★ 推奨"));
       }
-      if (selected) {
-        mark.appendChild(icon("check", "flow-icon--small"));
+      // This one is chosen on its own, so a reader who sees it
+      // recommended but unticked is told why rather than left guessing.
+      if (entry.replaceRules) {
+        mark.appendChild(element("span", "choice-note", "これだけを選びます"));
       }
       card.appendChild(mark);
       cards.appendChild(card);
@@ -2168,6 +2214,42 @@
     if (state.screen === global.MacroStudioScreens.findingsScreen) {
       syncSelectedPreset(state);
     }
+    if (state.screen === global.MacroStudioScreens.nextStepScreen) {
+      selectRecommendedPresets(state);
+    }
+  }
+
+  // The diagnosis already said which templates it points at, so arriving
+  // with those ticked is the diagnosis's answer carried forward rather
+  // than a choice made for the reader - who can untick any of them.
+  // Only on arrival with nothing chosen; a cleared selection stays clear.
+  function selectRecommendedPresets(state) {
+    var recommended;
+    var chat;
+
+    if ((state.presetFiles || []).length > 0 || !state.diagnosis ||
+        !state.appInfo || !state.appInfo.presets) {
+      return false;
+    }
+    recommended = global.MacroStudioPreset.describeAll(
+      state.appInfo.presets.repair || [],
+      "repair").filter(function (entry) {
+      return entry.valid && recommendedBy(state, entry).length > 0;
+    });
+    if (recommended.length === 0) {
+      return false;
+    }
+    // Whatever the diagnosis pointed at arrives ticked. The one that asks
+    // for the table is chosen on its own, so it only arrives ticked when
+    // it is the whole recommendation - otherwise the ones it cannot sit
+    // beside would be dropped the moment the screen opened.
+    chat = recommended.filter(function (entry) {
+      return !entry.replaceRules;
+    });
+    (chat.length > 0 ? chat : recommended).forEach(function (entry) {
+      selectRepairPreset(entry.file);
+    });
+    return true;
   }
 
   function handleKeyDown(event) {
@@ -2218,6 +2300,8 @@
     createDiagnoseRequestScreen: createDiagnoseScreen,
     createDiagnoseIntakeScreen: createDiagnoseScreen,
     createRepairRequestScreen: createRepairScreen,
-    createRepairIntakeScreen: createRepairScreen
+    createRepairIntakeScreen: createRepairScreen,
+    sourceBlock: sourceBlock,
+    markdownSection: markdownSection
   };
 }(window));

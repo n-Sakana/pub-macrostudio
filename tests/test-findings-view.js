@@ -229,13 +229,74 @@ assert(JSON.stringify(starredTitles()).indexOf("Win32") >= 0 &&
 "Only the template declaring WIN32API_BLOCKED may be starred: " +
   JSON.stringify(starredTitles()));
 
+// ---- the card is a checkbox, and it is built like one ----
+// More than one template may be chosen, so a card that only changed
+// colour did not say a second one could be pressed too. And the mark
+// column is sized to its own text: a label in a column sized for an icon
+// is what pushed 推奨 off the card's edge.
+state.diagnosis.findings[0].environmentKey = "WIN32API_BLOCKED";
+var cards = dom.collect(
+  workflow.createNextStepScreen(state),
+  function (node) {
+    return node.classList && node.classList.contains("choice-card");
+  });
+
+assert(cards.length === 4, "Every template must still be offered.");
+cards.forEach(function (card) {
+  assert(card.getAttribute("role") === "checkbox" &&
+    card.getAttribute("aria-checked") !== null,
+  "A card that can be chosen alongside another must say it is a " +
+    "checkbox, not a pressed button.");
+  assert(card.querySelector(".choice-checkbox") !== null,
+    "A checkbox card must draw its box.");
+});
+var markColumn = cards[0].querySelector(".choice-state");
+
+assert(markColumn && markColumn.children.some(function (child) {
+  return child.classList && child.classList.contains("choice-recommended");
+}), "The recommendation belongs in the mark column, which is sized for it.");
+
 state.diagnosis.findings[0].environmentKey = "FIXED_DRIVE_LETTER";
 assert(JSON.stringify(starredTitles()).indexOf("固定パス") >= 0 &&
   starredTitles().length === 1,
 "A fixed-path finding must star the fixed-path template: " +
   JSON.stringify(starredTitles()));
 
+// ---- one component for one purpose ----
+// The environment given to the AI and the memo handed over at the end
+// are both files. Both are shown through the same block, so the reader
+// meets one shape twice instead of two arrangements of the same facts.
+var block = workflow.sourceBlock("行1\r\n行2");
+
+assert(block.tagName === "PRE" &&
+  block.classList.contains("source-block") &&
+  dom.text(block).indexOf("行1") >= 0,
+"Managed text must be shown as written, through the shared block.");
+
+var memo = [
+  "## 改修対象一覧",
+  "",
+  "本文A",
+  "",
+  "## 既知の制約",
+  "",
+  "- [ ] 残っている作業",
+  "",
+  "## ロールバック手順",
+  "",
+  "本文C"
+].join("\r\n");
+
+assert(workflow.markdownSection(memo, "既知の制約") ===
+  "## 既知の制約\r\n\r\n- [ ] 残っている作業",
+"A section must run from its heading to the next one, with the trailing " +
+  "blank lines dropped: " +
+  JSON.stringify(workflow.markdownSection(memo, "既知の制約")));
+assert(workflow.markdownSection(memo, "無い見出し") === "",
+  "A heading the memo does not carry must yield nothing, not everything.");
+
 console.log("test-findings-view: PASS");
 console.log("class order, INFO collapse, evidence hierarchy, summary rows, " +
-  "zero-finding rendering, the fixed template order and the " +
-  "diagnosis-backed recommendation match the beta2 contract");
+  "zero-finding rendering, the fixed template order, the " +
+  "diagnosis-backed recommendation, checkbox cards and the shared " +
+  "source block match the beta2 contract");
