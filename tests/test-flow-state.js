@@ -383,6 +383,73 @@ assert(store.canGoBack() && !store.canGoNext() &&
 store.setBusyAction("writeRequestFiles");
 assert(!store.canGoBack() && !store.canGoNext(),
   "A host transaction freezes navigation.");
+store.setBusyAction(null);
+
+// ---- more than one template may be chosen ----
+// The reader may want two kinds of work in one round. Their instructions
+// go into one request, so the chat is asked once for the whole job.
+
+attach();
+acceptDiagnosis(DIAGNOSIS_ID_1);
+store.setAppInfo({
+  version: "test",
+  presets: {
+    diagnose: [],
+    repair: [
+      {file: "02_改修\\01_win.md", content: "# a"},
+      {file: "02_改修\\02_path.md", content: "# b"},
+      {file: "02_改修\\03_refactor.md", content: "# c"}
+    ]
+  }
+});
+
+function chooseTemplate(file, name, rules) {
+  return store.setRepairPreset({
+    file: file,
+    name: name,
+    content: "# " + name,
+    parsed: {
+      name: name,
+      replaceRules: rules || null,
+      questions: [],
+      behaviorCandidates: [],
+      preserveItems: [],
+      instruction: rules ? null : {body: name + " の指示"},
+      output: rules ? null : {body: "契約どおり返す"},
+      splitOutput: null
+    }
+  });
+}
+
+chooseTemplate("02_改修\\03_refactor.md", "リファクター");
+chooseTemplate("02_改修\\01_win.md", "Win32を外す");
+assert(current().presetFiles.length === 2,
+  "Two chat templates must both stay chosen: " +
+  JSON.stringify(current().presetFiles));
+assert(current().presetFiles[0] === "02_改修\\01_win.md",
+  "The chosen templates must keep the order they are offered in, not " +
+  "the order they were ticked: " + JSON.stringify(current().presetFiles));
+assert(current().presetName.indexOf("・") > 0,
+  "The screen must name every template chosen: " + current().presetName);
+
+chooseTemplate("02_改修\\01_win.md", "Win32を外す");
+assert(current().presetFiles.length === 1,
+  "Ticking a chosen template again must remove it.");
+
+// The one that asks for the replacement table sends nothing anywhere.
+// Whether its replacements belong before or after a chat round is not
+// decided, so it and the chat templates displace each other.
+chooseTemplate("02_改修\\02_path.md", "置き換える", [
+  {label: "ドライブ", pattern: "^[A-Za-z]:", selectedByDefault: true}
+]);
+assert(current().presetFiles.length === 1 &&
+  current().presetReplaceRules !== null,
+"Choosing the table must replace the chat templates until the order " +
+  "between them is decided.");
+chooseTemplate("02_改修\\03_refactor.md", "リファクター");
+assert(current().presetFiles.length === 1 &&
+  current().presetReplaceRules === null,
+"And choosing a chat template must replace the table.");
 
 // ---- a run that declares it wants no diagnosis ----
 // Someone who already knows what to change should not have to stage a

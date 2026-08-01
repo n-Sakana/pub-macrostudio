@@ -302,14 +302,14 @@
       sub: "2/5",
       title: function () { return "次にすることを選びます"; },
       meta: function (state) {
-        return state.presetName || "ひな形を1つ選ぶ";
+        return state.presetName || "ひな形を選ぶ";
       },
       context: function () {
-        return "したい作業に近いひな形を1つ選びます";
+        return "したい作業に近いひな形を選びます";
       },
       ready: function (state) {
         return (isDiagnosisCurrent(state) || isDiagnosisSkipped(state)) &&
-          Boolean(state.presetFile);
+          (state.presetFiles || []).length > 0;
       }
     },
     {

@@ -393,8 +393,28 @@
       "【ほかに気になっていること】" + CRLF + extra);
   }
 
+  // Every template the reader chose, in the order they are offered. One
+  // request carries the whole job; the chat is not asked once per
+  // template. A single choice reads exactly as it did before.
+  function composeInstructions(state, requestId) {
+    var chosen = Array.isArray(state.presets) ? state.presets : [];
+    var bodies = chosen.filter(function (entry) {
+      return entry.parsed && entry.parsed.instruction;
+    });
+
+    if (bodies.length <= 1) {
+      return bodies.length === 1
+        ? fillRequestId(bodies[0].parsed.instruction.body, requestId)
+        : "";
+    }
+    return bodies.map(function (entry) {
+      return "【" + entry.name + "】" + CRLF +
+        fillRequestId(entry.parsed.instruction.body, requestId);
+    }).join(CRLF + CRLF);
+  }
+
   function composeRepairRequestText(parsed, state, requestId) {
-    var text = fillRequestId(parsed.instruction.body, requestId);
+    var text = composeInstructions(state, requestId);
     var answers = [];
 
     (parsed.questions || []).forEach(function (question, index) {
@@ -1382,7 +1402,9 @@
       // β1's choice card is three columns: icon, body, check mark. The
       // title and the description belong inside the body, never in the
       // icon and check columns - that is what stood the titles on end.
-      var selected = state.presetFile === entry.file;
+      // More than one may be chosen, so the card is a toggle and says so
+      // to a screen reader.
+      var selected = (state.presetFiles || []).indexOf(entry.file) >= 0;
       var body = element("span", "choice-body");
       var mark = element("span", "choice-state");
 

@@ -57,6 +57,8 @@
       intakeFailures: {diagnose: 0, repair: 0},
       presetFile: null,
       presetName: "",
+      presetFiles: [],
+      presets: [],
       presetContent: "",
       presetReplaceRules: null,
       presetEngine: null,
@@ -276,7 +278,7 @@
 
     return JSON.stringify({
       diagnosisVersion: state.diagnosisVersion,
-      presetFile: state.presetFile || "",
+      presetFiles: (state.presetFiles || []).join("|"),
       presetContent: state.presetContent || "",
       answers: answers,
       selectedFindings: selected,
@@ -383,6 +385,8 @@
 
   function clearRepairInput() {
     state.presetFile = null;
+    state.presetFiles = [];
+    state.presets = [];
     state.presetName = "";
     state.presetContent = "";
     state.presetReplaceRules = null;
@@ -613,46 +617,61 @@
     return true;
   }
 
-  function setRepairPreset(value) {
-    var next = value || {};
-    var parsed = next.parsed || {};
-    var file = String(next.file || "");
-    var content = String(next.content || "");
-    var changed = file !== state.presetFile || content !== state.presetContent;
+  // More than one template can be chosen. Their instructions go into one
+  // request, in the order the templates are offered, so the chat is asked
+  // once for the whole job rather than once per template.
+  //
+  // A template that asks for the replacement table is the exception: it
+  // sends nothing anywhere, and whether its replacements should happen
+  // before or after a chat round is a decision nobody has made. Until
+  // someone does, choosing it replaces the rest and the rest replaces it.
+  function usesTable(entry) {
+    return Boolean(entry && entry.parsed &&
+      Array.isArray(entry.parsed.replaceRules));
+  }
 
-    if (!file || !content) {
-      return false;
-    }
-    if (changed) {
-      invalidateRepairRequest(false);
-      state.answers = {};
-      state.selectedFindings = requiredFindingIds();
-      state.desiredBehaviour = {};
-      state.extraRequest = "";
-      state.pathMap = null;
-    }
-    state.presetFile = file;
-    state.presetName = String(next.name || parsed.name || "");
-    state.presetContent = content;
-    // A template that declared what to look for is asking for the
-    // replacement table. Which component it wants is the only thing the
-    // app reads out of this; what the rules mean is the template's.
-    state.presetReplaceRules = Array.isArray(parsed.replaceRules)
-      ? parsed.replaceRules.slice()
-      : null;
+  function applyPresetSelection(entries) {
+    var chosen = entries.slice();
+    var first = chosen[0] || null;
+    var parsed = first ? (first.parsed || {}) : {};
+    var rules = [];
+
+    state.presets = chosen;
+    state.presetFiles = chosen.map(function (entry) {
+      return entry.file;
+    });
+    state.presetFile = first ? first.file : null;
+    state.presetName = chosen.map(function (entry) {
+      return entry.name;
+    }).join("・");
+    state.presetContent = first ? first.content : "";
+    chosen.forEach(function (entry) {
+      if (usesTable(entry)) {
+        rules = rules.concat(entry.parsed.replaceRules);
+      }
+    });
+    state.presetReplaceRules = rules.length > 0 ? rules : null;
     state.presetEngine = state.presetReplaceRules
       ? "対応表による置換"
       : "AI";
-    state.presetSnapshot = JSON.stringify({file: file, content: content});
-    state.questions = Array.isArray(parsed.questions)
-      ? parsed.questions.slice()
-      : [];
-    state.behaviorCandidates = Array.isArray(parsed.behaviorCandidates)
-      ? parsed.behaviorCandidates.slice()
-      : [];
-    state.preserveItems = Array.isArray(parsed.preserveItems)
-      ? parsed.preserveItems.slice()
-      : [];
+    state.presetSnapshot = JSON.stringify(chosen.map(function (entry) {
+      return {file: entry.file, content: entry.content};
+    }));
+    // The reply contract is one contract, so the first template's rules
+    // govern. The reader-facing lists gather from every template chosen.
+    state.questions = [];
+    state.behaviorCandidates = [];
+    state.preserveItems = [];
+    chosen.forEach(function (entry) {
+      var each = entry.parsed || {};
+
+      state.questions = state.questions.concat(
+        Array.isArray(each.questions) ? each.questions : []);
+      state.behaviorCandidates = state.behaviorCandidates.concat(
+        Array.isArray(each.behaviorCandidates) ? each.behaviorCandidates : []);
+      state.preserveItems = state.preserveItems.concat(
+        Array.isArray(each.preserveItems) ? each.preserveItems : []);
+    });
     state.outputRules = parsed.output ? parsed.output.body : null;
     state.splitOutputRules = parsed.splitOutput
       ? parsed.splitOutput.body
@@ -660,9 +679,64 @@
     if (!state.splitOutputRules) {
       state.splitOutput = false;
     }
+  }
+
+  function setRepairPreset(value) {
+    var next = value || {};
+    var parsed = next.parsed || {};
+    var file = String(next.file || "");
+    var content = String(next.content || "");
+    var entry;
+    var kept;
+    var already;
+
+    if (!file || !content) {
+      return false;
+    }
+    entry = {
+      file: file,
+      name: String(next.name || parsed.name || ""),
+      content: content,
+      parsed: parsed
+    };
+    already = state.presetFiles.indexOf(file) >= 0;
+    if (already) {
+      kept = state.presets.filter(function (item) {
+        return item.file !== file;
+      });
+    } else if (usesTable(entry)) {
+      kept = [entry];
+    } else {
+      kept = state.presets.filter(function (item) {
+        return !usesTable(item);
+      }).concat([entry]);
+      kept = orderPresets(kept);
+    }
+    invalidateRepairRequest(false);
+    state.answers = {};
+    state.selectedFindings = requiredFindingIds();
+    state.desiredBehaviour = {};
+    state.extraRequest = "";
+    state.pathMap = null;
+    applyPresetSelection(kept);
     refreshRepairInputSnapshot();
     notify();
-    return changed;
+    return true;
+  }
+
+  // The order the templates are offered in, so a request reads the same
+  // way whichever order the reader ticked them.
+  function orderPresets(entries) {
+    var offered = state.appInfo && state.appInfo.presets &&
+      Array.isArray(state.appInfo.presets.repair)
+      ? state.appInfo.presets.repair.map(function (item) {
+        return item.file;
+      })
+      : [];
+
+    return entries.slice().sort(function (left, right) {
+      return offered.indexOf(left.file) - offered.indexOf(right.file);
+    });
   }
 
   function changeRepairInput(mutator) {
