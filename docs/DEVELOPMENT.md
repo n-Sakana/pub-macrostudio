@@ -189,6 +189,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-roundtrip.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-bookio.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-build.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-book-inventory.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-guide-samples.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-host-runtime.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-hostservices.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-clipboard-retry.ps1
@@ -294,6 +295,14 @@ node tests\test-vba-lexer.js
   件数、バーコードらしいフォントを読む。**接続文字列とライブラリのパスは持ち出さない**
   こと、パッケージが開けない場合と project が無い場合に「読めなかった」と
   申告することを固定する。
+- `tests\test-guide-samples.ps1` … 改修ガイド §3 の分類から起こしたサンプル
+  10 本（`tests\make-guide-samples.ps1` が実 Excel で生成、`testdata\guide-samples\`）を
+  製品自身の読み手で読み直す。静的検索で引ける構文がコード側に実在すること、
+  参照設定・クエリ・外部リンク・ActiveX・バーコードフォント・署名の有無が
+  棚卸しへ出ること、公開した入口マクロが実在することを固定する。
+  **この端末で作れなかった部分は `UNBUILT` として明示し、期待を満たしたことに
+  しない**（生成側が理由を記録していなければ失敗する）。対応表は
+  `docs\beta2\guide-sample-map.md`。
 - `tests\test-host-runtime.ps1` … いま MacroStudio が動いている端末の OS／
   プロセスのアーキテクチャと、読み取れる場合の Excel / Office の版・ビット数。
   取得元は注入できるので、注入した表だけが答えを決めること、読めない値は

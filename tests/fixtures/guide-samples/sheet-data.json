@@ -1,0 +1,107 @@
+{
+  "readme": "各サンプルのシート内容。tests\\*.ps1 は ASCII のみなので、日本語の見出し・値はすべてここから読みます。table は start セルから右へ headers、下へ rows を置きます。",
+  "common": {
+    "labels": {"A2": "状態", "A3": "件数", "A4": "備考", "A5": "参考"}
+  },
+  "samples": {
+    "S01": {
+      "作業": {
+        "cells": {"A1": "申請件数の集計", "A2": "状態", "A3": "合計", "A4": "対象年度", "A5": "書き出し先"},
+        "table": {"start": "D4", "headers": ["申請番号", "件数"],
+          "rows": [["A1024", 3], ["A1025", 5], ["A1026", 2], ["A1027", 8]]}
+      },
+      "設定": {
+        "cells": {"A1": "設定", "A2": "対象年度", "B2": "2026"}
+      }
+    },
+    "S02": {
+      "作業": {
+        "cells": {"A1": "添付ファイルの点検", "A2": "状態", "A3": "件数", "A4": "未添付", "A5": "控え先"},
+        "table": {"start": "D4", "headers": ["申請番号", "添付パス", "控え"],
+          "rows": [["A1024", "C:\\work\\a1024.pdf", ""], ["A1025", "", ""], ["A1026", "C:\\work\\a1026.pdf", ""]]}
+      }
+    },
+    "S03": {
+      "作業": {
+        "cells": {"A1": "ブックの場所", "A2": "場所", "A3": "状態", "A4": "先頭1文字", "A5": "同じ場所のファイル", "A6": "カレント"}
+      }
+    },
+    "S04": {
+      "作業": {
+        "cells": {"A1": "待ち時間の確認", "A2": "状態", "A3": "待機ミリ秒", "A4": "合計ミリ秒"}
+      }
+    },
+    "S05": {
+      "作業": {
+        "cells": {"A1": "外部ツールの確認", "A2": "状態", "A3": "スクリプトホスト", "A4": "シェル"}
+      }
+    },
+    "S06": {
+      "作業": {
+        "cells": {"A1": "コードの引き当て", "A2": "種類数", "A3": "Aの件数", "A4": "Bの件数"},
+        "table": {"start": "D4", "headers": ["区分"],
+          "rows": [["A"], ["B"], ["A"], ["C"], ["A"]]}
+      }
+    },
+    "S07": {
+      "作業": {
+        "cells": {"A1": "取込データの集計", "A2": "状態", "A3": "合計", "A4": "件数", "A5": "接続数", "A6": "最終更新"}
+      },
+      "元データ": {
+        "table": {"start": "A1", "headers": ["日付", "支店", "金額"],
+          "rows": [["2026-06-01", "本店", 12000], ["2026-06-02", "北支店", 8000],
+                   ["2026-06-03", "南支店", 15000], ["2026-06-04", "本店", 6000]]}
+      }
+    },
+    "S08": {
+      "作業": {
+        "cells": {"A1": "ボタンと入力欄", "A2": "状態", "A3": "コントロール数", "A4": "有無"}
+      }
+    },
+    "S09": {
+      "作業": {
+        "cells": {"A1": "管理票のバーコード", "A2": "先頭のコード", "A3": "件数"},
+        "table": {"start": "D4", "headers": ["管理番号", "バーコード"],
+          "rows": [["A1024", ""], ["A1025", ""], ["A1026", ""]]}
+      }
+    },
+    "S10": {
+      "作業": {
+        "cells": {"A1": "起動時の初期処理", "A2": "状態", "A3": "起動日", "A4": "マクロ設定"}
+      }
+    }
+  },
+  "documentModules": {
+    "S10": {
+      "ThisWorkbook": "Option Explicit\n\n' 開いた時点で走ります。信頼できる場所の外では動きません。\nPrivate Sub Workbook_Open()\n    StartupTasks.RunStartup\nEnd Sub\n"
+    }
+  },
+  "powerQuery": {
+    "S07": {
+      "name": "元データ取込",
+      "formula": "let\n    Source = Excel.CurrentWorkbook(){[Name=\"元データ表\"]}[Content],\n    型変換 = Table.TransformColumnTypes(Source,{{\"金額\", Int64.Type}})\nin\n    型変換",
+      "tableName": "元データ表",
+      "tableSheet": "元データ",
+      "tableRange": "A1:C5"
+    }
+  },
+  "externalLink": {
+    "S07": {
+      "sheet": "作業",
+      "address": "B7",
+      "formula": "='S:\\eigyo\\master\\[shiten_master.xlsx]支店'!$B$2",
+      "label": {"address": "A7", "value": "支店マスタ参照"}
+    }
+  },
+  "activeX": {
+    "S08": [
+      {"classType": "Forms.CommandButton.1", "name": "CommandButton1",
+       "left": 200, "top": 20, "width": 120, "height": 28},
+      {"classType": "Forms.TextBox.1", "name": "TextBox1",
+       "left": 200, "top": 60, "width": 120, "height": 22}
+    ]
+  },
+  "barcodeFont": {
+    "S09": {"sheet": "作業", "range": "E5:E7", "fontName": "Code39", "fontSize": 24}
+  }
+}
