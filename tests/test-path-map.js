@@ -327,6 +327,7 @@ var uiMapping = uiWindow.MacroStudioPathMap.detect([classifierModule], RULES);
 var uiScreen = uiWindow.MacroStudioWorkflow.createRepairInputScreen({
   presetEngine: "対応表による置換",
   pathMap: uiMapping,
+  modules: [classifierModule],
   busyAction: null
 });
 var uiRows = dom.collect(uiScreen, function (node) {
@@ -341,23 +342,38 @@ assert(uiRows.some(function (node) {
   return dom.text(node).indexOf("ドライブ") >= 0;
 }), "A row must be labelled with the name the template's rule gave it.");
 
-var selectedUiRow = uiRows.filter(function (node) {
-  return dom.text(node).indexOf("C:\\Data\\report.xlsx") >= 0;
-})[0];
-var unselectedUiRow = uiRows.filter(function (node) {
-  return dom.text(node).indexOf("folder/") >= 0;
-})[0];
+// Rows carry the whole module now, so a row is found by the value it is
+// about rather than by any text that happens to appear inside it.
+function uiRowFor(rows, value) {
+  return rows.filter(function (node) {
+    var shown = node.querySelector(".path-map-value");
+    return shown && dom.text(shown) === value;
+  })[0];
+}
+
+var selectedUiRow = uiRowFor(uiRows, "C:\\Data\\report.xlsx");
+var unselectedUiRow = uiRowFor(uiRows, "folder/");
 assert(selectedUiRow && selectedUiRow.querySelector(".path-map-input"),
   "A row the template ticks by default must expose its input at once.");
 assert(unselectedUiRow &&
   unselectedUiRow.querySelector('[data-workflow-input="path-map-include"]') &&
   !unselectedUiRow.querySelector(".path-map-input"),
 "A row the template leaves unticked must wait to be included.");
+// The reader is deciding about a string, so the module it lives in is
+// shown whole, with the exact token marked inside it. A list of line
+// numbers named the place without showing it.
 var evidenceMarks = dom.collect(uiScreen, function (node) {
   return node.classList && node.classList.contains("path-evidence-mark");
 });
 assert(evidenceMarks.length > 0 && dom.text(evidenceMarks[0]).charAt(0) === '"',
   "Evidence must visibly mark the full string token, including its quotes.");
+assert(dom.text(selectedUiRow).indexOf("Option Explicit") >= 0 &&
+  dom.text(selectedUiRow).indexOf("End Sub") >= 0,
+"The module must be shown whole, not as the lines around the match.");
+assert(dom.collect(selectedUiRow, function (node) {
+  return node.classList && node.classList.contains("path-module-name");
+}).length === 1,
+"Each module the candidate appears in is named once.");
 
 // Nothing on this screen judges the value that was typed in.
 var typedUiMapping = update(

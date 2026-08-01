@@ -69,8 +69,8 @@
       "ひな形の段階が分かりません。診断または改修のフォルダから読み込んでください。",
     invalidReplaceRule:
       "「## " + REPLACE_TITLE +
-      "」は「- 呼び方 | 正規表現 | 既定で選ぶ」の形で書いてください。" +
-      "3 つ目は省けます。",
+      "」は「- 呼び方 | 正規表現 | 既定で選ぶ | 場所を選ぶ」の形で" +
+      "書いてください。3 つ目と 4 つ目は省けます。",
     invalidReplacePattern:
       "「## " + REPLACE_TITLE + "」の正規表現が読み取れません: {title}",
     repairOnlySection:
@@ -261,7 +261,10 @@
       items.push({
         label: label,
         pattern: parts[1],
-        selectedByDefault: parts.length > 2 && parts[2] !== ""
+        selectedByDefault: parts.length > 2 && parts[2] !== "",
+        // A candidate whose replacement is somewhere on disk. The app
+        // can offer a picker for it without knowing why it is one.
+        picksLocation: parts.length > 3 && parts[3] !== ""
       });
     });
     return {items: items, invalid: invalid, message: message};

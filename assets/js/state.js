@@ -621,13 +621,17 @@
   // request, in the order the templates are offered, so the chat is asked
   // once for the whole job rather than once per template.
   //
-  // A template that asks for the replacement table is the exception: it
-  // sends nothing anywhere, and whether its replacements should happen
-  // before or after a chat round is a decision nobody has made. Until
-  // someone does, choosing it replaces the rest and the rest replaces it.
+  // A template that asks for the replacement table sends nothing to a
+  // chat, so it can be chosen alongside ones that do: the chat answers
+  // first, the reply is taken in, and the replacements are made on the
+  // code that comes back.
   function usesTable(entry) {
     return Boolean(entry && entry.parsed &&
       Array.isArray(entry.parsed.replaceRules));
+  }
+
+  function sendsRequest(entry) {
+    return Boolean(entry && entry.parsed && entry.parsed.instruction);
   }
 
   function applyPresetSelection(entries) {
@@ -651,9 +655,12 @@
       }
     });
     state.presetReplaceRules = rules.length > 0 ? rules : null;
-    state.presetEngine = state.presetReplaceRules
-      ? "対応表による置換"
-      : "AI";
+    // A run is a chat run if anything chosen has something to send. The
+    // table is a stage inside such a run, not a different kind of run;
+    // only when nothing is being sent is the table the whole of it.
+    state.presetEngine = chosen.some(sendsRequest)
+      ? "AI"
+      : (state.presetReplaceRules ? "対応表による置換" : "AI");
     state.presetSnapshot = JSON.stringify(chosen.map(function (entry) {
       return {file: entry.file, content: entry.content};
     }));
@@ -704,13 +711,8 @@
       kept = state.presets.filter(function (item) {
         return item.file !== file;
       });
-    } else if (usesTable(entry)) {
-      kept = [entry];
     } else {
-      kept = state.presets.filter(function (item) {
-        return !usesTable(item);
-      }).concat([entry]);
-      kept = orderPresets(kept);
+      kept = orderPresets(state.presets.concat([entry]));
     }
     invalidateRepairRequest(false);
     state.answers = {};
@@ -923,6 +925,21 @@
   function getBookModules() {
     return state.modules.filter(function (module) {
       return module.isNew !== true;
+    });
+  }
+
+  // The code as it stands right now: what came back from the chat where
+  // there is a reply, and the workbook's own text where there is not.
+  // Replacing has to read and rewrite this, or it would work from the
+  // text the chat has already changed.
+  function getCurrentModules() {
+    return state.modules.map(function (module) {
+      return {
+        name: module.name,
+        code: typeof module.pastedCode === "string"
+          ? module.pastedCode
+          : String(module.code || "")
+      };
     });
   }
 
@@ -1328,6 +1345,7 @@
     setRepairIntakeParts: setRepairIntakeParts,
     hasImportedModules: hasImportedModules,
     getBookModules: getBookModules,
+    getCurrentModules: getCurrentModules,
     selectModule: selectModule,
     findModule: findModule,
     acceptModuleCode: acceptModuleCode,

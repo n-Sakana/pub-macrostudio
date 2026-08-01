@@ -150,6 +150,8 @@ namespace MacroStudio
                     return services.GetTargetEnvironment();
                 case "pickBook":
                     return services.PickBook();
+                case "pickLocation":
+                    return services.PickLocation();
                 case "attachBook":
                     return services.AttachBook(
                         GetString(parameters, "path"));

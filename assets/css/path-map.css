@@ -128,39 +128,51 @@
   font-weight: var(--weight-medium);
 }
 
-.path-evidence-list {
+/* The value to write, and a way to point at it instead of typing. */
+.path-map-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.path-map-field .path-map-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The button keeps its own width; only the field gives way. */
+.path-map-field .button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Every module the candidate appears in, whole, so the reader can read
+   around the string they are deciding about. */
+.path-module-list {
   display: grid;
   gap: var(--space-3);
 }
 
-.path-evidence-item {
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-}
-
-.path-evidence-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  flex-wrap: wrap;
+.path-module-name {
+  margin: 0;
   color: var(--text-sub);
+  font-family: var(--font-code);
   font-size: var(--type-meta-size);
-}
-
-.path-evidence-warning {
-  color: var(--caution-text);
   font-weight: var(--weight-semibold);
 }
 
 .path-evidence-code {
-  overflow-x: auto;
+  max-height: calc(var(--space-8) * 9);
+  overflow: auto;
   padding: var(--space-2) 0;
-  border-top: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   background: var(--surface-code);
+}
+
+/* The line the candidate is on, so a long module does not hide it. */
+.path-evidence-line.is-match {
+  background: var(--accent-soft);
 }
 
 .path-evidence-line {

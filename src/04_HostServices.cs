@@ -365,6 +365,53 @@ namespace MacroStudio
             return result;
         }
 
+        // A location for the reader to point at instead of typing. The
+        // same dialog the workbook is chosen with, opened on folders:
+        // they walk into the one they mean and press Open. Nothing is
+        // read or written - the path comes back as text they can still
+        // check and edit, exactly as if they had typed it.
+        public Dictionary<string, object> PickLocation()
+        {
+            OpenFileDialog dialog = new OpenFileDialog();
+            Dictionary<string, object> result;
+            string chosen;
+            string folder;
+            bool? selected;
+
+            dialog.Title = "Select a folder";
+            dialog.CheckFileExists = false;
+            dialog.CheckPathExists = true;
+            dialog.ValidateNames = false;
+            dialog.Multiselect = false;
+            dialog.FileName = "folder";
+
+            if (owner == null)
+            {
+                selected = dialog.ShowDialog();
+            }
+            else
+            {
+                selected = dialog.ShowDialog(owner);
+            }
+            if (selected != true)
+            {
+                return null;
+            }
+            chosen = dialog.FileName;
+            folder = Path.GetDirectoryName(chosen);
+            if (string.IsNullOrEmpty(folder))
+            {
+                return null;
+            }
+            result = new Dictionary<string, object>();
+            result.Add(
+                "path",
+                folder.EndsWith("\\", StringComparison.Ordinal)
+                    ? folder
+                    : folder + "\\");
+            return result;
+        }
+
         private static Dictionary<string, object> CreateInventory(
             string fullPath,
             VbaProjectData project)

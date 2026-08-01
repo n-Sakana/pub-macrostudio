@@ -59,7 +59,8 @@
         className: "rule-" + index,
         label: String(rule.label),
         pattern: pattern,
-        selectedByDefault: rule.selectedByDefault === true
+        selectedByDefault: rule.selectedByDefault === true,
+        picksLocation: rule.picksLocation === true
       });
     });
     return compiled;
@@ -76,7 +77,8 @@
         className: UNSAFE_CLASS,
         label: UNSAFE_LABEL,
         rank: -1,
-        selectedByDefault: false
+        selectedByDefault: false,
+        picksLocation: false
       };
     }
     for (index = 0; index < compiled.length; index += 1) {
@@ -85,7 +87,8 @@
           className: compiled[index].className,
           label: compiled[index].label,
           rank: compiled[index].index,
-          selectedByDefault: compiled[index].selectedByDefault
+          selectedByDefault: compiled[index].selectedByDefault,
+          picksLocation: compiled[index].picksLocation
         };
       }
     }
@@ -194,6 +197,7 @@
               from: value,
               to: "",
               included: classification.selectedByDefault,
+              picksLocation: classification.picksLocation,
               applied: false,
               occurrences: []
             };
@@ -204,6 +208,7 @@
             row.label = classification.label;
             row.rank = classification.rank;
             row.included = classification.selectedByDefault;
+            row.picksLocation = classification.picksLocation;
           }
           row.occurrences.push(occurrence);
         });

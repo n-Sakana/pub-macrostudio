@@ -1600,12 +1600,10 @@
     var api = global.MacroStudioScreens;
     var done = api.isTerminal(state, state.screen);
     var forwardAction = done ? "finish" : "go-next";
-    var forwardLabel = done
-      ? "完了"
-      : (state.screen === api.repairInputScreen &&
-          api.getEngine(state) === "対応表による置換"
-        ? "この内容で置き換える"
-        : "次へ");
+    // The forward control is [次へ] on every screen. Renaming it on one
+    // of them made the reader look for a different button there, and the
+    // longer label broke onto three lines inside a fixed-width button.
+    var forwardLabel = done ? "完了" : "次へ";
     var forwardReady = done
       ? api.canFinish(state, state.screen)
       : global.MacroStudioState.canGoNext();
@@ -1658,6 +1656,24 @@
   // and any half-finished IME word with it, so one keystroke throws
   // away the next. Whenever such a box has the focus, the screen is
   // patched in place instead of rebuilt.
+  // The field someone is part-way through writing in. Rebuilding one of
+  // those loses the caret, the selection and any half-finished IME
+  // composition, so the screen is patched around it instead.
+  //
+  // A checkbox is not one of those. It holds nothing unsaved, and
+  // treating it as an editor meant a tick could keep a whole outdated
+  // half of the screen alive beside the new one.
+  var WRITTEN_IN_TYPES = {
+    "": true,
+    text: true,
+    search: true,
+    url: true,
+    tel: true,
+    email: true,
+    password: true,
+    number: true
+  };
+
   function focusedEditor() {
     var node = document.activeElement;
 
@@ -1667,9 +1683,13 @@
     if (node.isContentEditable === true) {
       return node;
     }
-    return node.tagName === "INPUT" ||
-      node.tagName === "TEXTAREA" ||
-      node.tagName === "SELECT"
+    if (node.tagName === "TEXTAREA") {
+      return node;
+    }
+    if (node.tagName !== "INPUT") {
+      return null;
+    }
+    return WRITTEN_IN_TYPES[String(node.type || "").toLowerCase()] === true
       ? node
       : null;
   }
@@ -1727,6 +1747,7 @@
     var index;
     var existing;
     var last;
+    var surplus;
 
     for (index = 0; index < incoming.length; index += 1) {
       existing = current.childNodes[index];
@@ -1742,12 +1763,18 @@
         current.replaceChild(incoming[index], existing);
       }
     }
-    while (current.childNodes.length > incoming.length) {
-      last = current.lastChild;
-      if (holdsEditor(last, keep)) {
-        break;
+    // Everything past the end of the new screen is gone from it. Only
+    // the one node holding the field being written in may stay; stopping
+    // at the first such node left every older node behind it alive, so
+    // the screen kept a stale copy of itself below the current one.
+    surplus = Array.prototype.slice.call(
+      current.childNodes,
+      incoming.length);
+    for (index = surplus.length - 1; index >= 0; index -= 1) {
+      last = surplus[index];
+      if (!holdsEditor(last, keep)) {
+        current.removeChild(last);
       }
-      current.removeChild(last);
     }
   }
 

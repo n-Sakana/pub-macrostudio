@@ -922,6 +922,14 @@
     }
     store.importPackage(described);
     store.clearIntakeFailures("repair");
+    // The chat has answered, so the candidates are found in the code
+    // that came back. Detecting them from the original would have
+    // offered the reader lines the chat had just rewritten.
+    if (state.presetReplaceRules) {
+      store.setPathMap(global.MacroStudioPathMap.detect(
+        store.getCurrentModules(),
+        state.presetReplaceRules));
+    }
     global.MacroStudioApp.showToast(
       described.total + "個のモジュールを取り込みました。",
       "success");
@@ -1477,11 +1485,6 @@
       if (basis.length > 0) {
         mark.appendChild(element("span", "choice-recommended", "★ 推奨"));
       }
-      // This one is chosen on its own, so a reader who sees it
-      // recommended but unticked is told why rather than left guessing.
-      if (entry.replaceRules) {
-        mark.appendChild(element("span", "choice-note", "これだけを選びます"));
-      }
       card.appendChild(mark);
       cards.appendChild(card);
     });
@@ -1710,68 +1713,68 @@
     return box;
   }
 
-  function createPathEvidenceCode(occurrence) {
-    var block = element("div", "path-evidence-code");
-
-    (occurrence.logicalLines || []).forEach(function (part) {
-      var line = element("div", "path-evidence-line");
-      var code = element("code", "path-evidence-text");
-      var before;
-      var marked;
-      var after;
-
-      line.appendChild(element(
-        "span",
-        "path-evidence-number",
-        String(part.line)));
-      if (Number(part.line) === Number(occurrence.line)) {
-        before = String(part.text || "").slice(0, occurrence.column);
-        marked = String(part.text || "").slice(
-          occurrence.column,
-          occurrence.endColumn);
-        after = String(part.text || "").slice(occurrence.endColumn);
-        code.appendChild(element("span", "", before));
-        code.appendChild(element("mark", "path-evidence-mark", marked));
-        code.appendChild(element("span", "", after));
-      } else {
-        code.textContent = part.text || "";
-      }
-      line.appendChild(code);
-      block.appendChild(line);
+  // One line of a module, with the candidate marked where it sits. The
+  // span comes from the product lexer, so what is highlighted is exactly
+  // the token that would be replaced - not a text search that might land
+  // somewhere else.
+  function createModuleLine(number, text, occurrences) {
+    var line = element("div", "path-evidence-line");
+    var code = element("code", "path-evidence-text");
+    var here = occurrences.filter(function (occurrence) {
+      return Number(occurrence.line) === number;
+    }).sort(function (left, right) {
+      return left.column - right.column;
     });
-    return block;
+    var cursor = 0;
+
+    line.appendChild(element(
+      "span",
+      "path-evidence-number",
+      String(number)));
+    if (here.length === 0) {
+      code.textContent = text;
+    } else {
+      here.forEach(function (occurrence) {
+        code.appendChild(element(
+          "span",
+          "",
+          text.slice(cursor, occurrence.column)));
+        code.appendChild(element(
+          "mark",
+          "path-evidence-mark",
+          text.slice(occurrence.column, occurrence.endColumn)));
+        cursor = occurrence.endColumn;
+      });
+      code.appendChild(element("span", "", text.slice(cursor)));
+      line.classList.add("is-match");
+    }
+    line.appendChild(code);
+    return line;
   }
 
-  function createPathEvidence(row) {
-    var list = element("div", "path-evidence-list");
+  // What comes back is written into the field like anything typed there,
+  // so the reader still sees it, can still change it, and the same
+  // validation applies. The dialog saves the typing, not the deciding.
+  function pickReplacementLocation(groupKey) {
+    var store = global.MacroStudioState;
 
-    row.occurrences.forEach(function (occurrence) {
-      var item = element("article", "path-evidence-item");
-      var meta = element("div", "path-evidence-meta");
-
-      meta.appendChild(element("strong", "", occurrence.module));
-      meta.appendChild(element(
-        "span",
-        "",
-        (occurrence.procedure || "-") + " / " +
-          occurrence.line + "行目 / " + occurrence.ruleId));
-      if (occurrence.inConditional) {
-        meta.appendChild(element(
-          "span",
-          "path-evidence-warning",
-          "条件付きコンパイルの内側"));
-      }
-      if (occurrence.conditionalUnbalanced) {
-        meta.appendChild(element(
-          "span",
-          "path-evidence-warning",
-          "条件付きコンパイルの対応を確認できません"));
-      }
-      item.appendChild(meta);
-      item.appendChild(createPathEvidenceCode(occurrence));
-      list.appendChild(item);
-    });
-    return list;
+    if (!groupKey || store.getState().busyAction) {
+      return Promise.resolve(null);
+    }
+    store.setBusyAction("pickLocation");
+    return global.hostBridge.request("pickLocation").then(
+      function (result) {
+        store.setBusyAction(null);
+        if (!result || !result.path) {
+          return null;
+        }
+        store.setPathMap(global.MacroStudioPathMap.updateRow(
+          store.getState().pathMap,
+          groupKey,
+          {to: String(result.path)}));
+        return result;
+      },
+      failHost);
   }
 
   function createPathMapRow(state, row, index) {
@@ -1787,6 +1790,8 @@
     var inputLabel;
     var includeRow;
     var include;
+    var field;
+    var pick;
 
     identity.appendChild(element("code", "path-map-value", row.from));
     // The name of the kind came from the template with the rule that
@@ -1816,13 +1821,24 @@
     if (row.included) {
       inputLabel = element("label", "form-field path-map-target");
       inputLabel.appendChild(element("span", "form-label", "置き換え後の値"));
+      field = element("div", "path-map-field");
       input = element("input", "form-input path-map-input");
       input.type = "text";
       input.value = row.to;
       input.disabled = state.busyAction !== null;
       input.setAttribute("data-workflow-input", "path-map-to");
       input.setAttribute("data-group-key", row.groupKey);
-      inputLabel.appendChild(input);
+      field.appendChild(input);
+      // Typing a location by hand is how a wrong one gets in. When the
+      // template says this kind of candidate is a place, the reader can
+      // pick it instead. Whether it is a place is the template's call.
+      if (row.picksLocation) {
+        pick = actionButton("選ぶ", "pick-replacement-location", false);
+        pick.disabled = state.busyAction !== null;
+        pick.setAttribute("data-group-key", row.groupKey);
+        field.appendChild(pick);
+      }
+      inputLabel.appendChild(field);
       controls.appendChild(inputLabel);
       if (!row.valid && row.validationMessage) {
         controls.appendChild(element(
@@ -1831,17 +1847,78 @@
           row.validationMessage));
       }
     }
+    // The reader is deciding about a string, and what settles it is the
+    // code around it. A list of line numbers did not settle anything, so
+    // the module itself opens here instead.
     controls.appendChild(createDisclosure(
       evidenceKey,
-      "根拠を見る（" + row.occurrences.length + "か所）",
-      createPathEvidence(row),
+      "このコードを見る（" + moduleNamesOf(row).join("、") + "）",
+      createOccurrenceModules(state, row),
       disclosureState[evidenceKey] === true));
     box.appendChild(controls);
     return box;
   }
 
-  function createPathMapScreen(state) {
-    var root = task(true);
+  function moduleNamesOf(row) {
+    var names = [];
+
+    row.occurrences.forEach(function (occurrence) {
+      if (names.indexOf(occurrence.module) < 0) {
+        names.push(occurrence.module);
+      }
+    });
+    return names;
+  }
+
+  // The whole of every module the candidate appears in, with the
+  // candidate marked. A list of line numbers told the reader where to
+  // look without showing them anything; deciding about a string needs
+  // the code around it.
+  function createOccurrenceModules(state, row) {
+    var body = element("div", "path-module-list");
+    var modules = state.modules || [];
+
+    moduleNamesOf(row).forEach(function (name) {
+      var found = null;
+      var block;
+      var here;
+
+      modules.some(function (module) {
+        if (module.name === name) {
+          found = module;
+          return true;
+        }
+        return false;
+      });
+      body.appendChild(element("h3", "path-module-name", name));
+      if (!found) {
+        body.appendChild(element(
+          "p",
+          "path-map-error",
+          "このモジュールを読み取れませんでした。"));
+        return;
+      }
+      here = row.occurrences.filter(function (occurrence) {
+        return occurrence.module === name;
+      });
+      block = element("div", "path-evidence-code");
+      String(found.code || "")
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .split("\n")
+        .forEach(function (text, index) {
+          block.appendChild(createModuleLine(index + 1, text, here));
+        });
+      body.appendChild(block);
+    });
+    return body;
+  }
+
+  // The table itself. It is a stage of a run, not a screen: on a run that
+  // sends nothing it is the whole of screen 4, and on a run that asks a
+  // chat first it follows the reply on screen 5. One body either way.
+  function createPathMapBody(state) {
+    var root = element("div", "path-map-stage");
     var mapping = state.pathMap;
     var rows = mapping && Array.isArray(mapping.rows) ? mapping.rows : [];
     var intro = section("置換の候補", "path-map-intro");
@@ -1869,6 +1946,13 @@
       list.appendChild(createPathMapRow(state, mappingRow, index));
     });
     root.appendChild(list);
+    return root;
+  }
+
+  function createPathMapScreen(state) {
+    var root = task(true);
+
+    root.appendChild(createPathMapBody(state));
     return root;
   }
 
@@ -2003,6 +2087,13 @@
     if (state.intakeResult) {
       root.appendChild(statusLine(
         state.intakeResult.total + "個のモジュールを取り込みました。"));
+      // The chat has answered, so the replacements are made on the code
+      // that came back. Detecting them earlier would have offered the
+      // reader lines the chat was about to rewrite.
+      if (state.presetReplaceRules) {
+        root.appendChild(element("h2", "task-step", "3. 文字列を置き換える"));
+        root.appendChild(createPathMapBody(state));
+      }
     }
     return root;
   }
@@ -2080,6 +2171,10 @@
     if (action === "select-repair-preset") {
       selectRepairPreset(button.getAttribute("data-preset-file")); return true;
     }
+    if (action === "pick-replacement-location") {
+      pickReplacementLocation(button.getAttribute("data-group-key"));
+      return true;
+    }
     if (action === "copy-repair-prompt") {
       copyStagePrompt("repair"); return true;
     }
@@ -2156,7 +2251,7 @@
     var state = store.getState();
     var result = global.MacroStudioPathMap.apply(
       state.pathMap,
-      store.getBookModules());
+      store.getCurrentModules());
 
     if (!result.ok) {
       global.MacroStudioApp.showToast(
@@ -2181,6 +2276,17 @@
   }
 
   function handleNext(state) {
+    // The replacements are the last thing a chat run does: the reply is
+    // in, the table was filled against the code that came back, and
+    // leaving this screen carries it out.
+    if (state.screen === global.MacroStudioScreens.repairScreen) {
+      if (!state.presetReplaceRules || !state.intakeResult ||
+          !global.MacroStudioPathMap.canApply(state.pathMap)) {
+        return false;
+      }
+      applyPathMapping();
+      return true;
+    }
     if (state.screen !== global.MacroStudioScreens.repairInputScreen) {
       return false;
     }
@@ -2225,7 +2331,6 @@
   // Only on arrival with nothing chosen; a cleared selection stays clear.
   function selectRecommendedPresets(state) {
     var recommended;
-    var chat;
 
     if ((state.presetFiles || []).length > 0 || !state.diagnosis ||
         !state.appInfo || !state.appInfo.presets) {
@@ -2239,14 +2344,8 @@
     if (recommended.length === 0) {
       return false;
     }
-    // Whatever the diagnosis pointed at arrives ticked. The one that asks
-    // for the table is chosen on its own, so it only arrives ticked when
-    // it is the whole recommendation - otherwise the ones it cannot sit
-    // beside would be dropped the moment the screen opened.
-    chat = recommended.filter(function (entry) {
-      return !entry.replaceRules;
-    });
-    (chat.length > 0 ? chat : recommended).forEach(function (entry) {
+    // Whatever the diagnosis pointed at arrives ticked, all of it.
+    recommended.forEach(function (entry) {
       selectRepairPreset(entry.file);
     });
     return true;

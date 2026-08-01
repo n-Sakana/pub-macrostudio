@@ -261,11 +261,15 @@ try {
         $nextStep.nextReady -eq $expectedReady
     ) ('The choice page must list the templates in the fixed order, and ' +
        $starRule + '.')
+    # More than one template may be carried in one run, and one of them
+    # arrives already ticked when the diagnosis pointed at it. What has
+    # to hold is that something is chosen and the run has somewhere to
+    # send its request.
     Assert-True (
-        $preset.selected -eq 1 -and
+        $preset.selected -ge 1 -and
         $preset.engine -ceq 'AI' -and
         $preset.nextReady
-    ) 'Selecting one visible template must select the hidden AI dispatch.'
+    ) 'Choosing a template must leave a chat run ready to go.'
 
     Assert-True (
         $repairInputEmpty.screen -eq 4 -and

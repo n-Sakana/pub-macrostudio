@@ -436,20 +436,26 @@ chooseTemplate("02_改修\\01_win.md", "Win32を外す");
 assert(current().presetFiles.length === 1,
   "Ticking a chosen template again must remove it.");
 
-// The one that asks for the replacement table sends nothing anywhere.
-// Whether its replacements belong before or after a chat round is not
-// decided, so it and the chat templates displace each other.
+// The one that asks for the replacement table sends nothing to a chat,
+// so it sits alongside the ones that do: the chat answers first, the
+// reply is taken in, and the replacements are made on what comes back.
 chooseTemplate("02_改修\\02_path.md", "置き換える", [
   {label: "ドライブ", pattern: "^[A-Za-z]:", selectedByDefault: true}
 ]);
-assert(current().presetFiles.length === 1 &&
+assert(current().presetFiles.length === 2 &&
   current().presetReplaceRules !== null,
-"Choosing the table must replace the chat templates until the order " +
-  "between them is decided.");
+"The table must be choosable alongside a chat template: " +
+  JSON.stringify(current().presetFiles));
+assert(current().presetEngine === "AI",
+  "A run with something to send is a chat run; the table is a stage " +
+  "inside it, not a different kind of run.");
+
+// On its own it is the whole run, and nothing is sent anywhere.
 chooseTemplate("02_改修\\03_refactor.md", "リファクター");
 assert(current().presetFiles.length === 1 &&
-  current().presetReplaceRules === null,
-"And choosing a chat template must replace the table.");
+  current().presetEngine === "対応表による置換",
+"With nothing to send, the table is the run: " +
+  JSON.stringify(current().presetFiles));
 
 // ---- a run that declares it wants no diagnosis ----
 // Someone who already knows what to change should not have to stage a
