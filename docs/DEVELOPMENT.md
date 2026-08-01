@@ -189,6 +189,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-roundtrip.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-bookio.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-build.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-book-inventory.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-host-runtime.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-hostservices.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-clipboard-retry.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-diagnose-webview.ps1
@@ -263,7 +264,10 @@ node tests\test-vba-lexer.js
   引渡し成果物を固定する。指摘は環境キーで 1 つの問題へまとまること、観点は
   その実行が触れた軸だけへ絞られること、コードの外にある作業（参照設定・
   Power Query・ActiveX・バーコード）が人へ渡されること、そして**実行して
-  いない確認を実施済みと書かない**ことを検査する。
+  いない確認を実施済みと書かない**ことを検査する。併せて「この端末で確認できた
+  実行環境」を、対象環境が期待値を宣言したときだけ一致／不一致と判定すること、
+  宣言が無い項目と読み取れなかった項目をどちらも**一致扱いにしない**ことを
+  固定する。
 - `tests	est-diagnosis-recovery.js` … 第 1 段階の出力契約と取り込みを 1 つの
   テストで固定する。ひな形の `## 出力指示` が「ひとつだけのコードブロック」
   「区切りの行は 1 行に 1 つだけ」「ブロックの外に書かない」を述べていることと、
@@ -290,6 +294,13 @@ node tests\test-vba-lexer.js
   件数、バーコードらしいフォントを読む。**接続文字列とライブラリのパスは持ち出さない**
   こと、パッケージが開けない場合と project が無い場合に「読めなかった」と
   申告することを固定する。
+- `tests\test-host-runtime.ps1` … いま MacroStudio が動いている端末の OS／
+  プロセスのアーキテクチャと、読み取れる場合の Excel / Office の版・ビット数。
+  取得元は注入できるので、注入した表だけが答えを決めること、読めない値は
+  推測せず `unknown` のまま人へ渡すこと、更新チャネルの URL を持ち出さないこと
+  を固定する。最後に同じ読み手を実レジストリへ read-only で当て、Excel も COM も
+  起動しないことを併せて確認する。**ブックの属性ではない**ため、画面と引渡しメモ
+  では「この端末で確認できた実行環境」として、想定動作環境とは別に置く。
 - `tests\test-hostservices.ps1` … 添付後に元ブックが変わった場合の E-BUILD-04 と、
   同一 run の再ビルドが自分の成果物だけを世代交換すること。
 - `tests\test-host-bridge.js` … `buildBook` が client の時計で失敗確定しないこと。

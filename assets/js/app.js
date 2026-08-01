@@ -2656,6 +2656,20 @@
     return profile;
   }
 
+  // The machine this copy is running on. Read once at start-up; it is
+  // not a property of any workbook and never changes during a run.
+  function loadHostRuntime() {
+    return global.hostBridge.request("getHostRuntime").then(
+      function (result) {
+        global.MacroStudioState.setHostRuntime(result || null);
+        return result;
+      },
+      function () {
+        global.MacroStudioState.setHostRuntime(null);
+        return null;
+      });
+  }
+
   function loadTargetEnvironment() {
     var loadId = targetEnvironmentLoadId + 1;
 
@@ -3143,6 +3157,9 @@
       attachPath(data.path);
     });
     loadAppInfo();
+    // The machine is read once. Unlike the environment file, which the
+    // owner may edit between screens, it cannot change during a run.
+    loadHostRuntime();
   }
 
   global.MacroStudioApp = {
@@ -3189,6 +3206,7 @@
       return diagnosisPresetStatus;
     },
     loadTargetEnvironment: loadTargetEnvironment,
+    loadHostRuntime: loadHostRuntime,
     getTargetEnvironment: function () {
       return targetEnvironment;
     },

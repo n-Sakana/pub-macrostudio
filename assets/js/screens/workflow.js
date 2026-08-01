@@ -1052,6 +1052,40 @@
       : "想定動作環境を読み込み中";
   }
 
+  function appendRuntimeFacts(root, state) {
+    var runtime = global.MacroStudioHandover.runtimeComparison(state);
+    var list = element("ul", "runtime-list");
+
+    root.appendChild(element(
+      "h3",
+      "runtime-title",
+      "この端末で確認できた実行環境"));
+    root.appendChild(element(
+      "p",
+      "runtime-note",
+      "ブックの属性ではありません。配布先の端末では別の値になります。"));
+    if (!runtime.available) {
+      root.appendChild(element(
+        "p",
+        "runtime-note",
+        "読み取れていません。人が確認してください。"));
+      return root;
+    }
+    runtime.rows.forEach(function (row) {
+      list.appendChild(element(
+        "li",
+        row.verdict === "不一致" ? "runtime-mismatch" : "",
+        row.label + ": " + row.measured +
+          (row.expected ? "（期待 " + row.expected + " / " +
+            row.verdict + "）" : "")));
+    });
+    root.appendChild(list);
+    runtime.notes.forEach(function (note) {
+      root.appendChild(element("p", "runtime-note", note));
+    });
+    return root;
+  }
+
   function createHandoffActions(state, stage) {
     var actions = element("div", "handoff-actions");
     var diagnosis = stage === "diagnose";
@@ -1129,6 +1163,10 @@
         "environment-description",
         state.targetEnvironment.summary));
     }
+    // The environment the diagnosis assumes, and underneath it what this
+    // terminal actually reports. They are labelled apart on purpose: one
+    // is the target, the other is the machine in front of the reader.
+    appendRuntimeFacts(environment, state);
     optional.appendChild(createDisclosure(
       "diagnose-environment",
       "この診断が前提にしている環境",

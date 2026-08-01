@@ -27,7 +27,8 @@ function Get-HostSource {
         '06_VbaCompression.cs',
         '07_VbaProject.cs',
         '08_BookIO.cs',
-        '09_BookInventory.cs'
+        '09_BookInventory.cs',
+        '10_HostEnvironment.cs'
     )
     $combined = ($names | ForEach-Object {
         $path = Join-Path (Join-Path $PSScriptRoot '..\src') $_

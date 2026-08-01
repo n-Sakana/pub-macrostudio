@@ -236,6 +236,50 @@
     return done;
   }
 
+  // What this terminal reports about itself, and - only when the target
+  // environment says what it expects - whether the two agree. A silence
+  // in the target file is not a match; it is nothing to compare against.
+  function runtimeComparison(state) {
+    var runtime = state && state.hostRuntime ? state.hostRuntime : null;
+    var expected = state && state.targetEnvironment &&
+      state.targetEnvironment.expectedRuntime
+      ? state.targetEnvironment.expectedRuntime
+      : null;
+    var rows = [];
+
+    function compare(label, measured, want) {
+      var known = measured && measured !== "unknown";
+
+      rows.push({
+        label: label,
+        measured: known ? measured : "unknown",
+        expected: want ? String(want) : "",
+        verdict: !want
+          ? "期待値の指定なし"
+          : (!known
+            ? "この端末では読み取れませんでした"
+            : (String(want) === String(measured) ? "一致" : "不一致"))
+      });
+    }
+
+    if (!runtime) {
+      return {available: false, rows: rows, notes: []};
+    }
+    compare("OS のアーキテクチャ", runtime.osArchitecture,
+      expected ? expected.osArchitecture : null);
+    compare("MacroStudio のプロセス", runtime.processArchitecture,
+      expected ? expected.processArchitecture : null);
+    compare("Excel / Office の版", runtime.officeVersion,
+      expected ? expected.officeVersion : null);
+    compare("Excel / Office のビット数", runtime.officeBitness,
+      expected ? expected.officeBitness : null);
+    return {
+      available: true,
+      rows: rows,
+      notes: list(runtime.notes)
+    };
+  }
+
   function environmentRows(state) {
     var seen = {};
     var rows = [];
@@ -262,6 +306,7 @@
     var lines = [];
     var list = problems(state);
     var rows = environmentRows(state);
+    var runtime = runtimeComparison(state);
     var verified = verifiedByTool(state);
 
     lines.push("## 改修対象一覧");
@@ -292,6 +337,29 @@
         : "（読み込めていません）"));
     lines.push("- 実値（保存先・接続先・機器名）はこのメモに書きません。" +
       "環境ごとの設定として別に管理してください。");
+    lines.push("");
+    lines.push("### この端末で確認できた実行環境（参考）");
+    lines.push("");
+    lines.push("次はこのメモを作った端末を読み取った値で、**ブックの属性では" +
+      "ありません**。配布先の端末では別の値になります。");
+    lines.push("");
+    if (!runtime.available) {
+      lines.push("（読み取れていません。人が確認してください）");
+    } else {
+      lines.push("| 項目 | この端末 | 期待値 | 判定 |");
+      lines.push("|---|---|---|---|");
+      runtime.rows.forEach(function (row) {
+        lines.push(
+          "| " + cell(row.label) +
+          " | " + cell(row.measured) +
+          " | " + cell(row.expected || "—") +
+          " | " + cell(row.verdict) + " |");
+      });
+      runtime.notes.forEach(function (note) {
+        lines.push("");
+        lines.push("- " + note);
+      });
+    }
     lines.push("");
     if (rows.length === 0) {
       lines.push("（この診断が名指しした環境の制約はありません）");
@@ -369,6 +437,7 @@
     axisLabels: AXIS_LABELS,
     problems: problems,
     environmentRows: environmentRows,
+    runtimeComparison: runtimeComparison,
     testViewpoints: testViewpoints,
     verifiedByTool: verifiedByTool,
     humanTasks: humanTasks,

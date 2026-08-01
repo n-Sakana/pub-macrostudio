@@ -674,3 +674,35 @@
   font-size: var(--type-micro-size);
   overflow-wrap: break-word;
 }
+
+/* The machine in front of the reader, kept visibly apart from the target
+   the diagnosis assumes. */
+.runtime-title {
+  margin: var(--space-4) 0 0;
+  color: var(--text);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+}
+
+.runtime-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+}
+
+.runtime-list {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+}
+
+.runtime-list li {
+  margin: var(--space-1) 0;
+  overflow-wrap: break-word;
+}
+
+.runtime-list .runtime-mismatch {
+  color: var(--danger-text);
+  font-weight: var(--weight-semibold);
+}

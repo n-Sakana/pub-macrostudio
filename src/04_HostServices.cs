@@ -404,6 +404,25 @@ namespace MacroStudio
             return item;
         }
 
+        // The machine this is running on, not the workbook. Read-only,
+        // and nothing here launches Office.
+        public Dictionary<string, object> GetHostRuntime()
+        {
+            HostRuntimeFacts facts = HostRuntimeReader.Read(
+                new RegistryHostFactSource());
+            Dictionary<string, object> item =
+                new Dictionary<string, object>();
+
+            item.Add("osArchitecture", facts.OsArchitecture);
+            item.Add("processArchitecture", facts.ProcessArchitecture);
+            item.Add("officeVersion", facts.OfficeVersion);
+            item.Add("officeBitness", facts.OfficeBitness);
+            item.Add("officeChannel", facts.OfficeChannel);
+            item.Add("officeKnown", facts.OfficeKnown);
+            item.Add("notes", facts.Notes.ToArray());
+            return item;
+        }
+
         public Dictionary<string, object> AttachBook(string path)
         {
             string fullPath = ValidateAttachPath(path);

@@ -33,6 +33,7 @@
       selectedModuleName: null,
       pasteEditing: false,
 
+      hostRuntime: null,
       targetEnvironment: null,
       targetEnvironmentSnapshot: "",
       diagnosisConcern: "",
@@ -414,6 +415,13 @@
     invalidateDiagnosisResult();
   }
 
+  // The machine, not the book. It survives attaching another workbook
+  // because it never depended on one.
+  function setHostRuntime(runtime) {
+    state.hostRuntime = runtime || null;
+    notify();
+  }
+
   // What the workbook carries besides its code. It belongs to the book,
   // so it arrives and departs with it.
   function setBookInventory(inventory) {
@@ -424,9 +432,12 @@
   function setBook(book, modules) {
     var api = screenApi();
     var appInfo = state.appInfo;
+    // The machine does not change because another workbook was opened.
+    var hostRuntime = state.hostRuntime;
 
     state = createInitialState();
     state.appInfo = appInfo;
+    state.hostRuntime = hostRuntime;
     state.screen = api ? api.bookScreen : 0;
     state.book = book || null;
     state.modules = modules || [];
@@ -1137,7 +1148,10 @@
   }
 
   function reset() {
+    var hostRuntime = state.hostRuntime;
+
     state = createInitialState();
+    state.hostRuntime = hostRuntime;
     notify();
   }
 
@@ -1193,6 +1207,7 @@
     goBack: goBack,
     setBook: setBook,
     setBookInventory: setBookInventory,
+    setHostRuntime: setHostRuntime,
     setAppInfo: setAppInfo,
     setTargetEnvironment: setTargetEnvironment,
     setDiagnosisConcern: setDiagnosisConcern,

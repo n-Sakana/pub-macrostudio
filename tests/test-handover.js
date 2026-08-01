@@ -128,6 +128,76 @@ assert(viewpoints[1].items.some(function (item) {
   return item.indexOf("URL") >= 0;
 }), "A run with a storage-axis problem must test the URL save location.");
 
+// ---- the terminal this ran on, which is not the workbook ----
+// The reading itself is fixed by tests\test-host-runtime.ps1. What is
+// fixed here is the judgement placed on it: a target file that says
+// nothing about the runtime has not agreed with anything.
+
+var silent = handover.runtimeComparison(state);
+
+assert(silent.available === false && silent.rows.length === 0,
+  "With nothing read from the machine, there is nothing to show.");
+
+var runtimeState = JSON.parse(JSON.stringify(state));
+
+runtimeState.hostRuntime = {
+  osArchitecture: "x64",
+  processArchitecture: "x64",
+  officeVersion: "unknown",
+  officeBitness: "x86",
+  officeChannel: "設定あり",
+  officeKnown: true,
+  notes: ["インストール済み Excel の版を読み取れませんでした。"]
+};
+
+var unasked = handover.runtimeComparison(runtimeState);
+
+assert(unasked.available === true && unasked.rows.length === 4,
+  "Four things are observed about the terminal: " + unasked.rows.length);
+assert(unasked.rows.every(function (row) {
+  return row.expected === "" && row.verdict === "期待値の指定なし";
+}), "A target environment that declares no expected runtime must produce " +
+  "no verdict at all - silence is not agreement.");
+
+runtimeState.targetEnvironment = JSON.parse(JSON.stringify(ENVIRONMENT));
+runtimeState.targetEnvironment.expectedRuntime = {
+  osArchitecture: "x64",
+  officeBitness: "x64",
+  officeVersion: "16.0"
+};
+
+var judged = handover.runtimeComparison(runtimeState);
+var byLabel = {};
+
+judged.rows.forEach(function (row) {
+  byLabel[row.label] = row;
+});
+
+assert(byLabel["OS のアーキテクチャ"].verdict === "一致",
+  "A value that meets the declared expectation must read as meeting it.");
+assert(byLabel["Excel / Office のビット数"].verdict === "不一致",
+  "A value that differs from the declared expectation must say so.");
+assert(byLabel["MacroStudio のプロセス"].verdict === "期待値の指定なし",
+  "An expectation the owner did not declare stays undeclared, even when " +
+  "the neighbouring rows were declared.");
+assert(byLabel["Excel / Office の版"].measured === "unknown" &&
+  byLabel["Excel / Office の版"].verdict ===
+    "この端末では読み取れませんでした",
+"Something that could not be read is neither a match nor a mismatch.");
+assert(judged.notes.length === 1,
+  "A note from the reader must reach the person reading the memo.");
+
+var runtimeMemo = handover.sections(runtimeState);
+
+assert(runtimeMemo.indexOf("### この端末で確認できた実行環境（参考）") >= 0 &&
+  runtimeMemo.indexOf("ブックの属性では") >= 0,
+"The memo must carry the terminal's own facts, marked as not the book's.");
+assert(runtimeMemo.indexOf("| Excel / Office のビット数 | x86 | x64 | 不一致 |")
+  >= 0, "The memo must show the disagreement as a row, not a summary.");
+assert(handover.sections(state)
+  .indexOf("（読み取れていません。人が確認してください）") >= 0,
+"A run that read nothing about the machine must say so in the memo.");
+
 // ---- what was verified, and what was not ----
 
 var verified = handover.verifiedByTool(state);
@@ -237,5 +307,7 @@ assert(bare.indexOf("## ロールバック手順") >= 0 &&
 
 console.log("test-handover: PASS");
 console.log("problems group by constraint, the four test viewpoints follow " +
-  "what the run touched, out-of-code work is handed to a person, and the " +
-  "memo carries the guide's deliverables without claiming an unrun check");
+  "what the run touched, out-of-code work is handed to a person, the " +
+  "terminal's own runtime is judged only against a declared expectation, " +
+  "and the memo carries the guide's deliverables without claiming an " +
+  "unrun check");
