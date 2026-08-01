@@ -109,8 +109,8 @@
   // label that says what opens, and an optional note on the right. A
   // plain bordered box with no chevron reads as a card, and nobody can
   // tell a card is going to open.
-  function createDisclosure(key, label, content, openByDefault, note) {
-    var box = element("div", "disclosure");
+  function createDisclosure(key, label, content, openByDefault, note, writein) {
+    var box = element("div", "disclosure" + (writein ? " disclosure--writein" : ""));
     var trigger = element("button", "disclosure-trigger");
     var body = element("div", "disclosure-body");
     var inner = element("div", "disclosure-inner");
@@ -124,7 +124,12 @@
     trigger.setAttribute("data-disclosure-key", key);
     trigger.setAttribute("aria-expanded", open ? "true" : "false");
     trigger.setAttribute("aria-controls", panelId);
-    trigger.appendChild(icon("chevron", "flow-icon--small disclosure-chevron"));
+    // A row that opens onto a text field says so while it is closed. A
+    // chevron promises more reading; a pencil promises somewhere to
+    // write, and the reader should not have to open it to find out.
+    trigger.appendChild(writein
+      ? icon("edit", "flow-icon--small disclosure-pencil")
+      : icon("chevron", "flow-icon--small disclosure-chevron"));
     trigger.appendChild(element("span", "disclosure-label", label));
     if (note) {
       trigger.appendChild(element("span", "disclosure-note", note));
@@ -1053,7 +1058,12 @@
   }
 
   function appendRuntimeFacts(root, state) {
-    var runtime = global.MacroStudioHandover.runtimeComparison(state);
+    // This renderer runs inside notify(). A throw here would abandon the
+    // whole update, so an absent module reads as "nothing was read"
+    // rather than taking the screen down with it.
+    var runtime = global.MacroStudioHandover
+      ? global.MacroStudioHandover.runtimeComparison(state)
+      : {available: false, rows: [], notes: []};
     var list = element("ul", "runtime-list");
 
     root.appendChild(element(
@@ -1089,13 +1099,13 @@
   function createHandoffActions(state, stage) {
     var actions = element("div", "handoff-actions");
     var diagnosis = stage === "diagnose";
+    var copied = diagnosis
+      ? Boolean(state.diagnosisPromptCopied)
+      : Boolean(state.repairPromptCopied);
     var copy = actionButton(
-      diagnosis && state.diagnosisPromptCopied ||
-        !diagnosis && state.repairPromptCopied
-        ? "依頼文をコピー済み"
-        : "依頼文をコピー",
+      copied ? "依頼文をコピー済み" : "依頼文をコピー",
       diagnosis ? "copy-diagnosis-prompt" : "copy-repair-prompt",
-      true);
+      !copied);
     var open = actionButton(
       diagnosis && state.diagnosisFolderOpened ||
         !diagnosis && state.repairFolderOpened
@@ -1194,7 +1204,8 @@
       "気になっていることを書き足す",
       concernBox,
       global.MacroStudioState.isDiagnosisRequestDirty() === true,
-      state.diagnosisConcern ? "記入あり" : "任意"));
+      state.diagnosisConcern ? "記入あり" : "任意",
+      true));
 
     root.appendChild(optional);
     return root;
@@ -1212,12 +1223,17 @@
     // The same feedback as the hand-off buttons above: the control says
     // what it did. A second line underneath, naming a file the reader
     // never asked about, is one message too many.
+    //
+    // One filled button at a time. Until the request has gone out there
+    // is nothing to bring back, so this is the quieter of the two; once
+    // it has, this becomes the action and the copy above steps down.
+    // After the reply is in, neither is: [次へ] is.
     button = actionButton(
       state.diagnosis
         ? "診断結果を取り込みました"
         : "クリップボードから診断結果を取り込む",
       "import-diagnosis",
-      true);
+      Boolean(state.diagnosisPromptCopied) && !state.diagnosis);
     button.disabled = state.busyAction !== null;
     root.appendChild(actionRow(button));
     return root;
@@ -1495,7 +1511,13 @@
         ? "対象環境で対処が必要な問題が " + acted + " 件あります（該当 " +
           occurrences + " か所）。"
         : "この監査範囲では動作阻害要因を確認できませんでした。"));
+    // Only the kinds that are actually here. "不具合 0" is a fact about
+    // a category, not about this workbook, and every one of them the
+    // reader has to skip past costs the ones that matter.
     CLASS_ORDER.forEach(function (name) {
+      if (counts[name] === 0) {
+        return;
+      }
       chips.appendChild(element(
         "span",
         "class-chip class-chip--" + name.toLowerCase(),
@@ -1890,7 +1912,8 @@
       "追加の要望を書く（任意）",
       extraContent,
       decisionQuotes(state, "-").length > 0,
-      String(state.extraRequest || "").trim() ? "記入あり" : "未記入"));
+      String(state.extraRequest || "").trim() ? "記入あり" : "未記入",
+      true));
 
     if (state.splitOutputRules) {
       root.appendChild(optionRow(
@@ -1966,10 +1989,12 @@
         state.repairIntakeParts.parts.length + " / " +
           state.repairIntakeParts.total + " 個を受け取り済み"));
     }
+    // One filled button at a time, as on the diagnosis screen: this is
+    // the action only once the request has actually gone out.
     var button = actionButton(
       "クリップボードから改修結果を取り込む",
       "import-repair",
-      true);
+      Boolean(state.repairPromptCopied));
     var restart = null;
     button.disabled = state.busyAction !== null;
     if ((state.repairIntakeParts && state.repairIntakeParts.parts.length) ||

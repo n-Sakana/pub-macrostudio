@@ -157,7 +157,25 @@ assert(requested.indexOf("希望する動作") < 0,
   "The request must not ask for a desired-behaviour line that is no " +
   "longer collected.");
 
+// ---- a folded row that opens onto a field says so ----
+// Every other row on this screen opens onto more reading and carries a
+// chevron. This one opens onto somewhere to write, and the reader should
+// not have to click it to find that out.
+var writeIn = dom.collect(inputScreen, function (node) {
+  return node.classList && node.classList.contains("disclosure--writein");
+});
+
+assert(writeIn.length === 1,
+  "The extra-request row is the one place on this screen to write: " +
+  writeIn.length);
+assert(writeIn[0].querySelector(".disclosure-pencil") !== null &&
+  writeIn[0].querySelector(".disclosure-chevron") === null,
+"A row that opens onto a field must not wear the same chevron as the " +
+  "rows that open onto more reading.");
+assert(writeIn[0].querySelector("textarea") !== null,
+  "The write-in row must actually hold the field it advertises.");
+
 console.log("test-repair-input: PASS");
-console.log("question/finding rules, extra-only work, and the removal of the " +
-  "per-finding form, candidates, supplement and preserve list behave as " +
-  "specified");
+console.log("question/finding rules, extra-only work, the removal of the " +
+  "per-finding form, candidates, supplement and preserve list, and the " +
+  "folded write-in row reading as a field behave as specified");

@@ -30,7 +30,31 @@ namespace MacroStudio.Tests
                 lightScreenshot,
                 darkScreenshot,
                 false,
-                false);
+                false,
+                "-");
+        }
+
+        // The same walk, with the finding naming a constraint from the
+        // target environment instead of naming none. That is what puts a
+        // category and an occurrence count on the findings screen, so a
+        // guide sample can be driven through the grouping it belongs to.
+        public static string RunWithEnvironmentKey(
+            string baseDir,
+            string bookPath,
+            string cacheDir,
+            string lightScreenshot,
+            string darkScreenshot,
+            string environmentKey)
+        {
+            return RunCore(
+                baseDir,
+                bookPath,
+                cacheDir,
+                lightScreenshot,
+                darkScreenshot,
+                false,
+                false,
+                environmentKey);
         }
 
         internal static string RunDiagnosisOnly(
@@ -47,7 +71,8 @@ namespace MacroStudio.Tests
                 lightScreenshot,
                 darkScreenshot,
                 true,
-                false);
+                false,
+                "-");
         }
 
         internal static string RunPathMap(
@@ -64,7 +89,8 @@ namespace MacroStudio.Tests
                 lightScreenshot,
                 darkScreenshot,
                 false,
-                true);
+                true,
+                "-");
         }
 
         private static string RunCore(
@@ -74,7 +100,8 @@ namespace MacroStudio.Tests
             string lightScreenshot,
             string darkScreenshot,
             bool diagnosisOnly,
-            bool pathMap)
+            bool pathMap,
+            string environmentKey)
         {
             SmokeRunner runner = new SmokeRunner(
                 baseDir,
@@ -83,7 +110,8 @@ namespace MacroStudio.Tests
                 lightScreenshot,
                 darkScreenshot,
                 diagnosisOnly,
-                pathMap);
+                pathMap,
+                environmentKey);
             Thread thread = new Thread(runner.Run);
             thread.IsBackground = true;
             thread.SetApartmentState(ApartmentState.STA);
@@ -112,6 +140,7 @@ namespace MacroStudio.Tests
             private readonly string darkScreenshot;
             private readonly bool diagnosisOnly;
             private readonly bool pathMap;
+            private readonly string envKey;
 
             private Application application;
             private Window window;
@@ -137,8 +166,12 @@ namespace MacroStudio.Tests
                 string lightScreenshot,
                 string darkScreenshot,
                 bool diagnosisOnly,
-                bool pathMap)
+                bool pathMap,
+                string environmentKey)
             {
+                this.envKey = string.IsNullOrEmpty(environmentKey)
+                    ? "-"
+                    : environmentKey;
                 this.baseDir = Path.GetFullPath(baseDir);
                 this.bookPath = Path.GetFullPath(bookPath);
                 this.cacheDir = Path.GetFullPath(cacheDir);
@@ -160,8 +193,18 @@ namespace MacroStudio.Tests
                         ShutdownMode.OnExplicitShutdown;
 
                     window = new Window();
+                    // The size the operator's machine was checked at.
+                    // MACROSTUDIO_SMOKE_WINDOW=4x3 asks for the size the
+                    // product actually opens at instead, so the same walk
+                    // can produce evidence at the shipped proportion.
                     window.Width = 1366;
                     window.Height = 768;
+                    if (Environment.GetEnvironmentVariable(
+                        "MACROSTUDIO_SMOKE_WINDOW") == "4x3")
+                    {
+                        window.Width = 1120;
+                        window.Height = 840;
+                    }
                     window.Left = -10000;
                     window.Top = -10000;
                     window.ShowInTaskbar = false;
@@ -333,6 +376,18 @@ namespace MacroStudio.Tests
 
                     string marker = "'@MACROSTUDIO " + diagnosisId + " ";
                     string diagnosisResponse;
+                    // The finding has to name a module this workbook
+                    // actually has, and a line that module actually has,
+                    // or the package is rejected before it reaches a
+                    // screen. Reading both from the attached book is what
+                    // lets any workbook be driven through here.
+                    string firstModule = serializer.Deserialize<string>(
+                        await ReadJson(
+                            "(MacroStudioState.getState().modules" +
+                            ".filter(function (m) {" +
+                            "return m.lineCount > 0;" +
+                            "})[0] || MacroStudioState.getState()" +
+                            ".modules[0]).name"));
                     if (pathMap)
                     {
                         diagnosisResponse =
@@ -361,7 +416,7 @@ namespace MacroStudio.Tests
                         "The workbook exposes one test entry point.\r\n" +
                         marker + "SECTION END PURPOSE\r\n" +
                         marker + "SECTION BEGIN FLOW\r\n" +
-                        "AppController.Test is the visible flow.\r\n" +
+                        firstModule + " holds the visible flow.\r\n" +
                         marker + "SECTION END FLOW\r\n" +
                         marker + "SECTION BEGIN DEPENDENCY\r\n" +
                         "No external dependency is needed for this fixture.\r\n" +
@@ -371,7 +426,8 @@ namespace MacroStudio.Tests
                         marker + "SECTION END ENVIRONMENT\r\n" +
                         marker + "FINDING BEGIN 1\r\n" +
                         marker + "META CLASS=DEFECT CONFIDENCE=CONFIRMED " +
-                        "MODULE=AppController PROC=Test LINES=2 ENVKEY=-\r\n" +
+                        "MODULE=" + firstModule + " PROC=- LINES=1 " +
+                        "ENVKEY=" + envKey + "\r\n" +
                         marker + "TEXT BEGIN TITLE\r\n" +
                         "Finding for flow smoke\r\n" +
                         marker + "TEXT END TITLE\r\n" +
@@ -663,13 +719,13 @@ namespace MacroStudio.Tests
                     marker = "'@MACROSTUDIO " + repairId + " ";
                     string repairResponse =
                         marker + "SUMMARY BEGIN\r\n" +
-                        "AppController now has a visible test effect.\r\n" +
+                        firstModule + " now has a visible test effect.\r\n" +
                         "FlowSmokeHelpers was added for the flow smoke.\r\n" +
                         marker + "SUMMARY END\r\n" +
-                        marker + "BEGIN standard AppController\r\n" +
+                        marker + "BEGIN standard " + firstModule + "\r\n" +
                         "Option Explicit\r\n" +
                         "Public Sub Test(): Beep: End Sub\r\n" +
-                        marker + "END standard AppController\r\n" +
+                        marker + "END standard " + firstModule + "\r\n" +
                         marker + "BEGIN standard FlowSmokeHelpers\r\n" +
                         "Option Explicit\r\n" +
                         "Public Sub Touch(): Debug.Print \"flow\": End Sub\r\n" +

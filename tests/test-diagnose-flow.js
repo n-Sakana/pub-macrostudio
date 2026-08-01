@@ -248,9 +248,51 @@ function zeroFindingPackage(requestId) {
     }).length === writesBefore,
   "A missing target environment must stop before host generation.");
 
+  // ---- one filled button at a time ----
+  // A screen offering two equally weighted actions does not say which
+  // one is now. The reference this design follows keeps exactly one
+  // filled control per view, and so does this screen: the copy is the
+  // action until the request has gone out, the intake is the action
+  // after it has, and once the reply is in neither is - [次へ] is.
+  function primaryLabels() {
+    return dom.collect(
+      workflow.createDiagnoseScreen(store.getState()),
+      function (node) {
+        return node.classList &&
+          node.classList.contains("button") &&
+          node.classList.contains("button--primary");
+      }).map(function (node) {
+      return dom.text(node);
+    });
+  }
+
+  attach();
+  await workflow.prepareDiagnosisRequest(false);
+
+  var beforeCopy = primaryLabels();
+
+  assert(beforeCopy.length === 1 && beforeCopy[0].indexOf("コピー") >= 0,
+    "Before the request goes out, the copy is the only filled action: " +
+    JSON.stringify(beforeCopy));
+
+  store.setDiagnosisHandoffProgress(true, false);
+  var afterCopy = primaryLabels();
+
+  assert(afterCopy.length === 1 && afterCopy[0].indexOf("取り込む") >= 0,
+    "Once the request has gone out, the intake becomes the only filled " +
+    "action: " + JSON.stringify(afterCopy));
+
+  await workflow.applyDiagnosisText(
+    zeroFindingPackage(store.getState().diagnosisRequestId));
+  assert(store.getState().diagnosis !== null &&
+    primaryLabels().length === 0,
+  "With the reply in, neither button is the action any more: " +
+    JSON.stringify(primaryLabels()));
+
   console.log("test-diagnose-flow: PASS");
   console.log("screen-1 generation, transaction rollback, zero findings, " +
-    "split progress and E-ENV stop behave as specified");
+    "split progress, E-ENV stop and one filled button at a time behave " +
+    "as specified");
 }()).catch(function (error) {
   console.error(error && error.stack || error);
   process.exitCode = 1;

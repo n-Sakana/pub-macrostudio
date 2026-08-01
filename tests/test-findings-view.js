@@ -42,7 +42,8 @@ var context = vm.createContext({window: windowObject, document: documentObject})
 windowObject.window = windowObject;
 windowObject.document = documentObject;
 
-["icons.js", "preset-document.js", "screens.js", "screens/workflow.js"].forEach(
+["icons.js", "preset-document.js", "handover.js", "screens.js",
+  "screens/workflow.js"].forEach(
   function (name) {
     vm.runInContext(readUtf8(path.join(root, "assets", "js", name)), context,
       {filename: name});
@@ -141,10 +142,20 @@ summaryRows.forEach(function (row) {
 assert(dom.text(screen).indexOf("帳票を作ります。") >= 0,
   "The summary bodies must still carry the section text.");
 
+// The band counts the kinds that are here and says nothing about the
+// ones that are not. "補助 0" is a fact about a category, not about this
+// workbook, and each one the reader skips past costs the ones that count.
 var counts = dom.text(screen.querySelector(".diagnosis-counts"));
-assert(counts.indexOf("阻害 1") >= 0 && counts.indexOf("補助 0") >= 0 &&
+assert(counts.indexOf("阻害 1") >= 0 &&
   dom.text(screen).indexOf("想定環境: 新しい業務端末（2026-08-01 版）") >= 0,
 "The conclusion band must show class counts and the actual environment.");
+assert(counts.indexOf(" 0") < 0,
+  "A kind with nothing in it must not take a place in the band: " + counts);
+assert(dom.collect(screen.querySelector(".diagnosis-counts"), function (node) {
+  return node.classList && node.classList.contains("class-chip");
+}).length === 1,
+"Five findings that name one constraint are one problem, so the band " +
+  "carries one chip.");
 
 state.diagnosis.findings = [];
 var empty = workflow.createFindingsScreen(state);

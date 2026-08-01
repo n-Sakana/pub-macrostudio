@@ -190,6 +190,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-bookio.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-build.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-book-inventory.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-guide-samples.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-guide-sample-flow.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-host-runtime.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-hostservices.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-clipboard-retry.ps1
@@ -303,6 +304,15 @@ node tests\test-vba-lexer.js
   **この端末で作れなかった部分は `UNBUILT` として明示し、期待を満たしたことに
   しない**（生成側が理由を記録していなければ失敗する）。対応表は
   `docs\beta2\guide-sample-map.md`。
+- `tests\test-guide-sample-flow.ps1` … 上の 10 本を**実 WebView2 ホスト**で
+  端から端まで通す。添付・診断依頼・返答取り込み・分類表示・指摘の選択・
+  改修依頼・返答取り込み・再生成・読み直し・成果物までを 1 本ずつ歩き、
+  毎回 `source=unchanged`（元ブックが書き換わっていないこと）を確かめる。
+  診断はサンプルが宣言した環境キーを名乗るので、そのサンプルが属する分類を
+  通る。既定の 1366×768 に加え、`MACROSTUDIO_SMOKE_WINDOW=4x3` で
+  製品が実際に開く 1120×840 でも同じ歩きができる。証跡は
+  `docs\beta2\evidence\e2e\`。実クリップボードを借りるため、サンプル間に
+  短い待ちを入れている。
 - `tests\test-host-runtime.ps1` … いま MacroStudio が動いている端末の OS／
   プロセスのアーキテクチャと、読み取れる場合の Excel / Office の版・ビット数。
   取得元は注入できるので、注入した表だけが答えを決めること、読めない値は

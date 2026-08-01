@@ -4,7 +4,11 @@ param(
     [string]$LightScreenshotPath,
     [string]$DarkScreenshotPath,
     [ValidateSet('P10FlowSmoke', 'ShortestPathSmoke')]
-    [string]$SmokeClass = 'P10FlowSmoke'
+    [string]$SmokeClass = 'P10FlowSmoke',
+    # Names a constraint from the target environment on the smoke's
+    # finding, so the walk goes through a category rather than through
+    # "no constraint named". Empty keeps the original route.
+    [string]$EnvironmentKey
 )
 
 $ErrorActionPreference = 'Stop'
@@ -133,6 +137,15 @@ try {
                 $cacheDir,
                 $lightScreenshot,
                 $darkScreenshot)
+        } elseif (-not [string]::IsNullOrEmpty($EnvironmentKey)) {
+            $rawResult =
+                [MacroStudio.Tests.P10FlowSmoke]::RunWithEnvironmentKey(
+                    $repoRoot,
+                    $resolvedBookPath,
+                    $cacheDir,
+                    $lightScreenshot,
+                    $darkScreenshot,
+                    $EnvironmentKey)
         } else {
             $rawResult = [MacroStudio.Tests.P10FlowSmoke]::Run(
                 $repoRoot,
@@ -225,13 +238,25 @@ try {
         $findings.oldEntries -eq 0 -and
         $findings.nextReady
     ) 'The diagnosis page must show the facts and no template at all.'
+    # A recommendation is earned by a named constraint. With none named
+    # nothing is starred; with one named, at most one template is.
+    $expectedStars = 0
+    $starRule = 'star nothing when the finding names no environment constraint'
+    if (-not [string]::IsNullOrEmpty($EnvironmentKey) -and
+        $EnvironmentKey -ne '-') {
+        $expectedStars = [int]$nextStep.recommended
+        $starRule = 'star at most one template when the finding names one'
+        Assert-True ($expectedStars -le 1) `
+            'A named constraint must not star more than one template.'
+    }
     Assert-True (
         $nextStep.screen -eq 3 -and
         $nextStep.presetCards -eq 4 -and
         ([string]$nextStep.firstCard).Contains('01_Win32') -and
-        $nextStep.recommended -eq 0 -and
+        $nextStep.recommended -eq $expectedStars -and
         -not $nextStep.nextReady
-    ) 'The choice page must list the templates in the fixed order, and star nothing when the finding names no environment constraint.'
+    ) ('The choice page must list the templates in the fixed order, and ' +
+       $starRule + '.')
     Assert-True (
         $preset.selected -eq 1 -and
         $preset.engine -ceq 'AI' -and
