@@ -224,7 +224,7 @@ var invalidCases = [
     message:
       "知らない見出しがあります: ## メモ。" +
       "使えるのは「## 改修指示」「## 出力指示」「## 質問」「## 説明」" +
-      "「## エンジン」「## 希望動作の候補」「## 維持すること」" +
+      "「## 置換の候補」「## 希望動作の候補」「## 維持すること」" +
       "「## 推奨条件」" +
       "「## 出力指示（モジュール単位）」「## 出力指示（分割）」です。"
   },
@@ -295,8 +295,6 @@ var repairWithSections = parseRepair(lines([
   "# 改修ひな形",
   "## 説明",
   "画面に出す説明です。",
-  "## エンジン",
-  "AI",
   "## 希望動作の候補",
   "- 結果を変えずに直す",
   "- 確認事項を返す",
@@ -314,8 +312,9 @@ var repairWithSections = parseRepair(lines([
 assert(repairWithSections.valid, repairWithSections.message);
 assert(
   repairWithSections.stage === "repair" &&
-    repairWithSections.engine === presetApi.engines.ai,
-  "A repair preset must expose its stage and AI engine.");
+    repairWithSections.replaceRules === null,
+  "A repair preset that asks for no component must say so by asking for " +
+    "none.");
 assert(
   JSON.stringify(repairWithSections.behaviorCandidates) ===
     JSON.stringify(["結果を変えずに直す", "確認事項を返す"]) &&
@@ -327,8 +326,8 @@ assert(
     repairWithSections.splitDiagnosisOutput === null,
   "Repair split output must use its beta 1.10 property only.");
 assert(
-  parsed.engine === presetApi.engines.ai,
-  "An omitted repair engine must default to AI.");
+  parsed.replaceRules === null,
+  "A template that declares no rules asks for no component.");
 
 var diagnosisWithSplit = presetApi.parse(lines([
   "# 診断ひな形",
@@ -345,25 +344,36 @@ var diagnosisWithSplit = presetApi.parse(lines([
 assert(diagnosisWithSplit.valid, diagnosisWithSplit.message);
 assert(
   diagnosisWithSplit.stage === "diagnose" &&
-    diagnosisWithSplit.engine === null &&
+    diagnosisWithSplit.replaceRules === null &&
     diagnosisWithSplit.splitOutput === null &&
     diagnosisWithSplit.splitDiagnosisOutput.body ===
       "診断を分割して返してください。",
   "Diagnosis split output must be separate from repair split output.");
 
-var pathReplacement = parseRepair(lines([
-  "# 固定パスを置き換える",
+// A template asks for the app's replacement table by saying what to look
+// for and what to call it. The app knows nothing about the subject; the
+// pattern and the name both come from here.
+var replaceTemplate = parseRepair(lines([
+  "# 置き換える",
   "## 説明",
   "確認した値へ置き換えます。",
-  "## エンジン",
-  "固定パス置換"
+  "## 置換の候補",
+  "- ドライブから始まる場所 | ^[A-Za-z]:[\\\\/] | 既定で選ぶ",
+  "- ファイル名 | \\.[A-Za-z0-9]{1,8}$"
 ]));
 assert(
-  pathReplacement.valid &&
-    pathReplacement.engine === presetApi.engines.pathReplacement &&
-    pathReplacement.instruction === null &&
-    pathReplacement.output === null,
-  "A fixed-path preset needs no AI instruction or output section.");
+  replaceTemplate.valid &&
+    replaceTemplate.instruction === null &&
+    replaceTemplate.output === null,
+  "A template that only asks for the table needs no instruction or " +
+    "output section: " + replaceTemplate.message);
+assert(
+  replaceTemplate.replaceRules.length === 2 &&
+    replaceTemplate.replaceRules[0].label === "ドライブから始まる場所" &&
+    replaceTemplate.replaceRules[0].pattern === "^[A-Za-z]:[\\\\/]" &&
+    replaceTemplate.replaceRules[0].selectedByDefault === true &&
+    replaceTemplate.replaceRules[1].selectedByDefault === false,
+  "The rules must survive with their pattern and their default intact.");
 
 [
   {
@@ -387,12 +397,20 @@ assert(
     message: presetApi.messages.wrongRepairSplit
   },
   {
-    label: "unknown engine",
+    label: "replacement rule without a pattern",
     stage: "repair",
     text: complete.replace(
       "## 改修指示",
-      "## エンジン\n\n自動\n\n## 改修指示"),
-    message: presetApi.messages.unknownEngine
+      "## 置換の候補\n\n- ドライブ\n\n## 改修指示"),
+    message: presetApi.messages.invalidReplaceRule
+  },
+  {
+    label: "replacement rule the app cannot compile",
+    stage: "repair",
+    text: complete.replace(
+      "## 改修指示",
+      "## 置換の候補\n\n- 壊れた規則 | ^[A-Z\n\n## 改修指示"),
+    message: "「## 置換の候補」の正規表現が読み取れません: 壊れた規則"
   },
   {
     label: "non-list behavior candidates",
@@ -403,17 +421,17 @@ assert(
     message: "「## 希望動作の候補」は「- 文」の箇条書きで書いてください。"
   },
   {
-    label: "repair-only engine in diagnosis",
+    label: "repair-only replacement rules in diagnosis",
     stage: "diagnose",
     text: complete.replace(
       "## 改修指示",
-      "## エンジン\n\nAI\n\n## 改修指示"),
-    message: "「## エンジン」は改修ひな形だけで使えます。"
+      "## 置換の候補\n\n- 名前 | ^x\n\n## 改修指示"),
+    message: "「## 置換の候補」は改修ひな形だけで使えます。"
   },
   {
-    label: "fixed-path preset without description",
+    label: "table-only preset without description",
     stage: "repair",
-    text: "# 固定パス\n\n## エンジン\n\n固定パス置換\n",
+    text: "# 置き換える\n\n## 置換の候補\n\n- 名前 | ^x\n",
     message: "「## 説明」がありません。"
   }
 ].forEach(function (item) {

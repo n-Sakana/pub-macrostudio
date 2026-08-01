@@ -715,11 +715,14 @@
           content: result.content,
           parsed: parsed
         });
-        if (parsed.engine === "固定パス置換" &&
+        // The template said what to look for; the app looks, and nothing
+        // in the app decides what a candidate is.
+        if (parsed.replaceRules &&
             (changed || !global.MacroStudioPathMap.isProductResult(
               store.getState().pathMap))) {
           store.setPathMap(global.MacroStudioPathMap.detect(
-            store.getBookModules()));
+            store.getBookModules(),
+            parsed.replaceRules));
         }
         store.setBusyAction(null);
         global.MacroStudioApp.showToast(parsed.name + " を選びました。", "success");
@@ -754,11 +757,12 @@
       content: raw.content,
       parsed: parsed
     });
-    if (parsed.engine === "固定パス置換" &&
+    if (parsed.replaceRules &&
         (changed || !global.MacroStudioPathMap.isProductResult(
           global.MacroStudioState.getState().pathMap))) {
       global.MacroStudioState.setPathMap(global.MacroStudioPathMap.detect(
-        global.MacroStudioState.getBookModules()));
+        global.MacroStudioState.getBookModules(),
+        parsed.replaceRules));
     }
     return true;
   }
@@ -1638,11 +1642,6 @@
     return box;
   }
 
-  function isLockedPathClass(className) {
-    return className === "knownFolder" || className === "fragment" ||
-      className === "bareName" || className === "ambiguous";
-  }
-
   function createPathEvidenceCode(occurrence) {
     var block = element("div", "path-evidence-code");
 
@@ -1716,38 +1715,39 @@
     var identity = element("div", "path-map-identity");
     var controls = element("div", "path-map-controls");
     var evidenceKey = "path-map-evidence-" + String(index);
-    var locked = isLockedPathClass(row["class"]);
     var input;
     var inputLabel;
+    var includeRow;
+    var include;
 
     identity.appendChild(element("code", "path-map-value", row.from));
+    // The name of the kind came from the template with the rule that
+    // matched. The app repeats it and does not know what it means.
     identity.appendChild(element(
       "span",
       "path-map-class",
-      global.MacroStudioPathMap.classLabels[row["class"]] || row["class"]));
+      row.label || row["class"]));
     identity.appendChild(element(
       "span",
       "path-map-count",
       row.occurrences.length + "か所"));
     summary.appendChild(identity);
-    if (locked) {
-      var includeRow = optionRow(
-        "path-map-include-" + String(index),
-        "この候補も置き換える",
-        row.included === true,
-        state.busyAction !== null,
-        "path-map-include",
-        "path-map-include");
-      var include = includeRow.querySelector("input");
-      include.setAttribute("data-group-key", row.groupKey);
-      include.setAttribute("data-evidence-key", evidenceKey);
-      summary.appendChild(includeRow);
-    }
+    includeRow = optionRow(
+      "path-map-include-" + String(index),
+      "この候補を置き換える",
+      row.included === true,
+      state.busyAction !== null,
+      "path-map-include",
+      "path-map-include");
+    include = includeRow.querySelector("input");
+    include.setAttribute("data-group-key", row.groupKey);
+    include.setAttribute("data-evidence-key", evidenceKey);
+    summary.appendChild(includeRow);
     box.appendChild(summary);
 
-    if (!locked || row.included) {
+    if (row.included) {
       inputLabel = element("label", "form-field path-map-target");
-      inputLabel.appendChild(element("span", "form-label", "新しい場所"));
+      inputLabel.appendChild(element("span", "form-label", "置き換え後の値"));
       input = element("input", "form-input path-map-input");
       input.type = "text";
       input.value = row.to;
@@ -1756,24 +1756,6 @@
       input.setAttribute("data-group-key", row.groupKey);
       inputLabel.appendChild(input);
       controls.appendChild(inputLabel);
-      if (row.locationClassChangeMessage) {
-        controls.appendChild(element(
-          "p",
-          "path-map-info",
-          row.locationClassChangeMessage));
-      }
-      if (row.needsLocationShapeConfirmation) {
-        var confirmRow = optionRow(
-          "path-map-confirm-" + String(index),
-          "入力した値が場所の形になっていないことを確認した",
-          row.locationShapeConfirmed === true,
-          state.busyAction !== null,
-          "path-map-location-shape-confirm",
-          "path-map-confirm");
-        confirmRow.querySelector("input")
-          .setAttribute("data-group-key", row.groupKey);
-        controls.appendChild(confirmRow);
-      }
       if (!row.valid && row.validationMessage) {
         controls.appendChild(element(
           "p",
@@ -1794,14 +1776,14 @@
     var root = task(true);
     var mapping = state.pathMap;
     var rows = mapping && Array.isArray(mapping.rows) ? mapping.rows : [];
-    var intro = section("固定パスの候補", "path-map-intro");
+    var intro = section("置換の候補", "path-map-intro");
     var list = element("div", "path-map-list");
 
     intro.appendChild(element(
       "p",
       "path-map-guidance",
       "コードの文字列として見つかった候補です。" +
-        "置き換えるものだけ、新しい場所を入力してください。"));
+        "置き換えるものだけチェックして、置き換え後の値を入力してください。"));
     intro.appendChild(element(
       "p",
       "path-map-fact",
@@ -1823,7 +1805,7 @@
   }
 
   function createRepairInputScreen(state) {
-    if (state.presetEngine === "固定パス置換") {
+    if (state.presetEngine === "対応表による置換") {
       return createPathMapScreen(state);
     }
     var root = task(true);
@@ -2085,11 +2067,6 @@
         store.getState().pathMap,
         target.getAttribute("data-group-key"),
         {to: target.value}));
-    } else if (kind === "path-map-location-shape-confirm") {
-      store.setPathMap(global.MacroStudioPathMap.updateRow(
-        store.getState().pathMap,
-        target.getAttribute("data-group-key"),
-        {locationShapeConfirmed: target.checked === true}));
     }
     return true;
   }
@@ -2129,7 +2106,7 @@
       return false;
     }
     global.MacroStudioApp.showToast(
-      result.mapping.rows.length + "種類の固定パスを置き換えました。",
+      result.mapping.rows.length + "種類の文字列を置き換えました。",
       "success");
     store.goNext();
     return true;

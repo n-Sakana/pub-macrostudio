@@ -131,11 +131,11 @@ state.setRepairPreset({
   name: "固定パスを新環境へ置き換える",
   content: "path preset",
   parsed: {
-    engine: "固定パス置換", questions: [], behaviorCandidates: [],
+    replaceRules: [{label: "ドライブ", pattern: "^[A-Za-z]:[\\\\/]", selectedByDefault: true}], questions: [], behaviorCandidates: [],
     preserveItems: [], output: null, splitOutput: null
   }
 });
-var mapping = pathApi.detect(state.getBookModules());
+var mapping = pathApi.detect(state.getBookModules(), state.getState().presetReplaceRules);
 assert(pathApi.isProductResult(mapping),
   "The product path detector must brand its mapping contract.");
 assert(!pathApi.isProductResult(JSON.parse(JSON.stringify(mapping))),

@@ -58,6 +58,7 @@
       presetFile: null,
       presetName: "",
       presetContent: "",
+      presetReplaceRules: null,
       presetEngine: null,
       presetSnapshot: null,
       questions: [],
@@ -269,7 +270,6 @@
         to: String(row && row.to || ""),
         included: row && row.included === true,
         applied: row && row.applied === true,
-        locationShapeConfirmed: row && row.locationShapeConfirmed === true,
         validationId: String(row && row.validationId || "")
       };
     }) : [];
@@ -385,6 +385,7 @@
     state.presetFile = null;
     state.presetName = "";
     state.presetContent = "";
+    state.presetReplaceRules = null;
     state.presetEngine = null;
     state.presetSnapshot = null;
     state.questions = [];
@@ -633,7 +634,15 @@
     state.presetFile = file;
     state.presetName = String(next.name || parsed.name || "");
     state.presetContent = content;
-    state.presetEngine = parsed.engine || "AI";
+    // A template that declared what to look for is asking for the
+    // replacement table. Which component it wants is the only thing the
+    // app reads out of this; what the rules mean is the template's.
+    state.presetReplaceRules = Array.isArray(parsed.replaceRules)
+      ? parsed.replaceRules.slice()
+      : null;
+    state.presetEngine = state.presetReplaceRules
+      ? "対応表による置換"
+      : "AI";
     state.presetSnapshot = JSON.stringify({file: file, content: content});
     state.questions = Array.isArray(parsed.questions)
       ? parsed.questions.slice()
@@ -1030,10 +1039,10 @@
           code)
       };
     });
-    count = importPackageItems(items, "固定パス置換");
+    count = importPackageItems(items, "対応表による置換");
     state.repairIntakeRequestId = null;
     state.repairResultSnapshot = state.repairInputSnapshot;
-    state.repairResultEngine = "固定パス置換";
+    state.repairResultEngine = "対応表による置換";
     state.deterministicCodeSnapshot = snapshot;
     state.intakeResult = result;
     notify();
@@ -1044,7 +1053,7 @@
     var snapshot = state.deterministicCodeSnapshot;
     var names;
 
-    if (state.repairResultEngine !== "固定パス置換" || !snapshot) {
+    if (state.repairResultEngine !== "対応表による置換" || !snapshot) {
       return false;
     }
     names = Object.keys(snapshot);
@@ -1196,7 +1205,7 @@
     resetOutputName();
     state.repairInputSnapshot = createRepairInputSnapshot();
     state.repairResultSnapshot = state.repairInputSnapshot;
-    state.repairResultEngine = "固定パス置換";
+    state.repairResultEngine = "対応表による置換";
     state.selectedModuleName = "Main";
     state.screen = global.MacroStudioScreens.reviewScreen;
     notify();

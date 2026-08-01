@@ -508,8 +508,9 @@ namespace MacroStudio.Tests
                             "var state=MacroStudioState.getState();" +
                             "var entries=MacroStudioPreset.describeAll(" +
                             "state.appInfo.presets.repair,'repair');" +
+                            // The one that asks for the replacement table.
                             "var fixed=entries.filter(function(entry){" +
-                            "return entry.valid&&entry.engine!=='AI';})[0];" +
+                            "return entry.valid&&entry.replaceRules;})[0];" +
                             "var cards=Array.prototype.slice.call(" +
                             "document.querySelectorAll(" +
                             "'[data-action=\"select-repair-preset\"]'));" +
@@ -558,10 +559,17 @@ namespace MacroStudio.Tests
                             ".length," +
                             "nextReady:!document.querySelector(" +
                             "'[data-action=\"go-next\"]').disabled};}())"));
+                        // A row the template ticked already shows its
+                        // input; one it left unticked has to be included
+                        // first. Both routes end at the same field.
                         await Execute(
+                            "(function(){" +
+                            "if(document.querySelector(" +
+                            "'[data-workflow-input=\"path-map-to\"]')){" +
+                            "return;}" +
                             "document.querySelector(" +
                             "'[data-workflow-input=\"path-map-include\"]')" +
-                            ".click();");
+                            ".click();}())");
                         await WaitFor(
                             "document.querySelector(" +
                             "'[data-workflow-input=\"path-map-to\"]')" +

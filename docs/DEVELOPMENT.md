@@ -81,8 +81,14 @@ macrostudio/
   診断以降を捨て、指摘選択・希望動作・追加要望・ひな形が変われば改修以降だけを捨てる。
   host 書き込みが成功する前に状態を確定しない（SPEC §2.6.1）。
 - **ツールは判断を持たない**（SPEC §1.1）。SPEC に列挙のない正規化・意味解釈・
-  自動選択を追加しない。限定例外の固定パス経路も、検出するのは文字列トークンの位置と値
+  自動選択を追加しない。置換経路も、検出するのは文字列トークンの位置と値
   だけで、良否と新しい値は人が決める。貼り付け正規化は SPEC §13.13 が全量。
+- **アプリはフレームワークだけを持つ**。アプリが持つのは汎用の部品（自由記述の欄、
+  「置換前 → 置換後」の対応表）と、アプリ自身が決めた構造（区分・分類・手順・画面の
+  文言）。**改修の個別対象（Win32 API、固定パス、参照設定）はひな形が持つ**。
+  ひな形が「この部品を使う」と宣言し、アプリはその部品を出すだけで、
+  何を探すのか・何と呼ぶのかを知らない。`assets/js/` に「Win32」「固定パス」といった
+  対象名を書かないこと。
 - **想定動作環境の正本は `environment/target-environment.json`**。host は strict UTF-8
   で毎回読み、内容を解釈しない。schema 検証・並べ替え・プロンプト整形は
   `assets/js/target-environment.js` だけが持つ。key や title/detail を C#・JS・ひな形へ
@@ -104,11 +110,16 @@ macrostudio/
 - **第 1 AI 診断の返答契約は `assets/js/diagnosis-package.js` だけが持つ**。
   D01〜D28、0 件結論、診断 `PART` の受理と構造統合を `app.js` や C# へ複製しない。
   診断ひな形の完全記入例をテストの文字列へ複製せず、実 Markdown から抽出して検査する。
-- **固定パスの字句解析は `assets/js/vba-lexer.js`、検出・集約・検証・適用は
+- **字句解析は `assets/js/vba-lexer.js`、検出・集約・検証・適用は
   `assets/js/path-map.js` だけが持つ**。前者は UTF-16 座標で原文へ可逆な token を返し、
   後者は private brand を持つ検出結果だけを受け取る。適用直前に全 occurrence を再字句解析し、
   module / line / column / value が 1 件でも違えば E-MAP-02 で全件中止する。
   `app.js` に lexer、分類、置換の第 2 実装を置かず、任意文字列の全置換 API を公開しない。
+  **何を候補として拾うかは `path-map.js` が決めない**。ひな形の
+  `## 置換の候補`（`- 呼び方 | 正規表現 | 既定で選ぶ`）を `detect(modules, rules)` へ
+  渡し、上から順に当てはめて最初に一致した行の呼び方になる。どの規則にも当たらない
+  文字列は候補にしない。読み取りが安全でない行は規則を当てず一律に伏せる。
+  置き換え後の値の「形」は検査しない（それは人の判断）。
 - **取り込みの単位はパッケージ 1 つで、適用は必ず置き換え**（SPEC §5.3 / §10.2）。
   `importPackage` は先に `clearImportedModules` で前回分を取り消してから適用する。
   検証は `getBookModules()`（= ブック由来のモジュール）に対して行い、前回の返答が
@@ -218,6 +229,7 @@ node tests\test-diagnose-flow.js
 node tests\test-diagnosis-package.js
 node tests\test-diagnosis-preset-cardinality.js
 node tests\test-diagnosis-recovery.js
+node tests\test-no-domain-knowledge.js
 node tests\test-diagnosis-split.js
 node tests\test-diff-report-toggle.js
 node tests\test-diff-report.js
@@ -261,6 +273,13 @@ node tests\test-vba-lexer.js
   一括受理と同一の内部形式になることを固定する。
 - `tests\test-diagnosis-preset-cardinality.js` … 診断ひな形の有効ファイルが
   0 件／2 件以上なら `E-PRESET-02`、1 件ならその 1 件だけを採用することを検査する。
+- `tests\test-no-domain-knowledge.js` … `assets/js` に改修対象の名前
+  （Win32・固定パス・参照設定・Power Query・ActiveX・バーコード等）が
+  **入っていないこと**の門番。アプリが持つのは汎用部品と自分の区分だけで、
+  何を探すかはひな形が決める。`detect(modules, rules)` が規則を受け取る形で
+  あること、ひな形が実際にその規則を持っていることを併せて固定する。
+  未解消の箇所は `KNOWN_DEBT` に列挙してあり、**減らすことはできても
+  増やすことはできない**（消えたら一覧から外すことを強制する）。
 - `tests\test-handover.js` … 改修ガイド §5 のテスト観点 4 区分と §6 の
   引渡し成果物を固定する。指摘は環境キーで 1 つの問題へまとまること、観点は
   その実行が触れた軸だけへ絞られること、コードの外にある作業（参照設定・
@@ -315,7 +334,7 @@ node tests\test-vba-lexer.js
 - `tests\test-read-report.js` … 読み取り結果の 2 段階（SPEC §13.6）。
   管理情報だけの不整合に「コードを確認してください」を出さないこと、
   内訳が無いときは控えめな文言へ落ちること。
-- `tests\test-vba-lexer.js` … 固定パス置換専用 lexer の REM・角括弧・文字列・
+- `tests\test-vba-lexer.js` … 置換経路が使う lexer の REM・角括弧・文字列・
   条件付きコンパイル・行継続・未終端構文と UTF-16 座標を検査する。monthly-report の
   全 `.bas` と、`BookIO.ReadProject` で抽出して SHA-256 を固定した
   `test_large.xlsm` の全モジュールで、トークン再連結が原文と完全一致することを見る。
@@ -342,7 +361,7 @@ node tests\test-vba-lexer.js
   固定する。実 WebView2 側は診断、指摘選択、希望動作、改修、差分、読み直し検証済みの
   出力までを通し、原本の SHA-256 が変わらないことを確認する。
 - `tests\test-editor-focus.ps1` … 入力中の画面（SPEC §3.7）。実 WebView2 で
-  画面 4 の希望動作欄と追加の要望欄、および固定パス経路の新しい値欄へ打ち込み、
+  画面 4 の希望動作欄と追加の要望欄、および置換経路の置き換え後の値欄へ打ち込み、
   **値ではなく欄そのもの**を見る。1 打鍵ごとに同じ DOM 要素のままか、フォーカスと
   カーソル位置が保たれるかを記録し、通常入力、IME 変換中の Enter（画面遷移しない）、
   貼り付け、範囲選択からの置換を検査する。1366×768 では本文・横方向のスクロールが
@@ -381,7 +400,7 @@ node tests\test-vba-lexer.js
 - `tests\test-split-webview.ps1` は同じ WebView2 実動経路で、モジュール単位出力の
   チェックボックス、`diagnose-request.md` と `repair-request.md`、診断 part の欠番・
   冪等重複・統合、改修 part の衝突拒否・統合・取り込み直しを検証する。
-- `tests\test-path-map-webview.ps1` は実 monthly-report fixture と固定パスひな形で、
+- `tests\test-path-map-webview.ps1` は実 monthly-report fixture と置換の候補を宣言したひな形で、
   候補集約、既定未適用、ロック行の明示選択、新しい値、preview diff、ビルド、
   再読一致、原本非破壊を検査する。AI 改修依頼を作らず改修入力から差分確認へ進む。
 - `tests\test-p9-preset.ps1` と `tests\test-flow-webview.ps1` は

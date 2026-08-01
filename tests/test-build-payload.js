@@ -307,7 +307,7 @@ var mappingMemo = app.createResultMarkdown({
   outputDateStamp: "20260730",
   presetName: "固定パスを新環境へ置き換える",
   repairRequestId: null,
-  repairResultEngine: "固定パス置換",
+  repairResultEngine: "対応表による置換",
   diagnosisFilePath: "C:\\run\\diagnosis.md",
   repairRequestFilePath: null,
   intakeResult: {
@@ -332,7 +332,7 @@ var mappingMemo = app.createResultMarkdown({
   }]
 }, "20260730_010203");
 assert(
-  mappingMemo.indexOf("## 固定パスの対応表") >= 0 &&
+  mappingMemo.indexOf("## 置換の対応表") >= 0 &&
     mappingMemo.indexOf("C:\\old\\report.xlsx") >= 0 &&
     mappingMemo.indexOf("D:\\new\\report.xlsx") >= 0 &&
     mappingMemo.indexOf("Module1 / Run / 4行目") >= 0,

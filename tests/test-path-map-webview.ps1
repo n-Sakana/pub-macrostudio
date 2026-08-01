@@ -264,11 +264,13 @@ try {
         -not $pathBuild.engineIsAi
     ) 'The built state must retain one exact mapping and no repair request.'
 
+    # "## 置換の対応表". The heading names the mechanism, not a subject:
+    # what is being replaced is the template's business, not the app's.
     $resultText = [IO.File]::ReadAllText([string]$done.resultPath)
     Assert-True ($resultText.Contains('## ' +
-        ([char]0x56FA) + ([char]0x5B9A)) -and
+        ([char]0x7F6E) + ([char]0x63DB)) -and
         $resultText.Contains('mapped/')) `
-        'result.md must include the reviewed fixed-path mapping table.'
+        'result.md must include the reviewed replacement table.'
     Assert-True (-not $resultText.Contains('repair-request.md')) `
         'A deterministic run must not advertise a second-AI artifact.'
 

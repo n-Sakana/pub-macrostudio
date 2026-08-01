@@ -89,7 +89,7 @@ entries.forEach(function (entry) {
   assert(
     entry.name.length > 0,
     "Shipped preset " + entry.file + " has no H1 name.");
-  if (entry.engine !== presetApi.engines.pathReplacement) {
+  if (entry.replaceRules === null) {
     assert(
       entry.instruction.body.length > 0 &&
         entry.output.body.length > 0,
@@ -97,13 +97,16 @@ entries.forEach(function (entry) {
   }
 });
 
-// ---- folder-defined stages and hidden engine dispatch ----
+// ---- folder-defined stages, and components asked for by name ----
+// A template that wants the app's replacement table says what to look
+// for. The app has no list of templates and no idea what the patterns
+// mean; the only thing it reads here is "this one needs the table".
 
 var refactorEntries = repairEntries.filter(function (entry) {
-  return entry.engine === presetApi.engines.ai;
+  return entry.replaceRules === null;
 });
 var pathEntries = repairEntries.filter(function (entry) {
-  return entry.engine === presetApi.engines.pathReplacement;
+  return entry.replaceRules !== null;
 });
 
 assert(
@@ -115,10 +118,17 @@ assert(
   "Folder membership must be the only source of the preset stage.");
 assert(
   refactorEntries.length === 3 && pathEntries.length === 1,
-  "Repair presets must expose three AI routes and one fixed-path route.");
+  "Repair presets must expose three chat routes and one that asks for " +
+    "the replacement table.");
 assert(
   pathEntries[0].instruction === null && pathEntries[0].output === null,
-  "The fixed-path route must not invent an AI request.");
+  "A template that only asks for the table must not invent a request.");
+assert(
+  pathEntries[0].replaceRules.length > 0 &&
+    pathEntries[0].replaceRules.every(function (rule) {
+      return rule.label.length > 0 && rule.pattern.length > 0;
+    }),
+  "Every rule must bring its own name and its own pattern.");
 refactorEntries.forEach(function (entry) {
   assert(
     entry.behaviorCandidates.length > 0 &&
@@ -497,8 +507,9 @@ assert(
   /コード(は|を)書き換え/.test(diagnosisWhole),
   "The diagnosis must state that it changes nothing.");
 assert(
-  diagnosis.splitOutput === null && diagnosis.engine === null,
-  "Diagnosis must expose neither a repair split contract nor an engine.");
+  diagnosis.splitOutput === null && diagnosis.replaceRules === null,
+  "Diagnosis must expose neither a repair split contract nor a component " +
+    "request.");
 [
   "ThisWorkbook.Path",
   "Win32 API の Declare 呼び出しが実行できない",
@@ -647,8 +658,7 @@ assert(
 var added = presetApi.describeAll(repairPresets.concat([
   {
     file: "追加.md",
-    content: "# 追加\n\n## エンジン\nAI\n\n## 改修指示\n本文\n\n" +
-      "## 出力指示\n出力\n"
+    content: "# 追加\n\n## 改修指示\n本文\n\n## 出力指示\n出力\n"
   }
 ]), "repair");
 assert(

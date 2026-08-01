@@ -78,8 +78,8 @@
   }
 
   function getEngine(state) {
-    return state && state.presetEngine === "固定パス置換"
-      ? "固定パス置換"
+    return state && state.presetEngine === "対応表による置換"
+      ? "対応表による置換"
       : "AI";
   }
 
@@ -154,7 +154,7 @@
   }
 
   function isDeterministicResultCurrent(state) {
-    return Boolean(state && state.repairResultEngine === "固定パス置換" &&
+    return Boolean(state && state.repairResultEngine === "対応表による置換" &&
       state.repairResultSnapshot && state.repairInputSnapshot &&
       state.repairResultSnapshot === state.repairInputSnapshot);
   }
@@ -227,7 +227,7 @@
   }
 
   function isRepairInputReady(state) {
-    return getEngine(state) === "固定パス置換"
+    return getEngine(state) === "対応表による置換"
       ? isPathMapReady(state)
       : isAiRepairInputReady(state);
   }
@@ -318,8 +318,8 @@
       title: function () { return "改修する内容を決めます"; },
       meta: function (state) { return state.presetName || "改修の入力"; },
       context: function (state) {
-        return getEngine(state) === "固定パス置換"
-          ? "置換する固定パスを確認します"
+        return getEngine(state) === "対応表による置換"
+          ? "置き換える内容を確認します"
           : "改修する指摘にチェックが入っていることを確かめます";
       },
       ready: isRepairInputReady
@@ -479,7 +479,7 @@
       return NEXT_STEP_SCREEN;
     }
     if (current === REPAIR_INPUT_SCREEN &&
-        getEngine(state) === "固定パス置換") {
+        getEngine(state) === "対応表による置換") {
       return REVIEW_SCREEN;
     }
     return clampIndex(current + 1);

@@ -641,13 +641,13 @@
     var untouched = state.modules.filter(function (module) {
       return module.status !== "changed";
     });
-    var mappingRows = state.repairResultEngine === "固定パス置換" &&
+    var mappingRows = state.repairResultEngine === "対応表による置換" &&
       state.intakeResult && state.intakeResult.mapping &&
       Array.isArray(state.intakeResult.mapping.rows)
       ? state.intakeResult.mapping.rows
       : [];
     var summary = mappingRows.length > 0
-      ? mappingRows.length + "種類の固定パスを、確認した対応表どおりに置き換えました。"
+      ? mappingRows.length + "種類の文字列を、確認した対応表どおりに置き換えました。"
       : (state.intakeResult && state.intakeResult.summary
         ? String(state.intakeResult.summary)
         : "");
@@ -677,7 +677,7 @@
     }
     lines.push("");
     if (mappingRows.length > 0) {
-      lines.push("## 固定パスの対応表");
+      lines.push("## 置換の対応表");
       lines.push("");
       lines.push("| 種類 | 置換前 | 置換後 | 件数 | 出現箇所 |");
       lines.push("|---|---|---|---:|---|");
@@ -1617,7 +1617,7 @@
     var forwardLabel = done
       ? "完了"
       : (state.screen === api.repairInputScreen &&
-          api.getEngine(state) === "固定パス置換"
+          api.getEngine(state) === "対応表による置換"
         ? "この内容で置き換える"
         : "次へ");
     var forwardReady = done

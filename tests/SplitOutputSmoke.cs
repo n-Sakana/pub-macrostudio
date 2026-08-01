@@ -254,7 +254,7 @@ namespace MacroStudio.Tests
                     "var found = '';" +
                     "entries.forEach(function(entry){" +
                     "if (!found && entry.valid && " +
-                    "entry.engine === MacroStudioPreset.engines.ai && " +
+                    "!entry.replaceRules && " +
                     "entry.splitOutput) {" +
                     "found = entry.file;}});" +
                     "return found;}())");

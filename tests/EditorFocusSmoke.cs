@@ -247,10 +247,15 @@ namespace MacroStudio.Tests
                 await SelectPreset(true);
                 await ClickNext();
                 await WaitForScreen("repairInputScreen");
+                // A row the template ticked already shows its input; one
+                // it left unticked has to be included first.
                 await Execute(
+                    "(function(){" +
+                    "if(document.querySelector(" +
+                    "'[data-workflow-input=\"path-map-to\"]')){return;}" +
                     "document.querySelector(" +
                     "'[data-workflow-input=\"path-map-include\"]')" +
-                    ".click();");
+                    ".click();}())");
                 await WaitFor(
                     "document.querySelector(" +
                     "'[data-workflow-input=\"path-map-to\"]')" +
@@ -332,8 +337,8 @@ namespace MacroStudio.Tests
                     "var target=entries.filter(function(entry){" +
                     "return entry.valid&&" +
                     (fixedPath
-                        ? "entry.engine!=='AI';"
-                        : "entry.engine==='AI';") +
+                        ? "entry.replaceRules;"
+                        : "!entry.replaceRules;") +
                     "})[0];" +
                     "var cards=Array.prototype.slice.call(" +
                     "document.querySelectorAll(" +

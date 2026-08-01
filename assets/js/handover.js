@@ -216,8 +216,8 @@
         "一致することを確認した");
       done.push("元のブックを変更していないことを確認した");
     }
-    if (state.repairResultEngine === "固定パス置換") {
-      done.push("置換した固定パスが、確認した対応表のとおりであることを確認した");
+    if (state.repairResultEngine === "対応表による置換") {
+      done.push("置き換えた文字列が、確認した対応表のとおりであることを確認した");
     }
     return done;
   }

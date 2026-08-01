@@ -181,7 +181,7 @@ for (var index = screens.bookScreen; index < screens.doneScreen; index += 1) {
     "The AI route must not skip screen " + index + ".");
 }
 assert(screens.nextIndex(
-  {presetEngine: "固定パス置換"},
+  {presetEngine: "対応表による置換"},
   screens.repairInputScreen) === screens.reviewScreen,
 "Only the fixed-path engine may branch from the repair input to review.");
 assert(screens.nextIndex(
@@ -334,7 +334,7 @@ store.setRepairPreset({
   content: "# path preset",
   parsed: {
     name: "固定パスを新環境へ置き換える",
-    engine: "固定パス置換",
+    replaceRules: [{label: "ドライブ", pattern: "^[A-Za-z]:[\\\\/]", selectedByDefault: true}],
     questions: [],
     behaviorCandidates: [],
     preserveItems: [],
@@ -343,7 +343,7 @@ store.setRepairPreset({
   }
 });
 var pathApi = windowObject.MacroStudioPathMap;
-var pathMapping = pathApi.detect(store.getBookModules());
+var pathMapping = pathApi.detect(store.getBookModules(), store.getState().presetReplaceRules);
 assert(!store.setPathMap(JSON.parse(JSON.stringify(pathMapping))),
   "State must reject an unbranded mapping look-alike.");
 assert(store.setPathMap(pathMapping),

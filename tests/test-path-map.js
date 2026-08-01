@@ -77,42 +77,70 @@ var classifierModule = {
     "  Debug.Print [C:\\hidden\\bracket.txt]\r\n" +
     "End Sub\r\n"
 };
-var mapping = api.detect([classifierModule]);
+// The rules come from a template. This file supplies its own so that
+// what is being tested is the mechanism - lex, match, group, replace,
+// re-verify - and not any opinion about what a path is. The product has
+// no such opinion left to test.
+var RULES = [
+  {label: "ドライブ", pattern: "^[A-Za-z]:[\\\\/]", selectedByDefault: true},
+  {label: "共有", pattern: "^\\\\\\\\[^\\\\]", selectedByDefault: true},
+  {label: "URL", pattern: "^https?://", selectedByDefault: true},
+  {label: "環境変数", pattern: "%[A-Za-z_][A-Za-z0-9_()]*%"},
+  {label: "区切りあり", pattern: "[\\\\/]"}
+];
+var mapping = api.detect([classifierModule], RULES);
 
 assert(api.isProductResult(mapping), "Detection did not return a product result.");
 assert(Object.isFrozen(mapping), "The product mapping must be immutable.");
 [
-  ["C:\\Data\\report.xlsx", "driveAbsolute", "P-DRIVE-01"],
-  ["\\\\server\\share\\report.xlsx", "unc", "P-UNC-01"],
-  ["https://example.test/report.csv", "url", "P-URL-01"],
-  ["%APPDATA%\\MacroStudio\\cache.dat", "envVar", "P-ENV-01"],
-  ["..\\Users\\person\\Desktop\\report.xlsx", "knownFolder", "P-KNOWN-01"],
-  ["folder/", "fragment", "P-FRAG-01"],
-  ["report.xlsx", "bareName", "P-BARE-01"],
-  ["archive.tar", "ambiguous", "P-AMB-01"]
+  ["C:\\Data\\report.xlsx", "ドライブ"],
+  ["\\\\server\\share\\report.xlsx", "共有"],
+  ["https://example.test/report.csv", "URL"],
+  ["%APPDATA%\\MacroStudio\\cache.dat", "環境変数"],
+  ["..\\Users\\person\\Desktop\\report.xlsx", "区切りあり"],
+  ["folder/", "区切りあり"]
 ].forEach(function (expected) {
   var found = row(mapping, expected[0]);
-  assert(found, "Missing class fixture " + expected[0]);
-  equal(found["class"], expected[1], "Class mismatch for " + expected[0]);
-  equal(found.ruleId, expected[2], "Rule mismatch for " + expected[0]);
+  assert(found, "Missing rule fixture " + expected[0]);
+  equal(found.label, expected[1], "Label mismatch for " + expected[0]);
 });
+
+// A literal no rule claims is not a candidate. Deciding it might be one
+// anyway would be the app forming its own view.
+assert(!row(mapping, "report.xlsx") && !row(mapping, "archive.tar"),
+  "A literal no rule matched must not become a candidate.");
+
+// The first rule wins, and it wins for the whole group.
+equal(
+  row(mapping, "%APPDATA%\\MacroStudio\\cache.dat").label,
+  "環境変数",
+  "An earlier rule must win over a later one that also matches.");
 equal(
   row(mapping, "folder/").occurrences.length,
   2,
   "Equal values must aggregate by value alone.");
 assert(
-  row(mapping, "folder/").occurrences.some(function (occurrence) {
-    return occurrence["class"] === "ambiguous";
-  }),
-  "Each occurrence must retain its own lower-priority class.");
-equal(
-  row(mapping, "folder/")["class"],
-  "fragment",
-  "The group must retain the highest-priority occurrence class.");
-assert(
   row(mapping, "C:\\Data\\report.xlsx") !==
     row(mapping, "c:\\data\\report.xlsx"),
   "Case-distinct values must remain separate rows.");
+
+// Whether a candidate starts ticked is the template's call.
+assert(row(mapping, "C:\\Data\\report.xlsx").included === true &&
+  row(mapping, "folder/").included === false,
+"A rule's own default must decide whether its rows begin selected.");
+
+// Rules the template could not express are dropped, not guessed at.
+equal(
+  api.detect([classifierModule], [
+    {label: "壊れた", pattern: "^[A-Z"},
+    {label: "ドライブ", pattern: "^[A-Za-z]:[\\\\/]"}
+  ]).rows.length,
+  2,
+  "An uncompilable rule must be skipped without taking the rest with it.");
+equal(
+  api.detect([classifierModule], []).rows.length,
+  0,
+  "With no rules there are no candidates.");
 assert(
   mapping.rows.every(function (item) { return item.applied === false; }),
   "Every mapping row must begin unapplied.");
@@ -141,6 +169,8 @@ equal(
   "Probe",
   "The occurrence must be attributed to its live procedure.");
 
+// A line the lexer could not read safely around is never classified by a
+// rule: the tool refuses to guess about code it could not parse.
 var unsafe = api.detect([{
   name: "Unsafe",
   code:
@@ -151,135 +181,37 @@ var unsafe = api.detect([{
   code:
     "x = \"C:\\safe\\first.txt\" : [broken\r\n" +
     "y = \"C:\\unterminated\r\n"
-}]);
+}], RULES);
 assert(
   unsafe.rows.every(function (item) {
-    return item["class"] === "ambiguous" && item.ruleId === "P-AMB-02";
+    return item["class"] === api.unsafeClass;
   }),
   "Unbalanced conditionals and unterminated lines must lock every occurrence.");
+assert(
+  unsafe.rows.every(function (item) { return item.included === false; }),
+  "Nothing the tool could not read safely may begin selected.");
 
+// What the app checks is that a replacement can be carried out, not
+// whether it is a good one. The shape of the new value is the reader's
+// judgement and no rule here inspects it.
 [
-  {
-    input: {applied: true, "class": "fragment", to: ""},
-    id: "M01"
-  },
-  {
-    input: {applied: true, "class": "fragment", to: "x\tpath"},
-    id: "M02"
-  },
-  {
-    input: {
-      applied: true,
-      "class": "fragment",
-      to: new Array(1026).join("x")
-    },
-    id: "M03"
-  },
-  {
-    input: {
-      applied: true,
-      "class": "driveAbsolute",
-      to: "hello",
-      locationShapeConfirmed: false
-    },
-    id: "M04"
-  }
+  {input: {applied: true, to: ""}, id: "M01"},
+  {input: {applied: true, to: "x\tpath"}, id: "M02"},
+  {input: {applied: true, to: new Array(1026).join("x")}, id: "M03"}
 ].forEach(function (fixture) {
   var result = api.validateRow(fixture.input);
   assert(!result.ok, fixture.id + " failure was accepted.");
   equal(result.validationId, fixture.id, fixture.id + " ID mismatch.");
 });
 assert(
-  api.validateRow({
-    applied: false,
-    "class": "driveAbsolute",
-    to: "\t"
-  }).ok,
+  api.validateRow({applied: false, to: "\t"}).ok,
   "An unapplied row must not be validated.");
 assert(
-  api.validateRow({
-    applied: true,
-    "class": "driveAbsolute",
-    to: "D:\\new",
-    locationShapeConfirmed: false
-  }).ok,
-  "Keeping an absolute location class must pass M04.");
-assert(
-  api.validateRow({
-    applied: true,
-    "class": "driveAbsolute",
-    to: "https://example.test/new/",
-    locationShapeConfirmed: false
-  }).ok,
-  "A drive-to-URL change must pass M04 without confirmation.");
-var nonLocationValidation = api.validateRow({
-  applied: true,
-  "class": "driveAbsolute",
-  to: "hello",
-  locationShapeConfirmed: false
-});
-assert(
-  !nonLocationValidation.ok &&
-    nonLocationValidation.validationId === "M04" &&
-    nonLocationValidation.requiresConfirmation === true,
-  "A non-location target must require the M04 confirmation.");
-assert(
-  api.validateRow({
-    applied: true,
-    "class": "driveAbsolute",
-    to: "hello",
-    locationShapeConfirmed: true
-  }).ok,
-  "An explicitly confirmed non-location target must pass M04.");
+  api.validateRow({applied: true, to: "hello"}).ok,
+  "A value that does not look like the old one is still the reader's " +
+    "to make: the tool has no opinion about its shape.");
 
-var transitionMapping = api.detect([classifierModule]);
-transitionMapping = update(
-  api,
-  transitionMapping,
-  "C:\\Data\\report.xlsx",
-  {to: "https://example.test/shared/report.xlsx"});
-var transitionRow = row(transitionMapping, "C:\\Data\\report.xlsx");
-assert(
-  api.canApply(transitionMapping) &&
-    transitionRow.valid &&
-    !transitionRow.needsLocationShapeConfirmation,
-  "An absolute-class transition must be non-blocking.");
-equal(
-  transitionRow.locationClassChangeMessage,
-  "ドライブのパスから URL に変わります。",
-  "An absolute-class transition must be shown as information.");
-
-var nonLocationMapping = api.detect([classifierModule]);
-nonLocationMapping = update(
-  api,
-  nonLocationMapping,
-  "C:\\Data\\report.xlsx",
-  {to: "hello"});
-assert(
-  !api.canApply(nonLocationMapping) &&
-    row(nonLocationMapping, "C:\\Data\\report.xlsx")
-      .needsLocationShapeConfirmation,
-  "A non-location target must block deterministic apply.");
-nonLocationMapping = update(
-  api,
-  nonLocationMapping,
-  "C:\\Data\\report.xlsx",
-  {locationShapeConfirmed: true});
-assert(
-  api.canApply(nonLocationMapping),
-  "A confirmed non-location target must enable deterministic apply.");
-nonLocationMapping = update(
-  api,
-  nonLocationMapping,
-  "C:\\Data\\report.xlsx",
-  {to: "hello-again"});
-assert(
-  !api.canApply(nonLocationMapping) &&
-    !row(nonLocationMapping, "C:\\Data\\report.xlsx")
-      .locationShapeConfirmed,
-  "Changing a confirmed non-location target must require fresh confirmation.");
-
-var mergeMapping = api.detect([classifierModule]);
+var mergeMapping = api.detect([classifierModule], RULES);
 mergeMapping = update(
   api,
   mergeMapping,
@@ -294,20 +226,6 @@ assert(
   api.canApply(mergeMapping),
   "Two source rows may intentionally converge on the same new value.");
 assert(
-  row(mergeMapping, "\\\\server\\share\\report.xlsx")
-    .locationClassChangeMessage.length > 0,
-  "A UNC-to-drive transition must remain visible but non-blocking.");
-mergeMapping = update(
-  api,
-  mergeMapping,
-  "\\\\server\\share\\report.xlsx",
-  {to: "E:\\changed-again"});
-assert(
-  api.canApply(mergeMapping) &&
-    row(mergeMapping, "\\\\server\\share\\report.xlsx").validationId ===
-      null,
-  "Changing between absolute location classes must not trigger M04.");
-assert(
   JSON.stringify(api.validate(mergeMapping)).indexOf("M05") < 0,
   "M05 must not exist.");
 
@@ -320,7 +238,7 @@ var applyModule = {
     "  c = \"archive.tar\" ' C:\\Data\\report.xlsx stays text\r\n" +
     "End Sub\r\n"
 };
-var applyMapping = api.detect([applyModule]);
+var applyMapping = api.detect([applyModule], RULES);
 var newValue = "D:\\New\"Folder\\report.xlsx";
 applyMapping = update(
   api,
@@ -405,9 +323,9 @@ uiWindow.document = uiDocument;
     uiContext,
     {filename: name});
 });
-var uiMapping = uiWindow.MacroStudioPathMap.detect([classifierModule]);
+var uiMapping = uiWindow.MacroStudioPathMap.detect([classifierModule], RULES);
 var uiScreen = uiWindow.MacroStudioWorkflow.createRepairInputScreen({
-  presetEngine: "固定パス置換",
+  presetEngine: "対応表による置換",
   pathMap: uiMapping,
   busyAction: null
 });
@@ -416,69 +334,50 @@ var uiRows = dom.collect(uiScreen, function (node) {
 });
 equal(uiRows.length, uiMapping.rows.length,
   "Screen 4 must render one row per exact-value group.");
-var driveUiRow = uiRows.filter(function (node) {
+
+// The name beside a candidate is the one its rule carried. The app has
+// no table of its own to look it up in.
+assert(uiRows.some(function (node) {
+  return dom.text(node).indexOf("ドライブ") >= 0;
+}), "A row must be labelled with the name the template's rule gave it.");
+
+var selectedUiRow = uiRows.filter(function (node) {
   return dom.text(node).indexOf("C:\\Data\\report.xlsx") >= 0;
 })[0];
-var ambiguousUiRow = uiRows.filter(function (node) {
-  return dom.text(node).indexOf("archive.tar") >= 0;
+var unselectedUiRow = uiRows.filter(function (node) {
+  return dom.text(node).indexOf("folder/") >= 0;
 })[0];
-assert(driveUiRow && driveUiRow.querySelector(".path-map-input"),
-  "An absolute-path row must expose its input immediately.");
-assert(ambiguousUiRow &&
-  ambiguousUiRow.querySelector('[data-workflow-input="path-map-include"]') &&
-  !ambiguousUiRow.querySelector(".path-map-input"),
-  "An ambiguous row must stay locked until explicitly included.");
+assert(selectedUiRow && selectedUiRow.querySelector(".path-map-input"),
+  "A row the template ticks by default must expose its input at once.");
+assert(unselectedUiRow &&
+  unselectedUiRow.querySelector('[data-workflow-input="path-map-include"]') &&
+  !unselectedUiRow.querySelector(".path-map-input"),
+"A row the template leaves unticked must wait to be included.");
 var evidenceMarks = dom.collect(uiScreen, function (node) {
   return node.classList && node.classList.contains("path-evidence-mark");
 });
 assert(evidenceMarks.length > 0 && dom.text(evidenceMarks[0]).charAt(0) === '"',
   "Evidence must visibly mark the full string token, including its quotes.");
 
-var urlUiMapping = update(
-  uiWindow.MacroStudioPathMap,
-  uiMapping,
-  "C:\\Data\\report.xlsx",
-  {to: "https://example.test/shared/report.xlsx"});
-var urlUiScreen = uiWindow.MacroStudioWorkflow.createRepairInputScreen({
-  presetEngine: "固定パス置換",
-  pathMap: urlUiMapping,
-  busyAction: null
-});
-var urlUiRow = dom.collect(urlUiScreen, function (node) {
-  return node.classList && node.classList.contains("path-map-row") &&
-    dom.text(node).indexOf("C:\\Data\\report.xlsx") >= 0;
-})[0];
-assert(
-  urlUiRow &&
-    dom.text(urlUiRow).indexOf("ドライブのパスから URL に変わります。") >= 0 &&
-    !urlUiRow.querySelector(
-      '[data-workflow-input="path-map-location-shape-confirm"]'),
-  "A drive-to-URL change must show information without a confirmation gate.");
-
-var nonLocationUiMapping = update(
+// Nothing on this screen judges the value that was typed in.
+var typedUiMapping = update(
   uiWindow.MacroStudioPathMap,
   uiMapping,
   "C:\\Data\\report.xlsx",
   {to: "hello"});
-var nonLocationUiScreen =
-  uiWindow.MacroStudioWorkflow.createRepairInputScreen({
-    presetEngine: "固定パス置換",
-    pathMap: nonLocationUiMapping,
-    busyAction: null
-  });
-var nonLocationUiRow = dom.collect(nonLocationUiScreen, function (node) {
-  return node.classList && node.classList.contains("path-map-row") &&
-    dom.text(node).indexOf("C:\\Data\\report.xlsx") >= 0;
-})[0];
+var typedUiScreen = uiWindow.MacroStudioWorkflow.createRepairInputScreen({
+  presetEngine: "対応表による置換",
+  pathMap: typedUiMapping,
+  busyAction: null
+});
 assert(
-  nonLocationUiRow &&
-    nonLocationUiRow.querySelector(
-      '[data-workflow-input="path-map-location-shape-confirm"]') &&
-    dom.text(nonLocationUiRow).indexOf(
-      "入力した値が場所の形になっていないことを確認した") >= 0,
-  "A non-location target must render the M04 confirmation gate.");
+  uiWindow.MacroStudioPathMap.canApply(typedUiMapping) &&
+    dom.text(typedUiScreen).indexOf("場所の形") < 0,
+  "The screen must not gate a replacement on what the new value looks " +
+    "like.");
 
 console.log("test-path-map: PASS");
 console.log(
-  "8 classes, value-only grouping, M01-M04, exact-span rebuild, quote " +
-  "escaping, private brands and all-or-nothing E-MAP-02 are fixed");
+  "rules come from the template, first match wins, unmatched literals " +
+  "are not candidates, value-only grouping, M01-M03, exact-span rebuild, " +
+  "quote escaping, private brands and all-or-nothing E-MAP-02 are fixed");

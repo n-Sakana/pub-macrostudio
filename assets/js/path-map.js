@@ -1,45 +1,18 @@
 (function (global) {
   "use strict";
 
+  // A table of "replace this with that", built from the string literals
+  // a workbook's code actually contains.
+  //
+  // What counts as a candidate, and what each kind is called, is not
+  // decided here. The template says so, and this file is handed those
+  // rules. It knows how to lex VBA, how to group identical literals, and
+  // how to refuse to apply anything it cannot re-verify - the mechanism.
+  // It does not know what a path, a URL or a drive letter is.
   var productResults = new WeakSet();
-  var TEMPLATE_KEY = "fixed-path-replace";
-  var ABSOLUTE_CLASSES = {
-    driveAbsolute: true,
-    unc: true,
-    url: true
-  };
-  var OPEN_CLASSES = {
-    driveAbsolute: true,
-    unc: true,
-    url: true,
-    envVar: true
-  };
-  var CLASS_LABELS = {
-    driveAbsolute: "ドライブから始まる場所",
-    unc: "ネットワーク上の場所",
-    url: "URL",
-    envVar: "環境変数を含む場所",
-    knownFolder: "既知のフォルダー名",
-    fragment: "連結された場所の一部",
-    bareName: "ファイル名",
-    ambiguous: "確認が必要な候補"
-  };
-  var ABSOLUTE_CLASS_LABELS = {
-    driveAbsolute: "ドライブのパス",
-    unc: "ネットワークのパス",
-    url: "URL"
-  };
-  var PRIORITY = {
-    "P-AMB-02": 0,
-    "P-DRIVE-01": 1,
-    "P-UNC-01": 2,
-    "P-URL-01": 3,
-    "P-ENV-01": 4,
-    "P-KNOWN-01": 5,
-    "P-FRAG-01": 6,
-    "P-BARE-01": 7,
-    "P-AMB-01": 8
-  };
+  var UNSAFE_CLASS = "unsafe";
+  var UNSAFE_LABEL = "確認が必要な候補";
+  var UNMATCHED_CLASS = "other";
 
   function deepFreeze(value) {
     if (!value || typeof value !== "object" || Object.isFrozen(value)) {
@@ -65,74 +38,58 @@
     return JSON.parse(JSON.stringify(value));
   }
 
-  function isPathish(value) {
-    var text = String(value === undefined || value === null ? "" : value);
+  // The rules a template declared, compiled once. An entry the template
+  // could not express is dropped rather than guessed at.
+  function compileRules(rules) {
+    var compiled = [];
 
-    return text.indexOf("\\") >= 0 ||
-      text.indexOf("/") >= 0 ||
-      /%[A-Za-z_][A-Za-z0-9_()]*%/.test(text) ||
-      /\.[A-Za-z0-9]{1,8}$/.test(text);
+    (Array.isArray(rules) ? rules : []).forEach(function (rule, index) {
+      var pattern;
+
+      if (!rule || !rule.label || !rule.pattern) {
+        return;
+      }
+      try {
+        pattern = new RegExp(String(rule.pattern));
+      } catch (error) {
+        return;
+      }
+      compiled.push({
+        index: index,
+        className: "rule-" + index,
+        label: String(rule.label),
+        pattern: pattern,
+        selectedByDefault: rule.selectedByDefault === true
+      });
+    });
+    return compiled;
   }
 
-  function classifyAbsolute(value) {
-    var text = String(value === undefined || value === null ? "" : value);
-
-    if (/^[A-Za-z]:[\\/]/.test(text)) {
-      return {className: "driveAbsolute", ruleId: "P-DRIVE-01"};
-    }
-    if (/^\\\\[^\\]/.test(text)) {
-      return {className: "unc", ruleId: "P-UNC-01"};
-    }
-    if (/^(?:https?|ftp):\/\//i.test(text)) {
-      return {className: "url", ruleId: "P-URL-01"};
-    }
-    return null;
-  }
-
-  function hasKnownFolder(value) {
-    var text = String(value).toLowerCase();
-
-    return text.indexOf("\\users\\") >= 0 ||
-      text.indexOf("\\desktop") >= 0 ||
-      text.indexOf("\\documents") >= 0 ||
-      text.indexOf("\\appdata") >= 0 ||
-      text.indexOf("\\program files") >= 0;
-  }
-
-  function hasBareNameContext(code) {
-    return /\bWorkbooks[ \t]*\.[ \t]*Open\b/i.test(code) ||
-      /\bDir[ \t]*(?:\(|$|[ \t])/i.test(code) ||
-      /\bSaveAs\b/i.test(code) ||
-      /\bOpen\b[\s\S]*\bFor\b/i.test(code) ||
-      /\bFileSystemObject\b/i.test(code) ||
-      /\bGetObject\b/i.test(code);
-  }
-
-  function classifyOccurrence(value, logicalCode, unsafe) {
-    var absolute;
+  // The first rule that matches wins, so a template orders its rules
+  // from the most specific to the least. A literal the code could not be
+  // read safely around is never classified at all.
+  function classifyOccurrence(value, compiled, unsafe) {
+    var index;
 
     if (unsafe) {
-      return {className: "ambiguous", ruleId: "P-AMB-02"};
+      return {
+        className: UNSAFE_CLASS,
+        label: UNSAFE_LABEL,
+        rank: -1,
+        selectedByDefault: false
+      };
     }
-    absolute = classifyAbsolute(value);
-    if (absolute) {
-      return absolute;
+    for (index = 0; index < compiled.length; index += 1) {
+      if (compiled[index].pattern.test(value)) {
+        return {
+          className: compiled[index].className,
+          label: compiled[index].label,
+          rank: compiled[index].index,
+          selectedByDefault: compiled[index].selectedByDefault
+        };
+      }
     }
-    if (/%[A-Za-z_][A-Za-z0-9_()]*%/.test(value)) {
-      return {className: "envVar", ruleId: "P-ENV-01"};
-    }
-    if (hasKnownFolder(value)) {
-      return {className: "knownFolder", ruleId: "P-KNOWN-01"};
-    }
-    if ((value.indexOf("\\") >= 0 || value.indexOf("/") >= 0) &&
-        logicalCode.indexOf("&") >= 0) {
-      return {className: "fragment", ruleId: "P-FRAG-01"};
-    }
-    if (value.indexOf("\\") < 0 && value.indexOf("/") < 0 &&
-        hasBareNameContext(logicalCode)) {
-      return {className: "bareName", ruleId: "P-BARE-01"};
-    }
-    return {className: "ambiguous", ruleId: "P-AMB-01"};
+    return null;
   }
 
   function lineCount(value) {
@@ -151,20 +108,10 @@
 
   function decorateRow(row) {
     var result = validateRow(row);
-    var targetClass = classifyAbsolute(row.to);
-    var sourceIsAbsolute = ABSOLUTE_CLASSES[row["class"]] === true;
 
     row.valid = result.ok;
     row.validationId = result.validationId || null;
     row.validationMessage = result.message || "";
-    row.needsLocationShapeConfirmation = row.applied === true &&
-      sourceIsAbsolute && !targetClass;
-    row.locationClassChangeMessage = row.applied === true &&
-      sourceIsAbsolute && targetClass &&
-      targetClass.className !== row["class"]
-      ? ABSOLUTE_CLASS_LABELS[row["class"]] + "から " +
-        ABSOLUTE_CLASS_LABELS[targetClass.className] + " に変わります。"
-      : "";
     row.status = row.applied ? "applied" : "pending";
     return row;
   }
@@ -173,13 +120,13 @@
     return brand({
       kind: "mapping",
       schemaVersion: 1,
-      templateKey: TEMPLATE_KEY,
       rows: rows.map(decorateRow)
     });
   }
 
-  function detect(modules) {
+  function detect(modules, rules) {
     var lexer = global.MacroStudioVbaLexer;
+    var compiled = compileRules(rules);
     var groups = Object.create(null);
     var order = [];
 
@@ -188,8 +135,11 @@
         kind: "failure",
         ok: false,
         code: "E-MAP-02",
-        message: "固定パスの候補を安全に確認できませんでした。"
+        message: "置換の候補を安全に確認できませんでした。"
       });
+    }
+    if (compiled.length === 0) {
+      return createContract([]);
     }
     (Array.isArray(modules) ? modules : []).forEach(function (module) {
       var moduleName = String(module && module.name || "");
@@ -209,16 +159,15 @@
             return;
           }
           value = lexer.decodeStringToken(token);
-          if (!isPathish(value)) {
-            return;
-          }
           unsafe = line.unterminatedString ||
             line.unterminatedBracket ||
             !parsed.conditionalBalanced;
-          classification = classifyOccurrence(
-            value,
-            logical ? logical.code : "",
-            unsafe);
+          classification = classifyOccurrence(value, compiled, unsafe);
+          // A literal no rule claims is not a candidate. Deciding it
+          // might be one anyway would be the app having an opinion.
+          if (!classification) {
+            return;
+          }
           occurrence = {
             module: moduleName,
             procedure: token.procedure || "-",
@@ -226,7 +175,7 @@
             column: token.column,
             endColumn: token.endColumn,
             class: classification.className,
-            ruleId: classification.ruleId,
+            label: classification.label,
             inConditional: line.inConditional === true,
             conditionalUnbalanced: !parsed.conditionalBalanced,
             logicalLine: logical ? logical.text : line.text,
@@ -240,21 +189,21 @@
             row = {
               groupKey: value,
               "class": classification.className,
-              ruleId: classification.ruleId,
+              label: classification.label,
+              rank: classification.rank,
               from: value,
               to: "",
-              included: OPEN_CLASSES[classification.className] === true,
+              included: classification.selectedByDefault,
               applied: false,
-              locationShapeConfirmed: false,
               occurrences: []
             };
             groups[value] = row;
             order.push(value);
-          } else if (PRIORITY[classification.ruleId] <
-              PRIORITY[row.ruleId]) {
+          } else if (classification.rank < row.rank) {
             row["class"] = classification.className;
-            row.ruleId = classification.ruleId;
-            row.included = OPEN_CLASSES[classification.className] === true;
+            row.label = classification.label;
+            row.rank = classification.rank;
+            row.included = classification.selectedByDefault;
           }
           row.occurrences.push(occurrence);
         });
@@ -265,9 +214,11 @@
     }));
   }
 
+  // The app checks that a replacement can be carried out safely. What a
+  // good replacement looks like is the reader's judgement, not this
+  // file's, so nothing here inspects the shape of the new value.
   function validateRow(row) {
     var target;
-    var targetClass;
 
     if (!row || row.applied !== true) {
       return {ok: true};
@@ -277,7 +228,7 @@
       return {
         ok: false,
         validationId: "M01",
-        message: "新しい場所を入力してください。"
+        message: "置き換え後の値を入力してください。"
       };
     }
     if (/[\u0000-\u001F\u007F]/.test(target)) {
@@ -291,19 +242,8 @@
       return {
         ok: false,
         validationId: "M03",
-        message: "新しい場所は1024文字以内で入力してください。"
+        message: "置き換え後の値は1024文字以内で入力してください。"
       };
-    }
-    if (ABSOLUTE_CLASSES[row["class"]]) {
-      targetClass = classifyAbsolute(target);
-      if (!targetClass && row.locationShapeConfirmed !== true) {
-        return {
-          ok: false,
-          validationId: "M04",
-          requiresConfirmation: true,
-          message: "入力した値は場所の形になっていません。"
-        };
-      }
     }
     return {ok: true};
   }
@@ -314,7 +254,6 @@
 
     if (!isProductResult(mapping) || mapping.kind !== "mapping" ||
         mapping.schemaVersion !== 1 ||
-        mapping.templateKey !== TEMPLATE_KEY ||
         !Array.isArray(mapping.rows)) {
       return {
         ok: false,
@@ -372,28 +311,15 @@
         return;
       }
       found = true;
-      if (Object.prototype.hasOwnProperty.call(next, "included") &&
-          !OPEN_CLASSES[row["class"]]) {
+      if (Object.prototype.hasOwnProperty.call(next, "included")) {
         row.included = next.included === true;
       }
       if (Object.prototype.hasOwnProperty.call(next, "to")) {
-        var target = String(next.to === undefined || next.to === null
+        row.to = String(next.to === undefined || next.to === null
           ? ""
           : next.to);
-        if (target !== row.to) {
-          row.locationShapeConfirmed = false;
-        }
-        row.to = target;
-      }
-      if (Object.prototype.hasOwnProperty.call(
-          next,
-          "locationShapeConfirmed")) {
-        row.locationShapeConfirmed = next.locationShapeConfirmed === true;
       }
       row.applied = row.included === true && row.to.length > 0;
-      if (!row.applied) {
-        row.locationShapeConfirmed = false;
-      }
     });
     return found ? createContract(rows) : mapping;
   }
@@ -532,7 +458,6 @@
       kind: "apply",
       ok: true,
       schemaVersion: 1,
-      templateKey: TEMPLATE_KEY,
       modules: output,
       mapping: {
         rows: appliedRows.map(function (row) {
@@ -581,10 +506,8 @@
     canApply: canApply,
     apply: apply,
     isProductResult: isProductResult,
-    isPathish: isPathish,
-    classifyAbsolute: classifyAbsolute,
     countOccurrences: countOccurrences,
-    classLabels: clone(CLASS_LABELS),
-    templateKey: TEMPLATE_KEY
+    unsafeClass: UNSAFE_CLASS,
+    unmatchedClass: UNMATCHED_CLASS
   };
 }(window));

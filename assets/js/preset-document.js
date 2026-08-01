@@ -6,7 +6,11 @@
   var OUTPUT_TITLE = "出力指示";
   var SPLIT_OUTPUT_TITLE = "出力指示（モジュール単位）";
   var SPLIT_DIAGNOSIS_OUTPUT_TITLE = "出力指示（分割）";
-  var ENGINE_TITLE = "エンジン";
+  // A template that needs the app's replacement table declares what to
+  // look for and what to call it. The app supplies the table; it does
+  // not know what a path, a URL or a Win32 call is - that belongs to
+  // whoever wrote the template.
+  var REPLACE_TITLE = "置換の候補";
   var BEHAVIOR_CANDIDATES_TITLE = "希望動作の候補";
   var PRESERVE_TITLE = "維持すること";
   var RECOMMEND_TITLE = "推奨条件";
@@ -19,7 +23,7 @@
     DESCRIPTION_TITLE,
     SPLIT_OUTPUT_TITLE,
     SPLIT_DIAGNOSIS_OUTPUT_TITLE,
-    ENGINE_TITLE,
+    REPLACE_TITLE,
     BEHAVIOR_CANDIDATES_TITLE,
     PRESERVE_TITLE,
     RECOMMEND_TITLE
@@ -27,10 +31,6 @@
   var STAGES = {
     diagnose: "diagnose",
     repair: "repair"
-  };
-  var ENGINES = {
-    ai: "AI",
-    pathReplacement: "固定パス置換"
   };
 
   var MESSAGES = {
@@ -55,7 +55,7 @@
       "知らない見出しがあります: ## {title}。使えるのは「## " +
       INSTRUCTION_TITLE + "」「## " + OUTPUT_TITLE + "」「## " +
       QUESTION_TITLE + "」「## " + DESCRIPTION_TITLE + "」「## " +
-      ENGINE_TITLE + "」「## " + BEHAVIOR_CANDIDATES_TITLE + "」「## " +
+      REPLACE_TITLE + "」「## " + BEHAVIOR_CANDIDATES_TITLE + "」「## " +
       PRESERVE_TITLE + "」「## " + RECOMMEND_TITLE + "」「## " +
       SPLIT_OUTPUT_TITLE + "」「## " +
       SPLIT_DIAGNOSIS_OUTPUT_TITLE + "」です。",
@@ -67,9 +67,12 @@
       "診断・改修の段階は配置フォルダで決まります。",
     unknownStage:
       "ひな形の段階が分かりません。診断または改修のフォルダから読み込んでください。",
-    unknownEngine:
-      "「## " + ENGINE_TITLE + "」には「" + ENGINES.ai +
-      "」か「" + ENGINES.pathReplacement + "」と書いてください。",
+    invalidReplaceRule:
+      "「## " + REPLACE_TITLE +
+      "」は「- 呼び方 | 正規表現 | 既定で選ぶ」の形で書いてください。" +
+      "3 つ目は省けます。",
+    invalidReplacePattern:
+      "「## " + REPLACE_TITLE + "」の正規表現が読み取れません: {title}",
     repairOnlySection:
       "「## {title}」は改修ひな形だけで使えます。",
     diagnoseOnlySection:
@@ -199,7 +202,7 @@
       valid: false,
       name: "",
       stage: stage || "",
-      engine: null,
+      replaceRules: null,
       description: "",
       questions: [],
       behaviorCandidates: [],
@@ -211,6 +214,57 @@
       splitDiagnosisOutput: null,
       message: message
     };
+  }
+
+  // "- 呼び方 | 正規表現 | 既定で選ぶ". The pattern decides what counts
+  // as a candidate and the name decides what it is called; neither is
+  // the app's business, so both come from here.
+  function readReplaceRules(lines) {
+    var items = [];
+    var invalid = false;
+    var message = "";
+
+    lines.forEach(function (line) {
+      var match;
+      var parts;
+      var label;
+      var pattern;
+
+      if (trimSpace(line) === "" || invalid) {
+        return;
+      }
+      match = /^\s*-\s+(.+?)\s*$/.exec(line);
+      if (!match) {
+        invalid = true;
+        message = MESSAGES.invalidReplaceRule;
+        return;
+      }
+      // A pattern may itself contain "|", so the column separator is an
+      // unescaped one. "\|" inside a column is a literal pipe.
+      parts = match[1].split(/(?<!\\)\|/).map(function (part) {
+        return trimSpace(part).replace(/\\\|/g, "|");
+      });
+      if (parts.length < 2 || parts[0] === "" || parts[1] === "") {
+        invalid = true;
+        message = MESSAGES.invalidReplaceRule;
+        return;
+      }
+      label = parts[0];
+      pattern = parts[1];
+      try {
+        pattern = new RegExp(parts[1]);
+      } catch (error) {
+        invalid = true;
+        message = format(MESSAGES.invalidReplacePattern, label);
+        return;
+      }
+      items.push({
+        label: label,
+        pattern: parts[1],
+        selectedByDefault: parts.length > 2 && parts[2] !== ""
+      });
+    });
+    return {items: items, invalid: invalid, message: message};
   }
 
   function readSimpleList(lines) {
@@ -279,6 +333,7 @@
     var title;
     var body;
     var paragraphs;
+    var rules;
     var result;
 
     if (stage !== STAGES.diagnose && stage !== STAGES.repair) {
@@ -362,7 +417,7 @@
       valid: true,
       name: name,
       stage: stage,
-      engine: stage === STAGES.repair ? ENGINES.ai : null,
+      replaceRules: null,
       description: "",
       questions: [],
       behaviorCandidates: [],
@@ -398,17 +453,20 @@
         return failure(MESSAGES.emptyQuestions, stage);
       }
     }
-    if (Object.prototype.hasOwnProperty.call(sections, ENGINE_TITLE)) {
+    if (Object.prototype.hasOwnProperty.call(sections, REPLACE_TITLE)) {
       if (stage !== STAGES.repair) {
         return failure(format(
           MESSAGES.repairOnlySection,
-          ENGINE_TITLE), stage);
+          REPLACE_TITLE), stage);
       }
-      body = joinBody(sections[ENGINE_TITLE]);
-      if (body !== ENGINES.ai && body !== ENGINES.pathReplacement) {
-        return failure(MESSAGES.unknownEngine, stage);
+      rules = readReplaceRules(sections[REPLACE_TITLE]);
+      if (rules.invalid) {
+        return failure(rules.message, stage);
       }
-      result.engine = body;
+      if (rules.items.length === 0) {
+        return failure(format(MESSAGES.emptySection, REPLACE_TITLE), stage);
+      }
+      result.replaceRules = rules.items;
     }
     if (Object.prototype.hasOwnProperty.call(
       sections,
@@ -490,7 +548,10 @@
       };
     }
 
-    if (result.engine !== ENGINES.pathReplacement) {
+    // A template that only asks for the replacement table has nothing to
+    // send anywhere, so it needs no instruction and no output rules. Any
+    // other template speaks to a chat and needs both.
+    if (result.replaceRules === null) {
       for (index = 0; index < SECTION_TITLES.length; index++) {
         title = SECTION_TITLES[index];
         if (!Object.prototype.hasOwnProperty.call(sections, title)) {
@@ -540,7 +601,7 @@
         file: file,
         name: "",
         stage: stage || "",
-        engine: null,
+        replaceRules: null,
         description: "",
         questions: [],
         behaviorCandidates: [],
@@ -560,7 +621,7 @@
       file: file,
       name: parsed.name,
       stage: parsed.stage,
-      engine: parsed.engine,
+      replaceRules: parsed.replaceRules,
       description: parsed.description,
       questions: parsed.questions,
       behaviorCandidates: parsed.behaviorCandidates,
@@ -600,7 +661,7 @@
     outputTitle: OUTPUT_TITLE,
     splitOutputTitle: SPLIT_OUTPUT_TITLE,
     splitDiagnosisOutputTitle: SPLIT_DIAGNOSIS_OUTPUT_TITLE,
-    engineTitle: ENGINE_TITLE,
+    replaceTitle: REPLACE_TITLE,
     behaviorCandidatesTitle: BEHAVIOR_CANDIDATES_TITLE,
     preserveTitle: PRESERVE_TITLE,
     recommendTitle: RECOMMEND_TITLE,
@@ -608,7 +669,6 @@
     questionTitle: QUESTION_TITLE,
     descriptionTitle: DESCRIPTION_TITLE,
     stages: STAGES,
-    engines: ENGINES,
     messages: MESSAGES,
     stripComments: stripComments,
     parse: parse,
