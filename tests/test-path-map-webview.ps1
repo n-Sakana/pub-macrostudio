@@ -213,7 +213,7 @@ try {
         $review.screen -eq 6 -and
         $review.accepted -ge 1 -and
         $review.nextReady -and
-        $review.closed -ceq 'false' -and
+        $review.closed -ceq 'true' -and
         $diff.markers -gt 0 -and
         $diff.rows -gt 0 -and
         $diff.twoColumn -eq 0
@@ -239,7 +239,7 @@ try {
 
     Assert-True (-not [string]::IsNullOrEmpty($runFolder)) `
         'The first request did not create a run folder.'
-    Assert-InsideDirectory $runFolder $testdataRoot
+    Assert-InsideDirectory $runFolder (Join-Path $repoRoot 'exports')
     Assert-True (
         $done.screen -eq 9 -and
         $done.status -ceq 'success' -and
@@ -323,7 +323,7 @@ try {
 } finally {
     if (-not [string]::IsNullOrEmpty($runFolder) -and
         [IO.Directory]::Exists($runFolder)) {
-        Assert-InsideDirectory $runFolder $testdataRoot
+        Assert-InsideDirectory $runFolder (Join-Path $repoRoot 'exports')
         [IO.Directory]::Delete($runFolder, $true)
         $macroRoot = [IO.Path]::GetDirectoryName($runFolder)
         if ([IO.Directory]::Exists($macroRoot) -and

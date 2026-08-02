@@ -5,6 +5,8 @@
 
 - 生成: `tests\make-guide-samples.ps1` → `testdata\guide-samples\`（git 管理外）
 - 検査: `tests\test-guide-samples.ps1`（実 Excel 不要。製品自身の読み手で読み直す）
+  10 本すべてについて、生成ブックから読み出したモジュール本文が
+  fixture の `.bas` と一字一句一致することを含む
 - 定義: `tests\fixtures\guide-samples\samples.json`、`sheet-data.json`、`S**\*.bas`
 
 すべて自己完結です。入口マクロを実行しても、ファイル・共有・ネットワーク・
@@ -34,7 +36,7 @@
 | S05 | 3.2 Shell・スクリプト | `WScript.Shell` / `Shell.Application` の生成と `Shell` 起動が止められる | `SHELL_EXEC_BLOCKED` `SCRIPT_HOST_BLOCKED` | — | **混在**（要否の判断が先。廃止か標準機能へ） | `RunProbe` が通り、`作業!B2` = 「確認済み」。生成可否は端末の事実として `B3`/`B4` へ |
 | S06 | 3.2 参照設定 | `Scripting.Dictionary` の早期バインド。参照が無い端末ではコンパイル時に落ちる | `DLL_LOAD_BLOCKED` | 参照設定に `Scripting` | **人**（対象端末にライブラリがあるかは人が確認） | `RunCount` が通り、`作業!B2` = 「3」（区分の種類数） |
 | S07 | 3.3 Power Query | クエリと外部ブックリンクを持つ。接続先・資格情報はブックの外 | `CONNECTION_STRING` `EXTERNAL_WORKBOOK_LINK` | Power Query あり / 外部リンク 1 件以上 | **人**（接続先変更・認証・更新設定はブック外の作業） | `RunLocalSummary` が通り、`作業!B2` = 「集計済み」。**更新は実行しない** |
-| S08 | 3.5 ActiveX | ActiveX 無効の端末でコントロールが読み込まれない | `LEGACY_UI_AUTOMATION` | ActiveX 1 件以上 | **人**（有効化を前提にした解決は取らない） | `RunUpdateCaption` が通り、`作業!B2` = 「更新済み」。コントロールが無ければ `B4` = 「見つかりません」 |
+| S08 | 3.5 ActiveX | ActiveX 無効の端末でコントロールが読み込まれない | `LEGACY_UI_AUTOMATION` | ActiveX 0 件（この端末では作成できない。現物どおり） | **人**（有効化を前提にした解決は取らない） | `RunUpdateCaption` が通り、`作業!B2` = 「更新済み」。コントロールが無ければ `B4` = 「見つかりません」 |
 | S09 | 3.4 バーコード | Code 39 用フォントが無い端末では、文字列のまま読み取れない | （該当キーなし） | バーコードらしいフォント 1 件以上 | **人**（規格選定と実機読取テスト） | `RunFill` が通り、`作業!B2` = 「\*A1024\*」。読めるかは実機のスキャナでしか分からない |
 | S10 | 3.5 信頼設定 | `Workbook_Open` の自動実行があり、署名が無い。信頼できる場所の外では動かない | （該当キーなし） | VBA 署名なし | **人**（一律緩和は手順にしない。署名 → 配布場所 → 限定した信頼設定の順） | `RunStartup` が通り、`作業!B2` = 「起動処理済み」。自動実行の可否は端末側の事実 |
 
@@ -52,7 +54,7 @@
 | S05 | OK | OK | 一致 | `WScript.Shell` / `Shell.Application` の生成可否は実行時に記録 |
 | S06 | OK | OK | 一致 | 参照設定に `Scripting` を確認 |
 | S07 | OK | OK | 一致 | Power Query あり / 外部リンク 1 件 |
-| S08 | **一部不成立** | OK | 一致 | **ActiveX 0 件**（下記） |
+| S08 | OK | OK | 一致 | ActiveX 0 件（対応表もそのとおり。下記） |
 | S09 | OK | OK | 一致 | バーコードフォント `Code39` を確認 |
 | S10 | OK | OK | 一致 | 署名なしを確認 |
 
@@ -68,8 +70,10 @@
    **信頼センターの設定を緩めて回避することはしない**（ガイド 3.5
    「制限を一律に緩和する手順は標準手順に含めない」）。
    結果として S08 はコード側（`OLEObjects` を触る箇所）だけを持ち、
-   棚卸しの ActiveX 件数は 0 のまま。`test-guide-samples.ps1` はこれを
-   `UNBUILT` として明示し、期待を満たしたことにはしない。
+   棚卸しの ActiveX 件数は 0 である。対応表と `samples.json` は
+   その現物のとおり `activeXExactly: 0` を記録し、
+   `test-guide-samples.ps1` は 0 であることを等号で検査する
+   （満たせない「1 件以上」を掲げたままにしない）。
    ActiveX を持つブックでの棚卸しは `BookInventoryReader` の単体側で
    別途固定する必要がある（未実施）。
 
@@ -86,7 +90,15 @@
    実測ではない。第 5 段階（E2E）で 10 本を実際に診断へ通し、
    期待と実際を突き合わせる。
 
-4. **S04 の `Sleep` はこの端末では通る。**
+4. **S04 の `WindowUtils` は、生成時に編集器が余分な行を足していた。**
+   行継続を使った `Declare` を `CodeModule.AddFromString` で入れると、
+   編集器が最終行のあとに空行と `()` を書き足す（2026-08-02 に実測）。
+   生成側で余剰行を取り除き、fixture と一致することを確認してから
+   保存するようにした（`Set-ModuleToSource`）。
+   `test-guide-samples.ps1` は 10 本全モジュールについて、
+   製品の読み手で読み出した本文と fixture の一致を検査する。
+
+5. **S04 の `Sleep` はこの端末では通る。**
    EDR / 実行制御のある端末で止まることが `WIN32API_BLOCKED` の前提だが、
    この端末はその環境ではない。止まる側の挙動は未確認。
 

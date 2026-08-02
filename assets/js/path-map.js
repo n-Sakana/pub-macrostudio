@@ -351,6 +351,14 @@
     return "\"" + String(value).replace(/"/g, "\"\"") + "\"";
   }
 
+  // E-MAP-02 means the recorded positions did not line up with the code
+  // being replaced in. It is not evidence that the workbook changed, so
+  // the sentence points at the route that rebuilds the candidates
+  // instead of sending the reader back to Excel.
+  var POSITION_LOST_MESSAGE =
+    "置き換える場所を、記録した位置で確認できませんでした。" +
+    "何も置き換えていません。ひな形を選び直すと、候補を作り直せます。";
+
   function failure(code, message, validationId) {
     return brand({
       kind: "failure",
@@ -385,7 +393,7 @@
     if (!lexer || typeof lexer.lex !== "function") {
       return failure(
         "E-MAP-02",
-        "ブックを読み込み直して、もう一度やり直してください。");
+        POSITION_LOST_MESSAGE);
     }
     moduleList.forEach(function (module) {
       var name = String(module && module.name || "");
@@ -431,7 +439,7 @@
     if (preflightFailed) {
       return failure(
         "E-MAP-02",
-        "ブックを読み込み直して、もう一度やり直してください。");
+        POSITION_LOST_MESSAGE);
     }
 
     moduleList.forEach(function (module) {
@@ -469,6 +477,9 @@
           return {
             groupKey: row.groupKey,
             "class": row["class"],
+            // The name the template gave this kind, so the memo says
+            // what the screen said rather than the internal rule id.
+            label: row.label || row["class"],
             from: row.from,
             to: row.to,
             count: row.occurrences.length,

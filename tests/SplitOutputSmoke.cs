@@ -295,7 +295,7 @@ namespace MacroStudio.Tests
                 };
                 int sectionIndex;
 
-                lines.Add(marker + "DIAG BEGIN 1");
+                lines.Add(marker + "DIAG BEGIN 2");
                 for (sectionIndex = 0;
                     sectionIndex < sections.Length;
                     sectionIndex++)

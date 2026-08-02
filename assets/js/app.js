@@ -10,6 +10,13 @@
   var disclosureOpen = {};
   var newModuleNameDraft = "";
   var pasteEditDraft = "";
+  // Saying "this answer is not the one" is a decision the reader makes on
+  // the review screen; it is not part of whether the reply could be read.
+  var rejectionOpen = false;
+  var rejectionReasonDraft = "";
+  // The last manifest actually written, so an unchanged run does not
+  // rewrite its own record on every repaint.
+  var lastSavedManifest = null;
   var pendingEditDiscardAction = null;
   var pendingEditDiscardMode = "draft";
   var dropActive = false;
@@ -27,8 +34,13 @@
   };
 
   var attachErrorMessages = {
+    // Covers every way the read can fail before we ever establish the file
+    // is a workbook: it is gone, it is locked, it is too large, or it does
+    // not read as a workbook container at all (0 バイト・途中で切れた・
+    // 拡張子だけ .xlsm). It must not name one cause as if it were certain.
     "E-ATTACH-02":
-      "ファイルを読み取れませんでした。移動や削除がないか、アクセス権を確認してください。",
+      "ファイルを読み取れませんでした。ブックとして読み取れる形式ではないか、" +
+      "ファイルの移動・削除・アクセス権に問題がある可能性があります。",
     "E-ATTACH-03":
       "このブックにはマクロがありません。選んだファイルが正しいか確認してください。",
     "E-ATTACH-04":
@@ -39,8 +51,13 @@
   // Attach failures the run cannot continue past. They are shown on the
   // screen itself instead of a toast that fades: nothing else can happen
   // until a different file is chosen, so the reason has to stay visible.
-  var blockingAttachErrors = ["E-ATTACH-03", "E-ATTACH-04"];
+  var blockingAttachErrors = [
+    "E-ATTACH-02",
+    "E-ATTACH-03",
+    "E-ATTACH-04"
+  ];
   var attachErrorTitles = {
+    "E-ATTACH-02": "読み取れませんでした",
     "E-ATTACH-03": "マクロが見つかりません",
     "E-ATTACH-04": "パスワードで保護されています"
   };
@@ -328,7 +345,9 @@
   // detail opens in place under a label that says what it opens.
   function createDisclosure(key, label, content, options) {
     var settings = options || {};
-    var open = disclosureOpen[key] === true;
+    var open = Object.prototype.hasOwnProperty.call(disclosureOpen, key)
+      ? disclosureOpen[key] === true
+      : settings.openByDefault === true;
     var box = createElement(
       "div",
       "disclosure " + (settings.className || ""));
@@ -641,16 +660,25 @@
     var untouched = state.modules.filter(function (module) {
       return module.status !== "changed";
     });
-    var mappingRows = state.repairResultEngine === "対応表による置換" &&
-      state.intakeResult && state.intakeResult.mapping &&
-      Array.isArray(state.intakeResult.mapping.rows)
-      ? state.intakeResult.mapping.rows
+    // A run can carry both kinds of work. The note says what the tool
+    // replaced itself and what the chat reported, in that order,
+    // because that is the order they happened in.
+    var mappingRows = state.appliedMapping && state.appliedMapping.mapping &&
+      Array.isArray(state.appliedMapping.mapping.rows)
+      ? state.appliedMapping.mapping.rows
       : [];
-    var summary = mappingRows.length > 0
-      ? mappingRows.length + "種類の文字列を、確認した対応表どおりに置き換えました。"
-      : (state.intakeResult && state.intakeResult.summary
-        ? String(state.intakeResult.summary)
-        : "");
+    var notes = [];
+    var summary;
+
+    if (mappingRows.length > 0) {
+      notes.push(mappingRows.length +
+        "種類の文字列を、確認した対応表どおりに置き換えました。");
+    }
+    if (state.repairResultEngine !== "対応表による置換" &&
+        state.intakeResult && state.intakeResult.summary) {
+      notes.push(String(state.intakeResult.summary));
+    }
+    summary = notes.join("\n\n");
 
     function tableText(value) {
       return String(value === undefined || value === null ? "" : value)
@@ -665,6 +693,14 @@
     lines.push("- 依頼番号: " + (state.repairRequestId || "（なし）"));
     lines.push("- 作成した改修済みブック: " + state.outputName);
     lines.push("- 元のブック: " + state.book.name + "（変更していません）");
+    if (state.bookInventory) {
+      lines.push("- 元のブックの SHA-256: " +
+        (state.bookInventory.sha256 || "（読み取れませんでした）"));
+      lines.push("- 元のブックのサイズ: " +
+        String(state.bookInventory.sizeBytes || 0) + " バイト");
+      lines.push("- 元のブックの更新時刻 (UTC): " +
+        (state.bookInventory.modifiedUtc || "（読み取れませんでした）"));
+    }
     lines.push("");
     lines.push("## 改修内容");
     lines.push("");
@@ -688,7 +724,7 @@
             occurrence.line + "行目";
         }).join("、");
         lines.push(
-          "| " + tableText(row["class"]) +
+          "| " + tableText(row.label || row["class"]) +
           " | `" + tableText(row.from) +
           "` | `" + tableText(row.to) +
           "` | " + String(row.count || 0) +
@@ -731,8 +767,12 @@
     lines.push("## このフォルダのファイル");
     lines.push("");
     lines.push("- diagnose-request.md … 診断のためAIへ渡した第1依頼");
-    lines.push("- source-code.md … 改修前のコード全文");
-    lines.push("- diagnosis.md … 受理した診断結果");
+    lines.push("- source-code.md … 読み取った時点のコード全文（改修前）");
+    // 診断を飛ばした実行では diagnosis.md は作られない。無い物を並べると
+    // 「すべてこのフォルダにまとまっています」が嘘になる。
+    if (state.diagnosisFilePath) {
+      lines.push("- diagnosis.md … 受理した診断結果");
+    }
     if (state.repairRequestFilePath) {
       lines.push("- repair-request.md … 改修のためAIへ渡した第2依頼");
     }
@@ -744,6 +784,11 @@
         state.outputDateStamp) +
       " … 変更内容（全モジュール）");
     lines.push("- result.md … このメモ");
+    lines.push("- run-manifest.json … この実行の記録");
+    lines.push("");
+    lines.push("AIへ添付したコードは、この実行と同じ名前の temp フォルダーに" +
+      "`source-code-for-ai.md` として置いてあります。上の source-code.md は" +
+      "読み取った時点のままです。");
     lines.push("");
     return lines.join("\r\n");
   }
@@ -1103,11 +1148,154 @@
     return layout;
   }
 
+  // The reader has said the answer is wrong. What goes back to the chat
+  // is that reason plus the request this answer was for, in the shape the
+  // template asked replies to come in - so the next reply can be taken in
+  // through the same door as the first.
+  function createRejectionRequestText(state) {
+    var lines = [];
+    var reason = String(rejectionReasonDraft || "").trim();
+
+    lines.push("さきほどの返答は採用できませんでした。");
+    lines.push("次の点を直して、同じ依頼のまま返し直してください。");
+    lines.push("");
+    lines.push("【採用しない理由】");
+    lines.push(reason);
+    lines.push("");
+    lines.push("【この依頼】");
+    if (state.presetName) {
+      lines.push("ひな形: " + state.presetName);
+    }
+    if (state.repairRequestId) {
+      lines.push("依頼ID: " + state.repairRequestId);
+    }
+    if (state.book && state.book.name) {
+      lines.push("対象ブック: " + state.book.name);
+    }
+    if (state.outputRules) {
+      lines.push("");
+      lines.push(String(state.outputRules));
+    }
+    return lines.join("\r\n");
+  }
+
+  function setRejectionReason(value) {
+    rejectionReasonDraft = String(value === undefined ||
+      value === null ? "" : value);
+    return true;
+  }
+
+  // Redraw when there is a shell to draw into. announce() takes the same
+  // precaution: the screen builders are used on their own by the tests,
+  // where nothing has been mounted.
+  function repaint() {
+    if (!elements) {
+      return false;
+    }
+    render(global.MacroStudioState.getState());
+    return true;
+  }
+
+  function openRejection() {
+    rejectionOpen = true;
+    repaint();
+    return true;
+  }
+
+  function cancelRejection() {
+    rejectionOpen = false;
+    rejectionReasonDraft = "";
+    repaint();
+    return true;
+  }
+
+  function copyRejectionRequest() {
+    var state = global.MacroStudioState.getState();
+    var reason = String(rejectionReasonDraft || "").trim();
+
+    if (!reason || state.busyAction) {
+      return Promise.resolve(false);
+    }
+    global.MacroStudioState.setBusyAction("copyRejection");
+    return global.hostBridge.request("writeClipboard", {
+      text: createRejectionRequestText(state)
+    }).then(function () {
+      global.MacroStudioState.setBusyAction(null);
+      recordWarning("repair answer rejected by reader; correction request " +
+        "copied (reason length " + reason.length + ")");
+      showToast(
+        "修正依頼文をコピーしました。AIへ貼り付けて、" +
+          "新しい回答を［戻る］の画面で取り込み直してください。",
+        "success");
+      return true;
+    }, function (error) {
+      global.MacroStudioState.setBusyAction(null);
+      handleHostError(error || {code: "E-GEN-03"}, "", {
+        name: "retry-copy-rejection",
+        label: "もう一度コピー"
+      });
+      return false;
+    });
+  }
+
+  // Taking the answer in and deciding to keep it are two different
+  // things, so they are two different elements. This one is the decision.
+  function createRejectionPanel(state) {
+    var box = createElement("div", "rejection");
+    var field;
+    var row;
+    var copy;
+
+    if (!rejectionOpen) {
+      row = createElement("div", "step-actions");
+      row.appendChild(createFlowButton(
+        "この回答は採用しない",
+        "reject-repair-answer",
+        {}));
+      box.appendChild(row);
+      return box;
+    }
+    box.appendChild(createElement(
+      "label",
+      "form-label",
+      "採用しない理由（AIへの修正依頼文に入ります）"));
+    field = createElement("textarea", "form-textarea");
+    field.id = "rejection-reason";
+    field.rows = 3;
+    field.value = rejectionReasonDraft;
+    field.disabled = state.busyAction !== null;
+    field.setAttribute("data-app-input", "rejection-reason");
+    field.setAttribute("aria-label", "採用しない理由");
+    box.appendChild(field);
+    // What happens next is read before the button that does it, and it
+    // stays above the buttons: a toast sits at the bottom of the screen,
+    // and a line underneath the last control is the line it covers.
+    box.appendChild(createElement(
+      "p",
+      "task-note",
+      "コピーした文をAIへ渡し、返ってきた新しい回答を［戻る］の画面で" +
+        "取り込み直します。"));
+    row = createElement("div", "step-actions");
+    copy = createFlowButton(
+      "修正依頼文をコピー",
+      "copy-rejection-request",
+      {kind: "primary"});
+    copy.disabled = state.busyAction !== null ||
+      String(rejectionReasonDraft || "").trim().length === 0;
+    row.appendChild(copy);
+    row.appendChild(createFlowButton(
+      "やめる",
+      "cancel-reject-repair-answer",
+      {}));
+    box.appendChild(row);
+    return box;
+  }
+
   // The review screen shows what came in. Deciding to keep it is the
   // act of pressing next, so there is no separate accept button.
-  // The short way shows what the AI said it changed, and nothing else:
-  // no module list and no diff. The checks behind it are the same ones
-  // the detailed screen relies on - they have already run by now.
+  // What is on screen is what the reply changed. The structural checks
+  // that let it in say nothing about whether the change is right, so
+  // this screen never reports them as "no problems found".
   function createScreen6(state) {
     var api = global.MacroStudioScreens;
     var changed;
@@ -1116,31 +1304,41 @@
     var task;
     var headline;
     var kindWarning;
+    var facts;
 
     changed = api.countChanged(state);
     unchanged = api.countUnchangedImports(state);
-    open = disclosureOpen["change-detail"] === true;
-    task = createTask("task--wide" + (open ? " task--fill" : ""));
+    open = Object.prototype.hasOwnProperty.call(disclosureOpen, "change-detail")
+      ? disclosureOpen["change-detail"] === true
+      : true;
+    // The tall layout is for reading the diff. While a reason is being
+    // written the diff is not what the reader is looking at, so the
+    // screen goes back to its natural height and scrolls as one.
+    task = createTask("task--wide" +
+      (open && !rejectionOpen ? " task--fill" : ""));
     headline = createElement("div", "headline-card");
     kindWarning = state.intakeResult && state.intakeResult.kindWarning
       ? state.intakeResult.kindWarning
       : "";
+    facts = changed + "個のモジュールに変更があります" +
+      (unchanged > 0 ? "（" + unchanged + "個は変更なし）" : "");
 
     task.appendChild(createTaskIntro(
-      "取り込んだ内容です。右下の「次へ」でブックの作成へ進みます。"));
+      "取り込んだ内容です。変更箇所を確かめて、右下の「次へ」で" +
+        "ブックの作成へ進みます。"));
 
     headline.appendChild(createIcon("code", "headline-icon"));
+    // The deterministic replacement never asks an AI anything, so this screen
+    // must not say an answer came back. Ask where the change came from, not
+    // whether modules carry pasted code: the replacement fills pastedCode too,
+    // so counting imports called every replacement an AI answer.
     headline.appendChild(createElement(
       "div",
       "headline-text",
-      changed + "個のモジュールへ変更を取り込みました" +
-        (unchanged > 0 ? "（" + unchanged + "個は変更なし）" : "")));
-    headline.appendChild(createElement(
-      "p",
-      "headline-preview",
-      kindWarning
-        ? "確かめてほしい点があります。中身を見てください。"
-        : "問題は見つかりません。中身を見るときは下を開いてください。"));
+      state.repairResultEngine === "対応表による置換"
+        ? "対応表どおりに置き換えました"
+        : "AIの回答を取り込みました"));
+    headline.appendChild(createElement("p", "headline-preview", facts));
     // A warning never hides inside the disclosure.
     if (kindWarning) {
       headline.appendChild(createElement(
@@ -1156,8 +1354,15 @@
       createChangeDetail(state),
       {
         className: "disclosure--fill",
-        note: changed + "モジュール"
+        note: changed + "モジュール",
+        openByDefault: true
       }));
+    // Rejecting an answer and writing a correction request only mean something
+    // when an AI actually answered. On the replacement route there is nobody to
+    // send the correction to, so the panel stays away.
+    if (state.repairResultEngine !== "対応表による置換") {
+      task.appendChild(createRejectionPanel(state));
+    }
     return task;
   }
 
@@ -1386,10 +1591,14 @@
     var list = createElement("div", "result-list");
     var rows = [
       ["診断のためAIへ渡した第1依頼", "diagnose-request.md"],
-      ["元マクロのコード全文", "source-code.md"],
-      ["受理した診断結果", "diagnosis.md"]
+      ["元マクロのコード全文", "source-code.md"]
     ];
 
+    // 診断を飛ばした実行では diagnosis.md は無い。チェック印を付けて並べると
+    // 出力フォルダを開いた人が、在るはずの物を探すことになる。
+    if (state.diagnosisFilePath) {
+      rows.push(["受理した診断結果", "diagnosis.md"]);
+    }
     if (state.repairRequestFilePath) {
       rows.push(["改修のためAIへ渡した第2依頼", "repair-request.md"]);
     }
@@ -1873,7 +2082,15 @@
       lastRenderedScreen = global.MacroStudioScreens.diagnoseScreen;
       loadTargetEnvironment();
     }
+    // The rejection form belongs to one visit to the review screen. It
+    // does not follow the reader onto the next one.
+    if (state.screen !== global.MacroStudioScreens.reviewScreen &&
+        rejectionOpen) {
+      rejectionOpen = false;
+      rejectionReasonDraft = "";
+    }
     lastRenderedScreen = state.screen;
+    saveRunManifest();
     renderProgress(state);
     renderMain(state, direction);
     renderFooter(state);
@@ -2297,6 +2514,16 @@
     elements.discardModal.showModal();
   }
 
+  function describeInventoryForLog(inventory) {
+    if (!inventory) {
+      return "";
+    }
+    return " sha256=" + String(inventory.sha256 || "unknown") +
+      " sizeBytes=" + String(inventory.sizeBytes || 0) +
+      " modifiedUtc=" + String(inventory.modifiedUtc || "unknown") +
+      " inventoryComplete=" + (inventory.complete === false ? "no" : "yes");
+  }
+
   function performAttachPath(path) {
     var state = global.MacroStudioState.getState();
 
@@ -2327,9 +2554,15 @@
       announce(
         data.book.name + "、" +
         data.modules.length + " モジュールを読み込みました。");
+      // Guide A asks for the version, timestamp and hash of what was
+      // taken in to be recorded. It is tracking, not something the
+      // reader acts on, so it goes to the log and the memo rather than
+      // onto the way through.
+      lastSavedManifest = null;
       recordInfo(
         "attach: " + data.book.path +
-        " (" + data.modules.length + " modules)");
+        " (" + data.modules.length + " modules)" +
+        describeInventoryForLog(data.inventory));
       return data;
     }, function (error) {
       handleHostError(error, path);
@@ -2637,6 +2870,32 @@
       counter);
   }
 
+  function saveRunManifest() {
+    var manifest = global.MacroStudioState.createRunManifest();
+    var text;
+
+    if (!manifest) {
+      return Promise.resolve(null);
+    }
+    text = JSON.stringify(manifest, null, 2);
+    if (text === lastSavedManifest) {
+      return Promise.resolve(null);
+    }
+    lastSavedManifest = text;
+    return global.hostBridge.request("writeRunManifest", {
+      outputTimestamp: manifest.outputTimestamp,
+      manifest: text
+    }).then(function (result) {
+      return result;
+    }, function () {
+      // The artifacts are still correct; only the record of them is
+      // missing, and saying so is better than pretending it is there.
+      lastSavedManifest = null;
+      recordWarning("run manifest could not be written");
+      return null;
+    });
+  }
+
   function loadAppInfo() {
     return global.hostBridge.request("getAppInfo").then(
       function (appInfo) {
@@ -2894,6 +3153,12 @@
       retryBuild();
     } else if (action === "open-run-folder") {
       openRunFolder();
+    } else if (action === "reject-repair-answer") {
+      openRejection();
+    } else if (action === "cancel-reject-repair-answer") {
+      cancelRejection();
+    } else if (action === "copy-rejection-request") {
+      copyRejectionRequest();
     }
   }
 
@@ -2907,6 +3172,9 @@
         "retry-copy-request" && global.MacroStudioWorkflow) {
       global.MacroStudioWorkflow.retryCopyPrompt();
     }
+    if (button.getAttribute("data-toast-action") === "retry-copy-rejection") {
+      copyRejectionRequest();
+    }
   }
 
   function onMainInput(event) {
@@ -2916,6 +3184,12 @@
     }
     if (event.target.id === "paste-edit-textarea") {
       pasteEditDraft = event.target.value;
+      return;
+    }
+    if (event.target.id === "rejection-reason") {
+      setRejectionReason(event.target.value);
+      // The copy button opens as soon as there is a reason to send.
+      repaint();
       return;
     }
     if (event.target.id === "output-name") {
@@ -3202,6 +3476,8 @@
     isEditDraftDirty: isEditDraftDirty,
     confirmDiscardManualChanges: confirmDiscardManualChanges,
     loadAppInfo: loadAppInfo,
+    saveRunManifest: saveRunManifest,
+
     resolveDiagnosisPreset: resolveDiagnosisPreset,
     getDiagnosisPresetStatus: function () {
       return diagnosisPresetStatus;
@@ -3216,6 +3492,14 @@
     isBlockingAttachError: isBlockingAttachError,
     createAttachErrorCard: createAttachErrorCard,
     announce: announce,
+    recordInfo: recordInfo,
+    recordWarning: recordWarning,
+    setRejectionReason: setRejectionReason,
+    openRejection: openRejection,
+    cancelRejection: cancelRejection,
+    copyRejectionRequest: copyRejectionRequest,
+    createRejectionRequestText: createRejectionRequestText,
+    isRejectionOpen: function () { return rejectionOpen; },
     loadDemoState: global.MacroStudioState.loadDemoState
   };
 

@@ -14,6 +14,7 @@
     "MODULE_LIST",
     "CODE_FILE_NAME",
     "TARGET_ENVIRONMENT",
+    "OUTSIDE_CODE",
     "DIAGNOSIS",
     "SELECTED_FINDINGS"
   ];
@@ -304,6 +305,9 @@
       "targetEnvironment")) {
       requiredNames.push("TARGET_ENVIRONMENT");
     }
+    if (Object.prototype.hasOwnProperty.call(options, "outsideCode")) {
+      requiredNames.push("OUTSIDE_CODE");
+    }
     if (Object.prototype.hasOwnProperty.call(options, "diagnosis")) {
       requiredNames.push("DIAGNOSIS");
     }
@@ -338,6 +342,13 @@
           ? requireString(
             options.targetEnvironment,
             "Target environment")
+          : "",
+      // What the workbook carries besides code. The reader is not asked
+      // to fetch it or paste it: the tool already read it, so it travels
+      // with the request.
+      OUTSIDE_CODE:
+        Object.prototype.hasOwnProperty.call(options, "outsideCode")
+          ? requireString(options.outsideCode, "Outside code facts")
           : "",
       DIAGNOSIS:
         Object.prototype.hasOwnProperty.call(options, "diagnosis")

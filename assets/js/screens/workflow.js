@@ -3,8 +3,21 @@
 
   var CRLF = "\r\n";
   var DIVIDER = new Array(81).join("-");
+  // The one file the chat is handed. It names itself, so nobody mistakes
+  // it for the record of the code as it was read. screens.js owns the name
+  // because its status line says it too; keeping a second copy here is what
+  // let the body and the status line name different files.
+  var AI_CODE_FILE = global.MacroStudioScreens.AI_CODE_FILE;
+  // A repair answer is the changed code or a refusal. These are the
+  // three refusals the contract allows; none of them is a question.
+  var NO_CHANGE_TITLES = {
+    UNNECESSARY: "改修は不要という回答です",
+    IMPOSSIBLE: "この方法では改修できないという回答です",
+    UNCLEAR: "依頼の内容を決められないという回答です"
+  };
   var disclosureState = {};
   var entering = false;
+  var lastEnteredScreen = null;
   var CLASS_ORDER = ["BLOCKER", "DEFECT", "CONDITIONAL", "EXTERNAL", "INFO"];
   var CLASS_LABELS = {
     BLOCKER: "阻害",
@@ -194,6 +207,31 @@
       .replace(/\r/g, "\n").split("\n")[0];
   }
 
+  // The headline gives one statement per section, and a statement that
+  // stops at a comma is not one. The physical first line of a wrapped
+  // paragraph cuts wherever the writer happened to break the line
+  // ("...入力の不備を見つけ、"), with no ellipsis and no sign that more
+  // follows, so it reads as a finished thought that makes no sense.
+  // Cutting at the end of the first sentence instead costs nothing: the
+  // accordion below already holds the section in full either way.
+  function firstSentence(text) {
+    var normalised = String(text || "").replace(/\r\n/g, "\n")
+      .replace(/\r/g, "\n").trim();
+    if (!normalised) {
+      return "";
+    }
+    var stop = normalised.search(/[。！？!?]/);
+    if (stop < 0) {
+      // No sentence end to cut at - a heading, a bullet, a fragment.
+      // Keep the writer's own line rather than inventing a boundary.
+      return normalised.split("\n")[0];
+    }
+    // A sentence may be wrapped across lines; join it back up. Japanese
+    // needs no separator at the join, and a line break inside one
+    // sentence is a layout artifact, not part of the text.
+    return normalised.slice(0, stop + 1).replace(/\n/g, "");
+  }
+
   function padFinding(value) {
     var text = String(value || "");
     return text.length >= 2 ? text : "0" + text;
@@ -327,20 +365,44 @@
     return counts;
   }
 
-  function environmentTitle(state, key) {
+  function environmentConstraint(state, key) {
     var constraints = state.targetEnvironment &&
       Array.isArray(state.targetEnvironment.constraints)
       ? state.targetEnvironment.constraints
       : [];
-    var title = "";
+    var found = null;
+
     constraints.some(function (constraint) {
       if (constraint.key === key) {
-        title = constraint.title;
+        found = constraint;
         return true;
       }
       return false;
     });
-    return title;
+    return found;
+  }
+
+  function environmentTitle(state, key) {
+    var constraint = environmentConstraint(state, key);
+    return constraint ? constraint.title : "";
+  }
+
+  // SPEC 4.4.2: what the AI read and what we assume about the terminal
+  // are two different certainties. A finding that stops the macro, resting
+  // on an assumption nobody measured on the target machine, says so.
+  function notMeasuredNote(state, finding) {
+    var constraint;
+
+    if (!finding || finding["class"] !== "BLOCKER" ||
+        finding.environmentKey === "-") {
+      return "";
+    }
+    constraint = environmentConstraint(state, finding.environmentKey);
+    if (!constraint || constraint.basis === "observed") {
+      return "";
+    }
+    return "この環境前提は実測ではありません。" +
+      "対象の端末で確かめるまでは、そうなると決まってはいません。";
   }
 
   function formatLocation(finding) {
@@ -452,6 +514,32 @@
     }).join(CRLF + CRLF);
   }
 
+  // On the route where the table ran first, the chat is looking at code
+  // a machine already rewrote. It has to be told, or it will "fix" those
+  // lines back to what the workbook used to say.
+  function machineReplacementNote(state) {
+    var rows = state.pathMap && Array.isArray(state.pathMap.rows)
+      ? state.pathMap.rows.filter(function (row) {
+        return row.applied === true;
+      })
+      : [];
+    var lines;
+
+    if (!hasMachineReplacement(state) || rows.length === 0) {
+      return "";
+    }
+    lines = ["【このコードは一部を置き換え済みです】"];
+    lines.push(
+      "添付したコードは、次の文字列を機械的に置き換えたあとのものです。" +
+        "置き換えは確認済みなので、**元の値へ戻さないでください。**");
+    rows.forEach(function (row) {
+      lines.push("- " + row.from + " → " + row.to);
+    });
+    lines.push(
+      "これらの新しい値はそのまま残し、依頼された改修だけを行ってください。");
+    return lines.join(CRLF);
+  }
+
   function composeRepairRequestText(parsed, state, requestId) {
     var text = composeInstructions(state, requestId);
     var answers = [];
@@ -473,18 +561,90 @@
         text,
         "【追加の要望】" + CRLF + String(state.extraRequest).trim());
     }
+    if (machineReplacementNote(state)) {
+      text = global.MacroStudioPrompt.appendPreset(
+        text,
+        machineReplacementNote(state));
+    }
     return text;
+  }
+
+  // The product log, through the same door the identity fallback uses.
+  // Nothing here carries reply text, diagnosis text or path values.
+  function writeLog(level, message) {
+    if (!global.hostBridge) {
+      return;
+    }
+    global.hostBridge.request("writeLog", {
+      level: level,
+      message: message
+    }).then(function () { return null; }, function () { return null; });
   }
 
   function createIdentity() {
     var identity = global.MacroStudioResponse.createRequestIdentity();
-    if (!identity.secure && global.hostBridge) {
-      global.hostBridge.request("writeLog", {
-        level: "WARN",
-        message: "request identity used Math.random because secure random was unavailable"
-      }).then(function () { return null; }, function () { return null; });
+    if (!identity.secure) {
+      writeLog(
+        "WARN",
+        "request identity used Math.random because secure random was unavailable");
     }
     return identity.id;
+  }
+
+  // The code file the chat is given for this request.
+  //
+  // On the route where the replacement table ran first, the chat has to
+  // work on the code the machine already rewrote - otherwise it is
+  // repairing lines that no longer exist, and its answer would put the
+  // old paths back. The workbook as it was read stays in source-code.md;
+  // only this copy moves.
+  function composeAiCodeFile(state) {
+    return global.MacroStudioPrompt.buildCodeFile({
+      book: state.book,
+      modules: state.modules.map(function (module) {
+        return {
+          name: module.name,
+          type: module.type,
+          typeLabel: module.typeLabel,
+          ext: module.ext,
+          lineCount: module.lineCount,
+          code: hasMachineReplacement(state) &&
+            typeof module.pastedCode === "string"
+            ? module.pastedCode
+            : String(module.code || "")
+        };
+      }),
+      generatedAt: global.MacroStudioApp.createCodeFileTimestamp(new Date())
+    });
+  }
+
+  // True once the replacement table has rewritten the code in this run,
+  // whatever happened afterwards. What the chat is handed, and what the
+  // request says about it, both depend on this having happened.
+  function hasMachineReplacement(state) {
+    return Boolean(state.appliedMapping);
+  }
+
+  // The facts the tool read out of the workbook that are not code, put
+  // into the request itself. The reader is not asked to look them up or
+  // paste them in: the tool already has them, so it hands them over.
+  // Empty when there is nothing to say, so no empty heading is sent.
+  function composeOutsideCode(state) {
+    var facts = global.MacroStudioHandover
+      ? global.MacroStudioHandover.outsideCodeFacts(state)
+      : [];
+    var lines;
+
+    if (facts.length === 0) {
+      return "";
+    }
+    lines = ["【コードの外にあるもの】" +
+      "※ MacroStudio がブックから読み取った事実です。VBA には現れません"];
+    facts.forEach(function (fact) {
+      lines.push("- " + fact.label + ": " + fact.value);
+    });
+    lines.push("");
+    return lines.join(CRLF) + CRLF;
   }
 
   function diagnosisPreset(state) {
@@ -539,14 +699,40 @@
       CRLF + CRLF + rules;
   }
 
+  // What a refusal is recorded as: the stage, the contract's own check
+  // number and reason code, and how many times in a row it has happened.
+  // Never the reply itself (SPEC 8.4).
+  function recordIntakeRefusal(stage, detail) {
+    var parts = ["intake refused", "stage=" + String(stage)];
+    var source = detail || {};
+
+    if (source.validationId) {
+      parts.push("check=" + String(source.validationId));
+    }
+    if (source.reason) {
+      parts.push("reason=" + String(source.reason));
+    }
+    if (source.code) {
+      parts.push("code=" + String(source.code));
+    }
+    parts.push("consecutive=" + String(source.count || 1));
+    writeLog("WARN", parts.join(" "));
+  }
+
   // Twice in a row means the chat is not going to produce the shape this
   // request needs, so asking it the same way a third time wastes the
   // reader's turn. Say why, and point somewhere else.
-  function handleIntakeFailure(stage, message) {
+  function handleIntakeFailure(stage, message, detail) {
     var store = global.MacroStudioState;
     var count = store.noteIntakeFailure(stage);
     var text;
 
+    recordIntakeRefusal(stage, {
+      validationId: detail && detail.validationId,
+      reason: detail && detail.reason,
+      code: detail && detail.code,
+      count: count
+    });
     if (count >= 2) {
       global.MacroStudioApp.showToast(
         message + CRLF +
@@ -632,8 +818,9 @@
           requestId: requestId,
           book: state.book,
           modules: state.modules,
-          codeFileName: "source-code.md",
-          targetEnvironment: state.targetEnvironmentSnapshot
+          codeFileName: AI_CODE_FILE,
+          targetEnvironment: state.targetEnvironmentSnapshot,
+          outsideCode: composeOutsideCode(state)
         }), requestId);
         code = global.MacroStudioPrompt.buildCodeFile({
           book: state.book,
@@ -647,7 +834,8 @@
         stage: "diagnose",
         outputTimestamp: timestamp,
         request: prompt,
-        code: code
+        code: code,
+        aiCode: code
       }).then(function (result) {
         store.commitDiagnosisRequest({
           requestId: requestId,
@@ -655,6 +843,7 @@
           prompt: prompt,
           requestPath: result.requestPath,
           runFolder: result.folderPath,
+          handoffFolder: result.handoffFolderPath,
           outputTimestamp: timestamp
         });
         store.setBusyAction(null);
@@ -671,15 +860,36 @@
     var state = store.getState();
     var markdown = global.MacroStudioDiagnosis.formatForRecord(diagnosis);
 
+    // The reply answers the request as it was written. If the screen no longer
+    // holds the inputs that request was built from, commitDiagnosis refuses it,
+    // so refuse before writing and say why. Writing first and ignoring the
+    // refusal left diagnosis.md on disk, "取り込みました" on screen, and [次へ]
+    // disabled with nothing to read and nothing to fix.
+    if (store.isDiagnosisRequestDirty()) {
+      store.noteIntakeFailure("diagnose");
+      global.MacroStudioApp.showToast(
+        "依頼文を作ったあとで入力が変わっているため、この回答は取り込めません。" +
+          "［依頼を作り直す］で依頼文を作り直し、その依頼への回答を取り込んでください。",
+        "error");
+      return Promise.resolve(null);
+    }
+
     store.setBusyAction("writeDiagnosisFile");
     return global.hostBridge.request("writeDiagnosisFile", {
       outputTimestamp: state.outputTimestamp,
       markdown: markdown
     }).then(function (result) {
-      store.commitDiagnosis(diagnosis, result.path);
+      if (!store.commitDiagnosis(diagnosis, result.path)) {
+        store.setBusyAction(null);
+        store.noteIntakeFailure("diagnose");
+        global.MacroStudioApp.showToast(
+          "AIの回答を取り込めませんでした。この依頼への回答か確認してください。",
+          "error");
+        return null;
+      }
       store.clearIntakeFailures("diagnose");
       store.setBusyAction(null);
-      global.MacroStudioApp.showToast("診断結果を取り込みました。", "success");
+      global.MacroStudioApp.showToast("AIの回答を取り込みました。", "success");
       return diagnosis;
     }, failHost);
   }
@@ -704,7 +914,8 @@
     if (!parsed.ok) {
       return Promise.resolve(handleIntakeFailure(
         "diagnose",
-        "診断結果を取り込めませんでした。"));
+        "AIの回答を取り込めませんでした。" + String(parsed.message || ""),
+        parsed));
     }
     // A reply whose line breaks the chat folded away is importable, but
     // the reader is told it was rebuilt rather than left to assume the
@@ -724,7 +935,9 @@
     if (!added.ok) {
       return Promise.resolve(handleIntakeFailure(
         "diagnose",
-        "診断結果の分割を取り込めませんでした。届いた番号を確認してください。"));
+        "AIの回答を取り込めませんでした。" +
+          String(added.message || "届いた番号を確認してください。"),
+        added));
     }
     store.clearIntakeFailures("diagnose");
     store.setDiagnosisParts(added.collection);
@@ -774,15 +987,11 @@
           content: result.content,
           parsed: parsed
         });
-        // The template said what to look for; the app looks, and nothing
-        // in the app decides what a candidate is.
-        if (parsed.replaceRules &&
-            (changed || !global.MacroStudioPathMap.isProductResult(
-              store.getState().pathMap))) {
-          store.setPathMap(global.MacroStudioPathMap.detect(
-            store.getBookModules(),
-            parsed.replaceRules));
-        }
+        // The templates said what to look for; the app looks, and
+        // nothing in the app decides what a candidate is. The rules of
+        // every chosen template are applied together, so ticking a
+        // second template does not drop the first one's candidates.
+        detectFromChosenRules(changed);
         store.setBusyAction(null);
         global.MacroStudioApp.showToast(parsed.name + " を選びました。", "success");
         return result;
@@ -816,13 +1025,29 @@
       content: raw.content,
       parsed: parsed
     });
-    if (parsed.replaceRules &&
-        (changed || !global.MacroStudioPathMap.isProductResult(
-          global.MacroStudioState.getState().pathMap))) {
-      global.MacroStudioState.setPathMap(global.MacroStudioPathMap.detect(
-        global.MacroStudioState.getBookModules(),
-        parsed.replaceRules));
+    detectFromChosenRules(changed);
+    return true;
+  }
+
+  // Candidates come from the rules of everything chosen, read out of the
+  // workbook as it was attached. Choosing another template re-reads them
+  // rather than leaving the table empty.
+  function detectFromChosenRules(changed) {
+    var store = global.MacroStudioState;
+    var rules = store.getState().presetReplaceRules;
+    var basis;
+
+    if (!rules) {
+      return false;
     }
+    if (!changed && global.MacroStudioPathMap.isProductResult(
+      store.getState().pathMap)) {
+      return false;
+    }
+    basis = store.getBookModules();
+    store.setPathMap(
+      global.MacroStudioPathMap.detect(basis, rules),
+      basis);
     return true;
   }
 
@@ -838,6 +1063,22 @@
 
     if (state.busyAction || state.presetEngine !== "AI" ||
         !global.MacroStudioScreens.isRepairInputReady(state)) {
+      return Promise.resolve(null);
+    }
+    // Walking back to look at something and walking forward again is not
+    // a new request. The diagnosis side has always had this gate; without
+    // it here, a round trip minted a new id and the answer that had
+    // already come back stopped belonging to it (SPEC 2.6: only a change
+    // of input invalidates).
+    //
+    // A reply that ended the exchange without a package is the exception.
+    // "I need a decision" and "nothing to change" are answers; coming
+    // back through screen 4 after one of them is a fresh ask, and the
+    // question that was quoted back has to stop being current (SPEC 5.4.1).
+    if (state.repairRequestId &&
+        !global.MacroStudioScreens.isNoChange(state) &&
+        state.repairRequestSnapshot === state.repairInputSnapshot) {
+      store.goNext();
       return Promise.resolve(null);
     }
     parsed = global.MacroStudioPreset.parse(state.presetContent, "repair");
@@ -868,7 +1109,7 @@
           requestId: requestId,
           book: state.book,
           modules: state.modules,
-          codeFileName: "source-code.md",
+          codeFileName: AI_CODE_FILE,
           targetEnvironment: state.targetEnvironmentSnapshot,
           diagnosis: diagnosisText,
           selectedFindings: selectedText
@@ -879,15 +1120,38 @@
       return global.hostBridge.request("writeRequestFiles", {
         stage: "repair",
         outputTimestamp: state.outputTimestamp,
-        request: prompt
+        request: prompt,
+        // What the chat is given for this stage. On the route that
+        // replaced fixed paths first, this is the code the machine
+        // already rewrote; source-code.md keeps the workbook as read.
+        aiCode: composeAiCodeFile(state)
       }).then(function (result) {
+        // Whatever a chat sent back answered the request that existed
+        // before this one. Dropping it is correct, but it is not
+        // something to do without saying so. What the tool replaced
+        // itself is not a chat answer and is not dropped, so a run that
+        // only did the replacement has nothing to announce.
+        var previous = store.getState();
+        var replaced = global.MacroStudioScreens.countImported(previous) > 0 &&
+          (Boolean(previous.repairIntakeRequestId) ||
+            Boolean(previous.noChangeResult));
         store.commitRepairRequest({
           requestId: requestId,
           requestText: requestText,
           prompt: prompt,
-          requestPath: result.requestPath
+          requestPath: result.requestPath,
+          handoffFolder: result.handoffFolderPath
         });
         store.setBusyAction(null);
+        if (replaced) {
+          global.MacroStudioApp.showToast(
+            "改修する内容が変わったので、新しい依頼文を作りました。" +
+              "前の回答はこの依頼の答えではないため、取り込み直します。",
+            "info");
+          writeLog(
+            "INFO",
+            "repair request re-minted after input change; previous intake dropped");
+        }
         store.goNext();
         return result;
       }, failHost);
@@ -903,47 +1167,35 @@
       state.diagnosis);
 
     if (!described.ok) {
-      return showRepairIntakeError(described.message);
+      return showRepairIntakeError(described.message, described);
     }
     store.setLastError(null);
-    if (described.noChange === "NEEDDECISION") {
-      store.setNeedDecision(described);
-      global.MacroStudioApp.showToast(
-        "決める必要があることが返ってきました。",
-        "info");
-      return true;
-    }
     if (described.noChange) {
       store.setNoChangeResult(described);
       global.MacroStudioApp.showToast(
-        "AIは変更なしと判断しました。理由を確認してください。",
+        "AIは改修できないと回答しました。理由を確認してください。",
         "info");
       return true;
     }
     store.importPackage(described);
     store.clearIntakeFailures("repair");
-    // The chat has answered, so the candidates are found in the code
-    // that came back. Detecting them from the original would have
-    // offered the reader lines the chat had just rewritten.
-    if (state.presetReplaceRules) {
-      store.setPathMap(global.MacroStudioPathMap.detect(
-        store.getCurrentModules(),
-        state.presetReplaceRules));
-    }
-    global.MacroStudioApp.showToast(
-      described.total + "個のモジュールを取り込みました。",
-      "success");
+    // One sentence, and only the affirmative one. What came in and what
+    // to do about it are the next screen's job, not this notice's.
+    global.MacroStudioApp.showToast("AIの回答を取り込みました。", "success");
     return true;
   }
 
-  function showRepairIntakeError(message) {
-    var text = String(message || "改修結果を取り込めませんでした。");
+  // One sentence that says the reply was not taken in, then the reason
+  // the contract gave. Nothing here reads as a partial success.
+  function showRepairIntakeError(message, detail) {
+    var reason = String(message || "");
+    var text = "AIの回答を取り込めませんでした。" + reason;
 
     global.MacroStudioState.setLastError({
       code: "E-INTAKE-01",
       message: text
     });
-    handleIntakeFailure("repair", text);
+    handleIntakeFailure("repair", text, detail);
     return false;
   }
 
@@ -959,17 +1211,18 @@
     }
     parsed = global.MacroStudioResponse.parse(text, state.repairRequestId);
     if (!parsed.ok) {
-      return showRepairIntakeError(parsed.message);
+      return showRepairIntakeError(parsed.message, parsed);
     }
     if (!state.splitOutput) {
       if (parsed.part) {
         return showRepairIntakeError(
-          global.MacroStudioResponse.messages.partUnexpected);
+          global.MacroStudioResponse.messages.partUnexpected,
+          {reason: "partUnexpected"});
       }
       return applyWholeRepairPackage(parsed);
     }
-    // NOCHANGE, including NEEDDECISION, is deliberately one complete answer
-    // even when module-by-module output was requested. It never has PART.
+    // A refusal is one complete answer even when module-by-module output
+    // was requested. It never has PART.
     if (parsed.noChange) {
       return applyWholeRepairPackage(parsed);
     }
@@ -978,7 +1231,7 @@
         global.MacroStudioResponse.createPartCollection(),
       parsed);
     if (!added.ok) {
-      return showRepairIntakeError(added.message);
+      return showRepairIntakeError(added.message, added);
     }
     store.setRepairIntakeParts(added.collection);
     if (!added.complete) {
@@ -1054,14 +1307,18 @@
     return false;
   }
 
+  // The folder this opens is the one holding the file to attach, not
+  // the one holding the deliverables. The button says "the file to give
+  // the AI", so it has to land where that file is.
   function openRunFolder(stage) {
     var store = global.MacroStudioState;
     var state = store.getState();
-    if (!state.runFolder || state.busyAction) {
+    var folder = state.handoffFolder || state.runFolder;
+    if (!folder || state.busyAction) {
       return Promise.resolve(null);
     }
     store.setBusyAction("openRunFolder");
-    return global.hostBridge.request("revealPath", {path: state.runFolder})
+    return global.hostBridge.request("revealPath", {path: folder})
       .then(function (result) {
         if (stage === "diagnose") {
           store.setDiagnosisHandoffProgress(null, true);
@@ -1139,12 +1396,65 @@
         module.name + " — " + module.lineCount + " 行"));
     });
     read.appendChild(moduleList);
+    // Three rows, side by side, one tier deep. What was read out of the
+    // code, what the workbook carries besides code, and what this
+    // terminal is - three different questions, so three rows, and none
+    // of them opens onto another row to open.
     root.appendChild(createDisclosure(
       "book-read-result",
-      "読み取った内容を見る",
+      "読み取ったコード",
       read,
       false,
-      state.modules.length + " モジュール"));
+      state.modules.length + " モジュール・" + state.book.totalLines + " 行"));
+    appendOutsideCode(root, state);
+    return root;
+  }
+
+  // What the workbook carries that is not VBA.
+  //
+  // A row has to earn its place. The reader is one press from the
+  // diagnosis and will ask "so what do I do?", so each row says what was
+  // found and why it matters somewhere else. What to do about it is
+  // answered once, underneath, for all of them: nothing, here.
+  // The wording of each fact belongs to handover.js; this lays them out.
+  // Nothing is coloured as a warning: having a reference is not a fault.
+  function appendOutsideCode(root, state) {
+    var facts = global.MacroStudioHandover
+      ? global.MacroStudioHandover.outsideCodeFacts(state)
+      : [];
+    var body = element("div", "outside-code");
+    var rows = element("ul", "outside-code-list");
+
+    if (facts.length === 0) {
+      return root;
+    }
+    facts.forEach(function (fact) {
+      var row = element("li", "outside-code-item");
+
+      row.appendChild(element(
+        "span",
+        "outside-code-fact",
+        fact.label + ": " + fact.value));
+      if (fact.why) {
+        row.appendChild(element("span", "outside-code-why", fact.why));
+      }
+      rows.appendChild(row);
+    });
+    body.appendChild(rows);
+    body.appendChild(element(
+      "p",
+      "task-note",
+      "どれも VBA のコードの外にあるので、このツールは直しません。" +
+        "次の診断の依頼文へ自動で入れて、AIの判断材料にします。" +
+        "ここで操作することはありません。"));
+    root.appendChild(createDisclosure(
+      "book-outside-code",
+      "コードの外にあるもの",
+      body,
+      false,
+      facts.length + " 件・" + facts.slice(0, 3).map(function (fact) {
+        return fact.label;
+      }).join("・")));
     return root;
   }
 
@@ -1190,25 +1500,27 @@
     var environment = element("div", "environment-detail");
     var concernBox = element("div", "concern-detail");
 
-    root.appendChild(intro(
-      "診断の依頼文はできています。AIへ渡して、返ってきた答えをこの画面へ" +
-        "戻してください。"));
-
+    // A skipped diagnosis hands nothing over, so the hand-off sentence has
+    // to stay out of that branch entirely. Printing it first meant the
+    // screen told the reader to bring an answer back and, one line later,
+    // that no diagnosis would happen.
     if (state.diagnosisSkipped) {
-      root.appendChild(element(
-        "p",
-        "task-note",
+      root.appendChild(intro(
         "診断は行いません。右下の「次へ」で、次にすることを選びます。"));
       appendDiagnosisSkip(root, state);
       return root;
     }
+
+    root.appendChild(intro(
+      "診断の依頼文はできています。AIへ渡して、返ってきた答えをこの画面へ" +
+        "戻してください。"));
 
     root.appendChild(element("h2", "task-step", "1. 依頼をAIへ渡す"));
     if (state.diagnosisRequestId) {
       root.appendChild(element(
         "p",
         "task-note",
-        "依頼文をコピーして貼り付け、開いたフォルダの source-code.md を" +
+        "依頼文をコピーして貼り付け、開いたフォルダの " + AI_CODE_FILE + " を" +
           "添付します。"));
       root.appendChild(createHandoffActions(state, "diagnose"));
     } else if (state.busyAction) {
@@ -1291,7 +1603,7 @@
     // After the reply is in, neither is: [次へ] is.
     button = actionButton(
       state.diagnosis
-        ? "診断結果を取り込みました"
+        ? "AIの回答を取り込みました"
         : "クリップボードから診断結果を取り込む",
       "import-diagnosis",
       Boolean(state.diagnosisPromptCopied) && !state.diagnosis);
@@ -1320,6 +1632,10 @@
         "finding-environment",
         "参照した環境制約: " + finding.environmentKey + " — " +
           environmentTitle(state, finding.environmentKey)));
+    }
+    var notMeasured = notMeasuredNote(state, finding);
+    if (notMeasured) {
+      detail.appendChild(element("p", "finding-unmeasured", notMeasured));
     }
     return detail;
   }
@@ -1538,11 +1854,11 @@
     box.appendChild(element(
       "p",
       "diagnosis-conclusion-text",
-      firstLine(state.diagnosis.sections.PURPOSE)));
+      firstSentence(state.diagnosis.sections.PURPOSE)));
     box.appendChild(element(
       "p",
       "diagnosis-conclusion-text",
-      firstLine(state.diagnosis.sections.ENVIRONMENT)));
+      firstSentence(state.diagnosis.sections.ENVIRONMENT)));
     box.appendChild(element(
       "p",
       "diagnosis-conclusion-verdict",
@@ -1601,11 +1917,48 @@
 
     root.appendChild(element("h2", "task-step", "見つかった事実"));
     root.appendChild(createFindingsList(state));
+    appendOutsideCodeWork(root, state);
 
     root.appendChild(element(
       "p",
       "environment-note",
       "想定環境: " + environmentChip(state)));
+    return root;
+  }
+
+  // A diagnosis reads code. Some of what this workbook depends on is not
+  // in the code, so no diagnosis could have found it, and it changes what
+  // the reader decides here. It is put in front of them once, flat, at
+  // the point where the deciding happens - not held back to the end.
+  function appendOutsideCodeWork(root, state) {
+    var tasks = global.MacroStudioHandover
+      ? global.MacroStudioHandover.humanTasks(state)
+      : [];
+    var box;
+    var rows;
+
+    if (tasks.length === 0) {
+      return root;
+    }
+    box = element("div", "outside-code");
+    box.appendChild(element(
+      "h2",
+      "task-step",
+      "コードの外にあり、この診断が見ていないこと"));
+    box.appendChild(element(
+      "p",
+      "task-note",
+      "ブックから読み取った事実です。AIはコードしか見ていないので、" +
+        "ここは人が決めます。"));
+    rows = element("ul", "outside-code-list");
+    tasks.forEach(function (item) {
+      rows.appendChild(element(
+        "li",
+        "outside-code-item",
+        item.title + " … " + item.detail));
+    });
+    box.appendChild(rows);
+    root.appendChild(box);
     return root;
   }
 
@@ -1618,29 +1971,6 @@
     }
     root.appendChild(createPresetCards(state));
     return root;
-  }
-
-  function decisionQuotes(state, findingId) {
-    var decisions = state.needDecision && Array.isArray(state.needDecision.decisions)
-      ? state.needDecision.decisions
-      : [];
-    return decisions.filter(function (decision) {
-      return String(decision.finding) === String(findingId);
-    });
-  }
-
-  function appendDecisionQuotes(parent, decisions) {
-    if (!decisions.length) {
-      return;
-    }
-    var quotes = element("div", "decision-quotes");
-    decisions.forEach(function (decision) {
-      var quote = element("blockquote", "decision-quote");
-      quote.appendChild(element("strong", "", decision.question));
-      quote.appendChild(element("p", "", decision.options));
-      quotes.appendChild(quote);
-    });
-    parent.appendChild(quotes);
   }
 
   function createQuestionFields(state) {
@@ -1698,7 +2028,6 @@
     row.appendChild(header);
 
     group.findings.forEach(function (finding) {
-      appendDecisionQuotes(row, decisionQuotes(state, String(finding.number)));
     });
     return row;
   }
@@ -1956,8 +2285,29 @@
     return root;
   }
 
+  // The label a chosen template gave its own write-in field, if any gave
+  // one. The app does not decide which template writes its work by hand.
+  function writeInFieldLabel(state) {
+    var label = "";
+
+    (state.presets || []).some(function (entry) {
+      var writeIn = entry && entry.parsed ? entry.parsed.writeIn : null;
+
+      if (writeIn) {
+        label = String(writeIn);
+        return true;
+      }
+      return false;
+    });
+    return label;
+  }
+
   function createRepairInputScreen(state) {
-    if (state.presetEngine === "対応表による置換") {
+    // The table comes first. On the route that has both, the reader
+    // fills it in and carries it out, and only then says what the chat
+    // should repair - on the code the table produced.
+    if (state.presetEngine === "対応表による置換" ||
+        global.MacroStudioScreens.isReplacementPending(state)) {
       return createPathMapScreen(state);
     }
     var root = task(true);
@@ -1979,19 +2329,33 @@
 
     var extraContent = element("div", "extra-request-content");
     var extra = element("textarea", "form-textarea");
-    appendDecisionQuotes(extraContent, decisionQuotes(state, "-"));
+    var writeInLabel = writeInFieldLabel(state);
     extra.rows = 4;
     extra.value = state.extraRequest;
     extra.disabled = state.busyAction !== null;
     extra.setAttribute("data-workflow-input", "extra-request");
+    extra.id = "repair-write-in";
     extraContent.appendChild(extra);
-    root.appendChild(createDisclosure(
-      "extra-request",
-      "追加の要望を書く（任意）",
-      extraContent,
-      decisionQuotes(state, "-").length > 0,
-      String(state.extraRequest || "").trim() ? "記入あり" : "未記入",
-      true));
+    // A template that exists so the reader can write the work themselves
+    // says what to call the field. Then it is on the screen, open, under
+    // its own name - not folded away behind the word "任意".
+    if (writeInLabel) {
+      var writeIn = section(writeInLabel, "repair-write-in");
+      writeIn.appendChild(element(
+        "p",
+        "task-note",
+        "ここに書いた内容が、そのままAIへの改修指示になります。"));
+      writeIn.appendChild(extraContent);
+      root.appendChild(writeIn);
+    } else {
+      root.appendChild(createDisclosure(
+        "extra-request",
+        "追加の要望を書く（任意）",
+        extraContent,
+        false,
+        String(state.extraRequest || "").trim() ? "記入あり" : "未記入",
+        true));
+    }
 
     if (state.splitOutputRules) {
       root.appendChild(optionRow(
@@ -2006,31 +2370,8 @@
     return root;
   }
 
-  function createNeedDecision(state) {
-    var box = section("決める必要があること", "need-decision");
-    if (state.needDecision.summary) {
-      box.appendChild(element("p", "need-decision-summary",
-        state.needDecision.summary));
-    }
-    state.needDecision.decisions.forEach(function (decision) {
-      var item = element("article", "need-decision-item");
-      item.appendChild(element("h3", "", decision.question));
-      item.appendChild(element("p", "", decision.options));
-      box.appendChild(item);
-    });
-    box.appendChild(actionRow(actionButton(
-      "改修の入力へ戻る",
-      "return-repair-input",
-      true)));
-    return box;
-  }
-
   function createRepairScreen(state) {
     var root = task(true);
-    if (state.needDecision) {
-      root.appendChild(createNeedDecision(state));
-      return root;
-    }
     root.appendChild(intro(
       "改修の依頼文はできています。AIへ渡して、返ってきたコードを" +
         "この画面へ戻してください。"));
@@ -2039,7 +2380,7 @@
     root.appendChild(element(
       "p",
       "task-note",
-      "依頼文をコピーして貼り付け、開いたフォルダの source-code.md を" +
+      "依頼文をコピーして貼り付け、開いたフォルダの " + AI_CODE_FILE + " を" +
         "添付します。"));
     root.appendChild(createHandoffActions(state, "repair"));
 
@@ -2050,9 +2391,8 @@
       "AIの返答にあるコードブロック全体をコピーして、下のボタンを押します。"));
     if (state.noChangeResult) {
       var noChange = section(
-        state.noChangeResult.verdict === "UNNECESSARY"
-          ? "改修は不要という判断です"
-          : "この方法では改修できないという判断です",
+        NO_CHANGE_TITLES[state.noChangeResult.verdict] ||
+          "改修できないという回答です",
         "no-change-result");
       noChange.appendChild(element(
         "p",
@@ -2085,15 +2425,7 @@
     }
     root.appendChild(actionRow(button, restart));
     if (state.intakeResult) {
-      root.appendChild(statusLine(
-        state.intakeResult.total + "個のモジュールを取り込みました。"));
-      // The chat has answered, so the replacements are made on the code
-      // that came back. Detecting them earlier would have offered the
-      // reader lines the chat was about to rewrite.
-      if (state.presetReplaceRules) {
-        root.appendChild(element("h2", "task-step", "3. 文字列を置き換える"));
-        root.appendChild(createPathMapBody(state));
-      }
+      root.appendChild(statusLine("AIの回答を取り込みました。"));
     }
     return root;
   }
@@ -2187,10 +2519,6 @@
     if (action === "restart-repair-intake") {
       restartRepairIntake(); return true;
     }
-    if (action === "return-repair-input") {
-      store.goTo(global.MacroStudioScreens.repairInputScreen, true);
-      return true;
-    }
     return false;
   }
 
@@ -2246,19 +2574,19 @@
     return false;
   }
 
-  function applyPathMapping() {
+  // Always from the text the candidates were detected in (SPEC 7.7.1),
+  // never from a previous replacement - otherwise correcting a value and
+  // pressing the button again could not succeed.
+  function applyPathMapping(stayOnInput) {
     var store = global.MacroStudioState;
     var state = store.getState();
     var result = global.MacroStudioPathMap.apply(
       state.pathMap,
-      store.getCurrentModules());
+      store.getPathMapBaseModules());
 
     if (!result.ok) {
-      global.MacroStudioApp.showToast(
-        result.code === "E-MAP-02"
-          ? "コードの位置を再確認できませんでした。" + result.message
-          : result.message,
-        "error");
+      global.MacroStudioApp.showToast(result.message, "error");
+      writeLog("WARN", "path mapping refused: " + result.code);
       return false;
     }
     if (store.setDeterministicResult(result) === 0 &&
@@ -2269,43 +2597,51 @@
       return false;
     }
     global.MacroStudioApp.showToast(
-      result.mapping.rows.length + "種類の文字列を置き換えました。",
+      result.mapping.rows.length + "種類の文字列を置き換えました。" +
+        (stayOnInput ? "続けて、AIへ依頼する内容を決めます。" : ""),
       "success");
-    store.goNext();
+    if (!stayOnInput) {
+      store.goNext();
+    }
     return true;
   }
 
   function handleNext(state) {
-    // The replacements are the last thing a chat run does: the reply is
-    // in, the table was filled against the code that came back, and
-    // leaving this screen carries it out.
-    if (state.screen === global.MacroStudioScreens.repairScreen) {
-      if (!state.presetReplaceRules || !state.intakeResult ||
-          !global.MacroStudioPathMap.canApply(state.pathMap)) {
-        return false;
-      }
-      applyPathMapping();
-      return true;
-    }
+    // Leaving the hand-over screen has nothing left to do. The
+    // replacements happen before the chat is asked, not after it
+    // answers, so there is no second pass over the reply here.
     if (state.screen !== global.MacroStudioScreens.repairInputScreen) {
       return false;
     }
-    if (state.presetEngine === "AI") {
+    if (state.presetEngine === "AI" &&
+        !global.MacroStudioScreens.isReplacementPending(state)) {
       prepareRepairRequest();
       return true;
     }
+    // On the route that has both, carrying out the replacement does not
+    // leave screen 4: the same screen then asks what the chat should do
+    // with the code the table just produced.
+    var stayOnInput = state.presetEngine === "AI";
     if (global.MacroStudioState.hasDeterministicManualEdits()) {
-      global.MacroStudioApp.confirmDiscardManualChanges(applyPathMapping);
+      global.MacroStudioApp.confirmDiscardManualChanges(function () {
+        return applyPathMapping(stayOnInput);
+      });
       return true;
     }
-    applyPathMapping();
+    applyPathMapping(stayOnInput);
     return true;
   }
 
   function enter(state) {
+    // Called after every render, so "on arrival" has to be worked out
+    // here. Without this, unticking the recommended template ticks it
+    // straight back and the reader cannot choose another route.
+    var arrived = state.screen !== lastEnteredScreen;
+
     if (entering || state.busyAction) {
       return;
     }
+    lastEnteredScreen = state.screen;
     if (state.screen === global.MacroStudioScreens.diagnoseScreen &&
         !state.diagnosisRequestId && state.targetEnvironment &&
         global.MacroStudioApp.getDiagnosisPresetStatus().ok) {
@@ -2320,7 +2656,8 @@
     if (state.screen === global.MacroStudioScreens.findingsScreen) {
       syncSelectedPreset(state);
     }
-    if (state.screen === global.MacroStudioScreens.nextStepScreen) {
+    if (state.screen === global.MacroStudioScreens.nextStepScreen &&
+        arrived) {
       selectRecommendedPresets(state);
     }
   }
@@ -2387,6 +2724,7 @@
     formatDiagnosisForPrompt: formatDiagnosisForPrompt,
     formatSelectedFindings: formatSelectedFindings,
     composeDiagnosisRequestText: composeDiagnosisRequestText,
+    composeOutsideCode: composeOutsideCode,
     composeRepairRequestText: composeRepairRequestText,
     createBookScreen: createBookScreen,
     createDiagnoseScreen: createDiagnoseScreen,

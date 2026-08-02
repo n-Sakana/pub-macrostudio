@@ -17,6 +17,11 @@
   // only content was a single button.
   // Reading the diagnosis and choosing the work are two different
   // decisions, so they get one page each.
+  // The one file the chat is handed. It lives here because both the screen
+  // body and the status line under it name this file, and a second copy of
+  // the name is how they came to disagree.
+  var AI_CODE_FILE = "source-code-for-ai.md";
+
   var BOOK_SCREEN = 0;
   var DIAGNOSE_SCREEN = 1;
   var FINDINGS_SCREEN = 2;
@@ -146,11 +151,18 @@
       snapshot.split === state.diagnosisSplit);
   }
 
+  // An answer counts as current only while it still answers the input on
+  // screen 4. The request it belongs to is not enough: the reader can
+  // change the input after the answer came back, and that answer then
+  // belongs to a question nobody is asking any more. Nothing is thrown
+  // away here - the next written request does that (SPEC 2.6.1) - but
+  // the flow stops treating it as an answer to the current work.
   function isRepairIntakeCurrent(state) {
     return Boolean(state && state.repairRequestId &&
       state.repairIntakeRequestId === state.repairRequestId &&
       state.repairResultSnapshot &&
-      state.repairResultSnapshot === state.repairRequestSnapshot);
+      state.repairResultSnapshot === state.repairRequestSnapshot &&
+      state.repairRequestSnapshot === state.repairInputSnapshot);
   }
 
   function isDeterministicResultCurrent(state) {
@@ -173,6 +185,13 @@
     }
     return result.requestId === state.repairRequestId ? result : null;
   }
+
+  // Why a repair answer refused, in the words the screen uses.
+  var NO_CHANGE_META = {
+    UNNECESSARY: "改修は不要",
+    IMPOSSIBLE: "この方法では改修できません",
+    UNCLEAR: "依頼の内容を決められません"
+  };
 
   function isNoChange(state) {
     return getNoChangeResult(state) !== null;
@@ -226,10 +245,36 @@
       global.MacroStudioPathMap.canApply(state.pathMap));
   }
 
+  // Three routes, one screen graph.
+  //
+  //   AI only        4 conditions -> 5 hand over -> 6 diff -> build
+  //   table only     4 table+replace          -> 6 diff -> build
+  //   both           4 table+replace, then 4 conditions -> 5 -> 6 -> build
+  //
+  // In the third, the machine replacement runs first and the chat is
+  // then given the code it produced: asking a chat to repair lines the
+  // table is about to rewrite would put the old paths back. Screen 4
+  // holds both stages, so the order of screens never changes.
+  function hasReplacementStage(state) {
+    return Boolean(state && state.presetReplaceRules);
+  }
+
+  // Carried out once, and it stays carried out. A chat answer arriving
+  // afterwards edits the replaced code; it does not undo the stage.
+  function isReplacementDone(state) {
+    return Boolean(state && state.appliedMapping);
+  }
+
+  function isReplacementPending(state) {
+    return hasReplacementStage(state) && !isReplacementDone(state);
+  }
+
   function isRepairInputReady(state) {
-    return getEngine(state) === "対応表による置換"
-      ? isPathMapReady(state)
-      : isAiRepairInputReady(state);
+    if (getEngine(state) === "対応表による置換" ||
+        isReplacementPending(state)) {
+      return isPathMapReady(state);
+    }
+    return isAiRepairInputReady(state);
   }
 
   function bookName(state) {
@@ -265,6 +310,11 @@
         if (isDiagnosisCurrent(state)) {
           return findingCount(state) + "件の指摘を取り込み済み";
         }
+        // A skipped diagnosis has no request to hand over, so the header
+        // must not keep announcing one.
+        if (isDiagnosisSkipped(state)) {
+          return "診断は行いません";
+        }
         return state.diagnosisRequestId
           ? "診断依頼を用意しました"
           : "診断依頼を準備中";
@@ -273,11 +323,14 @@
         if (isDiagnosisCurrent(state)) {
           return "右下の「次へ」で診断結果を確認します";
         }
+        if (isDiagnosisSkipped(state)) {
+          return "右下の「次へ」で、次にすることを選びます";
+        }
         if (!state.diagnosisPromptCopied) {
           return "依頼文をコピーして、AIへ貼り付けます";
         }
         if (!state.diagnosisFolderOpened) {
-          return "source-code.md をAIへ添付します";
+          return AI_CODE_FILE + " をAIへ添付します";
         }
         return "AIの返答をコピーして、この画面へ取り込みます";
       },
@@ -318,9 +371,11 @@
       title: function () { return "改修する内容を決めます"; },
       meta: function (state) { return state.presetName || "改修の入力"; },
       context: function (state) {
-        return getEngine(state) === "対応表による置換"
-          ? "置き換える内容を確認します"
-          : "改修する指摘にチェックが入っていることを確かめます";
+        if (getEngine(state) === "対応表による置換" ||
+            isReplacementPending(state)) {
+          return "置き換える内容を確認します";
+        }
+        return "改修する指摘にチェックが入っていることを確かめます";
       },
       ready: isRepairInputReady
     },
@@ -328,21 +383,14 @@
       major: 3,
       sub: "4/5",
       title: function (state) {
-        if (state && state.needDecision) {
-          return "決める必要があることが返ってきました";
-        }
         return isNoChange(state)
-          ? "AIから変更なしの判断が返ってきました"
+          ? "AIから「改修できません」が返ってきました"
           : "AIに改修してもらいます";
       },
       meta: function (state) {
-        if (state && state.needDecision) {
-          return "改修の入力へ戻ります";
-        }
         if (isNoChange(state)) {
-          return getNoChangeResult(state).verdict === "UNNECESSARY"
-            ? "改修は不要"
-            : "この方法では改修できません";
+          return NO_CHANGE_META[getNoChangeResult(state).verdict] ||
+            "改修できません";
         }
         if (countImported(state) > 0) {
           return countImported(state) + "個のモジュールを取り込み済み";
@@ -350,11 +398,8 @@
         return state.repairRequestId ? "改修依頼を用意しました" : "準備中";
       },
       context: function (state) {
-        if (state && state.needDecision) {
-          return "質問を確認して、希望動作や追加の要望へ答えを入力します";
-        }
         if (isNoChange(state)) {
-          return "理由を確認し、別の返答があれば取り込み直せます";
+          return "理由を確認し、依頼を書き直すか、別の返答を取り込み直します";
         }
         if (countImported(state) > 0) {
           return "右下の「次へ」で取り込んだ変更を確認します";
@@ -363,14 +408,13 @@
           return "依頼文をコピーして、AIへ貼り付けます";
         }
         if (!state.repairFolderOpened) {
-          return "source-code.md をAIへ添付します";
+          return AI_CODE_FILE + " をAIへ添付します";
         }
         return "AIの返答をコピーして、この画面へ取り込みます";
       },
       ready: function (state) {
         return countImported(state) > 0 &&
-          isRepairIntakeCurrent(state) && !isNoChange(state) &&
-          !state.needDecision;
+          isRepairIntakeCurrent(state) && !isNoChange(state);
       }
     },
     {
@@ -492,6 +536,7 @@
   }
 
   global.MacroStudioScreens = {
+    AI_CODE_FILE: AI_CODE_FILE,
     count: SCREENS.length,
     majors: MAJORS,
     getMajors: function () { return MAJORS.slice(); },
@@ -538,6 +583,9 @@
     countUnchangedImports: countUnchangedImports,
     isOutputNameValid: isOutputNameValid,
     isRepairInputReady: isRepairInputReady,
+    hasReplacementStage: hasReplacementStage,
+    isReplacementDone: isReplacementDone,
+    isReplacementPending: isReplacementPending,
     getEngine: getEngine
   };
 }(window));

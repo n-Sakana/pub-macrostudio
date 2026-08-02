@@ -358,7 +358,8 @@ namespace MacroStudio.Tests
                     "var id=state.diagnosisRequestId;" +
                     "var marker=String.fromCharCode(39)+" +
                     "'@MACROSTUDIO '+id+' ';" +
-                    "var lines=[marker+'DIAG BEGIN 1'];" +
+                    "var lines=[marker+'DIAG BEGIN " +
+                    (zero ? "0" : "1") + "'];" +
                     "['PURPOSE','FLOW','DEPENDENCY','ENVIRONMENT']" +
                     ".forEach(function(name){" +
                     "lines.push(marker+'SECTION BEGIN '+name);" +

@@ -89,7 +89,7 @@ var finding2 = finding(
 
 function part(index, total, body, complete, extra) {
   return [
-    marker("DIAG BEGIN 1"),
+    marker("DIAG BEGIN " + String(complete)),
     marker("PART " + index + " OF " + total)
   ].concat(body || []).concat(extra || []).concat([
     marker("DIAG COMPLETE " + String(complete)),
@@ -98,7 +98,7 @@ function part(index, total, body, complete, extra) {
 }
 
 function whole() {
-  return [marker("DIAG BEGIN 1")]
+  return [marker("DIAG BEGIN 2")]
     .concat(sections())
     .concat(finding1)
     .concat(finding2)

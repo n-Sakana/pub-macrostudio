@@ -15,7 +15,7 @@ function diagnosis(api, settings) {
   var config = settings || {};
   var requestId = required(config.requestId, "requestId");
   var findings = config.findings || [];
-  var lines = [marker(requestId, "DIAG BEGIN 1")];
+  var lines = [marker(requestId, "DIAG BEGIN " + findings.length)];
   var result;
 
   ["PURPOSE", "FLOW", "DEPENDENCY", "ENVIRONMENT"].forEach(function (name) {

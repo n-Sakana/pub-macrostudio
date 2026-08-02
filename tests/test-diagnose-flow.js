@@ -148,7 +148,7 @@ function attach() {
 
 function zeroFindingPackage(requestId) {
   return [
-    "'@MACROSTUDIO " + requestId + " DIAG BEGIN 1",
+    "'@MACROSTUDIO " + requestId + " DIAG BEGIN 0",
     "'@MACROSTUDIO " + requestId + " SECTION BEGIN PURPOSE",
     "帳票を作るマクロです。",
     "'@MACROSTUDIO " + requestId + " SECTION END PURPOSE",

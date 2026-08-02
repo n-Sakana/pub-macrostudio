@@ -287,7 +287,7 @@ assert(
   filledText.indexOf("クリップボードから改修結果を取り込む") >= 0,
   "P2-1: the screen must keep the way to take another answer.");
 assert(
-  filledText.indexOf("1個のモジュールを取り込みました") >= 0,
+  filledText.indexOf("AIの回答を取り込みました") >= 0,
   "The intake result must stay on the screen next to the button.");
 assert(
   state.getState().intakeResult.summary === "Main を直しました。",

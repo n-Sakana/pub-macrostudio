@@ -1,0 +1,116 @@
+'@MACROSTUDIO {{REQUEST_ID}} DIAG BEGIN 4
+'@MACROSTUDIO {{REQUEST_ID}} SECTION BEGIN PURPOSE
+このマクロは、作業シート上の申請件数を集計し、集計結果を同じブック内へ書き戻す処理と、
+集計済みの件数を CSV ファイルとして共有ドライブ配下へ書き出す処理を持っています。
+RunSummary は「作業」シートの 4 列目に値がある行を対象に 5 列目の値を合計し、
+「作業」シートの B3、B4、B2 に結果や状態を書き込みます。
+ExportToShare は固定の S ドライブ配下に年度フォルダを作り、日付入りの CSV を出力し、
+出力先パスを「作業」シートの B5 に書き込みます。
+DefaultExportFolder は同じ固定保存先の文字列を返します。
+'@MACROSTUDIO {{REQUEST_ID}} SECTION END PURPOSE
+'@MACROSTUDIO {{REQUEST_ID}} SECTION BEGIN FLOW
+ExportSummary.RunSummary が集計側の入口です。ThisWorkbook から「作業」シートと「設定」シートを取得し、
+「作業」シートの 4 列目の最終行を求めます。5 行目から最終行までを走査し、4 列目が空でない行について
+5 列目の値を数値化して total に加算します。その後、合計値を B3 に、設定シート B2 の値を B4 に、
+状態文字列「集計済み」を B2 に書き込みます。
+ExportSummary.ExportToShare は RunSummary からは呼ばれていません。コメント上は月末に手で実行していた処理です。
+固定の EXPORT_ROOT に当年の yyyy と区切り文字を連結して年度フォルダを作り、Dir で存在確認を行い、
+存在しなければ MkDir で作成します。その後、同じフォルダに shinsei_yyyymmdd.csv という名前の CSV を
+Open For Output で作成し、1 行だけ「件数,」と B3 の値を書き出して閉じます。最後に出力先パスを B5 へ記録します。
+ExportSummary.DefaultExportFolder は固定の EXPORT_ROOT をそのまま返します。
+'@MACROSTUDIO {{REQUEST_ID}} SECTION END FLOW
+'@MACROSTUDIO {{REQUEST_ID}} SECTION BEGIN DEPENDENCY
+VBA 上の外部参照設定として提示されているのは stdole と Office だけです。
+コード内には Declare / Declare PtrSafe、Shell、WScript.Shell、cmd /c、PowerShell、wscript、cscript、mshta、
+WMI、Win32 API、外部 DLL 読み込み、DDE、Internet Explorer 自動操作、SendKeys、AppActivate、DAO、
+接続文字列、固定ホスト名、固定 IP アドレス、固定プリンタ名は確認できません。
+主要な依存関係は、Excel ブック内の「作業」シートと「設定」シート、固定保存先 S:\eigyo\shinsei\、
+その配下の年度フォルダ、VBA の Dir / MkDir / Open / Print / Close によるファイルシステム操作です。
+Sheet1、Sheet2、ThisWorkbook は 0 行のため、イベント処理や自動起動処理は提示コード上にはありません。
+'@MACROSTUDIO {{REQUEST_ID}} SECTION END DEPENDENCY
+'@MACROSTUDIO {{REQUEST_ID}} SECTION BEGIN ENVIRONMENT
+提示された想定動作環境では、RunSummary の集計とブック内セルへの書き込みは、コード上は外部プロセス起動、
+Win32 API、WMI、外部 DLL、固定ドライブ保存先に依存していません。
+一方、ExportToShare と DefaultExportFolder は S: ドライブを前提にした固定パスを使っています。
+新しい端末に同じ S: ドライブの割り当てがない場合、年度フォルダの存在確認、フォルダ作成、CSV 出力、
+出力先パスの記録は期待どおり成立しません。
+また、フォルダとファイル名は文字列連結で組み立てられているため、保存先の前提がドライブ形式でなくなると
+同じ処理は正しいファイルシステム上の場所を指すとは確認できません。
+ブックが SharePoint / OneDrive 上に置かれる点は提示されていますが、このコードは ThisWorkbook.Path を使っていないため、
+BOOK_PATH_IS_URL が直接問題になる箇所は確認できません。
+'@MACROSTUDIO {{REQUEST_ID}} SECTION END ENVIRONMENT
+'@MACROSTUDIO {{REQUEST_ID}} FINDING BEGIN 1
+'@MACROSTUDIO {{REQUEST_ID}} META CLASS=CONDITIONAL CONFIDENCE=CONFIRMED MODULE=ExportSummary PROC=ExportToShare LINES=13,44-50 ENVKEY=FIXED_DRIVE_LETTER
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN TITLE
+CSV の保存先が S: ドライブ固定のため、新端末に同じ割り当てがないと書き出せません。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END TITLE
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN CONDITION
+ExportToShare を実行し、かつ新しい業務端末で S: が同じ共有先として割り当てられていない場合に起きます。
+RunSummary だけを実行する場合、この固定ドライブ保存先は通りません。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END CONDITION
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN IMPACT
+年度フォルダの確認、作成、または CSV ファイルの作成時点で失敗し、件数の CSV 書き出しは完了しません。
+ブック内の集計済みデータ自体は、この箇所だけからは変更されません。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END IMPACT
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN EVIDENCE
+ExportSummary の 13 行目で EXPORT_ROOT が "S:\eigyo\shinsei\" に固定されています。
+44 行目でこの値に年度と区切り文字を連結して folder を作り、45 行目の Dir、46 行目の MkDir、
+48 行目の path 作成、50 行目の Open path For Output に渡しています。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END EVIDENCE
+'@MACROSTUDIO {{REQUEST_ID}} FINDING END 1
+'@MACROSTUDIO {{REQUEST_ID}} FINDING BEGIN 2
+'@MACROSTUDIO {{REQUEST_ID}} META CLASS=CONDITIONAL CONFIDENCE=CONFIRMED MODULE=ExportSummary PROC=ExportToShare LINES=44,48 ENVKEY=PATH_CONCATENATION
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN TITLE
+保存先フォルダと CSV パスを文字列連結で組み立てています。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END TITLE
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN CONDITION
+ExportToShare を実行したときに通ります。起点が Windows のドライブ形式として成立している場合だけ、
+この連結結果は意図したファイルシステム上の場所になります。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END CONDITION
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN IMPACT
+保存先の前提が変わると、folder や path が実在する場所を指すとは確認できません。
+その場合、フォルダ作成や CSV 出力は失敗するか、意図と異なるパス文字列を B5 に残す可能性があります。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END IMPACT
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN EVIDENCE
+ExportSummary の 44 行目で EXPORT_ROOT & Format$(Date, "yyyy") & "\" により folder を作っています。
+48 行目で folder & "shinsei_" & Format$(Date, "yyyymmdd") & ".csv" により CSV の path を作っています。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END EVIDENCE
+'@MACROSTUDIO {{REQUEST_ID}} FINDING END 2
+'@MACROSTUDIO {{REQUEST_ID}} FINDING BEGIN 3
+'@MACROSTUDIO {{REQUEST_ID}} META CLASS=CONDITIONAL CONFIDENCE=CONFIRMED MODULE=ExportSummary PROC=ExportToShare LINES=45 ENVKEY=DIR_EXISTENCE_CHECK
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN TITLE
+年度フォルダの存在確認に Dir を使っています。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END TITLE
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN CONDITION
+ExportToShare を実行したときに通ります。folder が通常のファイルシステムパスとして成立している場合は
+存在確認として使われますが、URL 形式の場所に対する存在確認としては機能しません。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END CONDITION
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN IMPACT
+存在する場所を存在しないと判定する、または確認処理自体が成立しない場合があります。
+その後の MkDir や Open For Output に進むため、CSV 書き出しは完了しない可能性があります。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END IMPACT
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN EVIDENCE
+ExportSummary の 45 行目で If Dir(folder, vbDirectory) = "" Then として、
+44 行目で作った folder の存在確認を Dir で行っています。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END EVIDENCE
+'@MACROSTUDIO {{REQUEST_ID}} FINDING END 3
+'@MACROSTUDIO {{REQUEST_ID}} FINDING BEGIN 4
+'@MACROSTUDIO {{REQUEST_ID}} META CLASS=CONDITIONAL CONFIDENCE=CONFIRMED MODULE=ExportSummary PROC=DefaultExportFolder LINES=13,57 ENVKEY=FIXED_DRIVE_LETTER
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN TITLE
+既定の保存先として返す値も S: ドライブ固定です。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END TITLE
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN CONDITION
+DefaultExportFolder が他のマクロ、数式、ボタン、または外部操作から呼ばれた場合に該当します。
+提示された VBA コード内では、この関数を呼んでいる箇所は確認できません。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END CONDITION
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN IMPACT
+新端末に同じ S: ドライブ割り当てがない場合、この関数が返す保存先は実在する場所とは限りません。
+この関数の戻り値を使う処理が別にある場合、その処理は保存先を誤る可能性があります。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END IMPACT
+'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN EVIDENCE
+ExportSummary の 13 行目で EXPORT_ROOT が "S:\eigyo\shinsei\" に固定されています。
+57 行目の DefaultExportFolder = EXPORT_ROOT は、その固定文字列をそのまま戻り値にしています。
+'@MACROSTUDIO {{REQUEST_ID}} TEXT END EVIDENCE
+'@MACROSTUDIO {{REQUEST_ID}} FINDING END 4
+'@MACROSTUDIO {{REQUEST_ID}} DIAG COMPLETE 4
+'@MACROSTUDIO {{REQUEST_ID}} DIAG END

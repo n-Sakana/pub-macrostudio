@@ -142,7 +142,13 @@
 
 '@MACROSTUDIO {{REQUEST_ID}} COMPLETE <モジュールの数>
 
-直すところが無いと判断したとき、または、この形では直せないと判断したときは、
+返せる答えは 2 つだけです。改修したコードを上の形で返すか、
+改修できない理由を下の形で返すか、どちらかです。
+**利用者へ質問を返したり、選択肢を示して選ばせたりしないでください。**
+足りない情報があって決められない場合も、質問はせず UNCLEAR で返します。
+
+直すところが無いと判断したとき、この形では直せないと判断したとき、
+または渡された情報だけでは決められないときは、
 モジュールを 1 つも書かず、代わりに次の形で返してください。
 求められていない変更を作って埋めることはしないでください。
 
@@ -157,28 +163,14 @@
 
 - UNNECESSARY … いまのままで依頼の内容を満たしているので、直す必要がない
 - IMPOSSIBLE … 直したほうがよいが、渡されたモジュールを書き換える形ではできない
-- NEEDDECISION … コードだけでは決められず、人が選ぶ必要がある
+- UNCLEAR … 依頼の内容が、渡された情報だけでは確定できない
 
-NEEDDECISION のときは、SUMMARY END と NOCHANGE NEEDDECISION の間に、
-決める必要があることを 1 件以上、次の形で書いてください。
+UNCLEAR のときは、何がどう決まらないのかを SUMMARY に書いてください。
+利用者へ質問を返したり、選択肢を示して選ばせたりしないでください。
+この返答で対話は終わりです。決められない理由が読めれば、
+利用者は依頼文を書き直して、もう一度渡します。
 
-'@MACROSTUDIO {{REQUEST_ID}} DECISION BEGIN 1
-'@MACROSTUDIO {{REQUEST_ID}} META FINDING=<指摘番号または-> MODULE=<モジュール名または->
-'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN QUESTION
-（人が決める必要がある質問）
-'@MACROSTUDIO {{REQUEST_ID}} TEXT END QUESTION
-'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN OPTIONS
-（考えられる選択肢と、それぞれの結果）
-'@MACROSTUDIO {{REQUEST_ID}} TEXT END OPTIONS
-'@MACROSTUDIO {{REQUEST_ID}} DECISION END 1
-'@MACROSTUDIO {{REQUEST_ID}} NOCHANGE NEEDDECISION
-'@MACROSTUDIO {{REQUEST_ID}} COMPLETE 0
-
-DECISION の番号は 1 から始め、2、3 と重複なく増やしてください。01 のように
-0 を付けません。FINDING は診断にある指摘番号、MODULE は対象モジュール名です。
-どちらにも結び付かないときだけ `-` にします。質問と選択肢は空にしません。
-
-UNNECESSARY / IMPOSSIBLE の 4 行と、NEEDDECISION の上記各行はすべて必要です。
+SUMMARY / NOCHANGE / COMPLETE の各行はすべて必要です。
 理由を書かずに NOCHANGE だけを返したり、
 COMPLETE 0 だけを返したりしないでください。何も返さないこと、
 返答を途中でやめることも、「変更なし」とは扱われません。
@@ -242,7 +234,13 @@ COMPLETE 0 だけを返したりしないでください。何も返さないこ
 '@MACROSTUDIO {{REQUEST_ID}} END <種類> <モジュール名>
 '@MACROSTUDIO {{REQUEST_ID}} COMPLETE 1
 
-直すところが無いと判断したとき、または、この形では直せないと判断したときは、
+返せる答えは 2 つだけです。改修したコードを上の形で返すか、
+改修できない理由を下の形で返すか、どちらかです。
+**利用者へ質問を返したり、選択肢を示して選ばせたりしないでください。**
+足りない情報があって決められない場合も、質問はせず UNCLEAR で返します。
+
+直すところが無いと判断したとき、この形では直せないと判断したとき、
+または渡された情報だけでは決められないときは、
 モジュールを 1 つも出さず、1 回の返答だけで次の形で返してください。
 PART の行は付けません。番号を待つ必要も、続きを出す必要もありません。
 
@@ -258,28 +256,14 @@ PART の行は付けません。番号を待つ必要も、続きを出す必要
 - UNNECESSARY … いまのままで依頼の内容を満たしているので、直す必要がない
 - IMPOSSIBLE … 直したほうがよいが、渡されたモジュールを書き換える形ではできない
 
-- NEEDDECISION … コードだけでは決められず、人が選ぶ必要がある
+- UNCLEAR … 依頼の内容が、渡された情報だけでは確定できない
 
-NEEDDECISION のときは、SUMMARY END と NOCHANGE NEEDDECISION の間に、
-決める必要があることを 1 件以上、次の形で書いてください。
+UNCLEAR のときは、何がどう決まらないのかを SUMMARY に書いてください。
+利用者へ質問を返したり、選択肢を示して選ばせたりしないでください。
+この返答で対話は終わりです。決められない理由が読めれば、
+利用者は依頼文を書き直して、もう一度渡します。
 
-'@MACROSTUDIO {{REQUEST_ID}} DECISION BEGIN 1
-'@MACROSTUDIO {{REQUEST_ID}} META FINDING=<指摘番号または-> MODULE=<モジュール名または->
-'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN QUESTION
-（人が決める必要がある質問）
-'@MACROSTUDIO {{REQUEST_ID}} TEXT END QUESTION
-'@MACROSTUDIO {{REQUEST_ID}} TEXT BEGIN OPTIONS
-（考えられる選択肢と、それぞれの結果）
-'@MACROSTUDIO {{REQUEST_ID}} TEXT END OPTIONS
-'@MACROSTUDIO {{REQUEST_ID}} DECISION END 1
-'@MACROSTUDIO {{REQUEST_ID}} NOCHANGE NEEDDECISION
-'@MACROSTUDIO {{REQUEST_ID}} COMPLETE 0
-
-DECISION の番号は 1 から始め、2、3 と重複なく増やしてください。01 のように
-0 を付けません。FINDING は診断にある指摘番号、MODULE は対象モジュール名です。
-どちらにも結び付かないときだけ `-` にします。質問と選択肢は空にしません。
-
-UNNECESSARY / IMPOSSIBLE の 4 行と、NEEDDECISION の上記各行はすべて必要です。
+SUMMARY / NOCHANGE / COMPLETE の各行はすべて必要です。
 理由を書かずに NOCHANGE だけを返したり、
 COMPLETE 0 だけを返したりしないでください。何も返さないこと、
 返答を途中でやめることも、「変更なし」とは扱われません。

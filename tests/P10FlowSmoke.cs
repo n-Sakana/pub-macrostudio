@@ -348,7 +348,7 @@ namespace MacroStudio.Tests
                         "splitOption:document.querySelectorAll(" +
                         "'[data-workflow-input=\"diagnosis-split\"]').length," +
                         "requestFile:document.body.textContent" +
-                        ".indexOf('source-code.md') >= 0," +
+                        ".indexOf('source-code-for-ai.md') >= 0," +
                         "nextReady:!document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled" +
                         "})"));
@@ -391,7 +391,7 @@ namespace MacroStudio.Tests
                     if (pathMap)
                     {
                         diagnosisResponse =
-                            marker + "DIAG BEGIN 1\r\n" +
+                            marker + "DIAG BEGIN 0\r\n" +
                             marker + "SECTION BEGIN PURPOSE\r\n" +
                             "The workbook exposes a monthly report.\r\n" +
                             marker + "SECTION END PURPOSE\r\n" +
@@ -501,30 +501,43 @@ namespace MacroStudio.Tests
                         ".getAttribute('data-preset-file') : ''," +
                         "nextReady:!document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled};}())"));
-                    if (pathMap)
-                    {
-                        await Execute(
-                            "(function(){" +
-                            "var state=MacroStudioState.getState();" +
-                            "var entries=MacroStudioPreset.describeAll(" +
-                            "state.appInfo.presets.repair,'repair');" +
-                            // The one that asks for the replacement table.
-                            "var fixed=entries.filter(function(entry){" +
-                            "return entry.valid&&entry.replaceRules;})[0];" +
-                            "var cards=Array.prototype.slice.call(" +
-                            "document.querySelectorAll(" +
-                            "'[data-action=\"select-repair-preset\"]'));" +
-                            "cards.filter(function(card){return " +
-                            "card.getAttribute('data-preset-file')===" +
-                            "fixed.file;})[0].click();}())");
-                    }
-                    else
-                    {
-                        await Execute(
-                            "document.querySelector(" +
-                            "'[data-action=\"select-repair-preset\"]')" +
-                            ".click();");
-                    }
+                    // The diagnosis may point at a template, and the
+                    // screen arrives with that one already ticked. This
+                    // walk is one route on purpose, so it unticks
+                    // everything first and then ticks the one it means.
+                    // Leaving an extra tick in place makes it the
+                    // combined route, where the replacement runs first.
+                    await Execute(
+                        "(function(){" +
+                        "function ticked(){" +
+                        "return Array.prototype.slice.call(" +
+                        "document.querySelectorAll(" +
+                        "'[data-action=\"select-repair-preset\"]" +
+                        "[aria-checked=\"true\"]'));}" +
+                        "var open=ticked();" +
+                        "var guard=0;" +
+                        "while(open.length>0&&guard<20){" +
+                        "open[0].click();open=ticked();guard++;}}())");
+                    await WaitFor(
+                        "MacroStudioState.getState().presetFiles" +
+                        ".length === 0");
+                    await Execute(
+                        "(function(){" +
+                        "var state=MacroStudioState.getState();" +
+                        "var entries=MacroStudioPreset.describeAll(" +
+                        "state.appInfo.presets.repair,'repair');" +
+                        // With the table, the one that asks for it;
+                        // without, the first that asks the chat instead.
+                        "var wanted=entries.filter(function(entry){" +
+                        "return entry.valid&&(" +
+                        (pathMap ? "entry.replaceRules" : "!entry.replaceRules") +
+                        ");})[0];" +
+                        "var cards=Array.prototype.slice.call(" +
+                        "document.querySelectorAll(" +
+                        "'[data-action=\"select-repair-preset\"]'));" +
+                        "cards.filter(function(card){return " +
+                        "card.getAttribute('data-preset-file')===" +
+                        "wanted.file;})[0].click();}())");
                     await WaitFor(
                         "MacroStudioState.getState().presetFile !== null && " +
                         "MacroStudioState.getState().busyAction === null");
@@ -661,7 +674,7 @@ namespace MacroStudio.Tests
                         "copy:document.querySelectorAll(" +
                         "'[data-action=\"copy-repair-prompt\"]').length," +
                         "requestFile:document.body.textContent" +
-                        ".indexOf('source-code.md') >= 0," +
+                        ".indexOf('source-code-for-ai.md') >= 0," +
                         "nextReady:!document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled" +
                         "})"));
@@ -679,7 +692,7 @@ namespace MacroStudio.Tests
                         await Capture(darkScreenshot, true);
                         result.Add("diagnosisPromptReady",
                             diagnosisPrompt.Contains(diagnosisId) &&
-                            diagnosisPrompt.Contains("source-code.md"));
+                            diagnosisPrompt.Contains("source-code-for-ai.md"));
                         result.Add("repairPromptReady",
                             repairPrompt.Contains(repairId) &&
                             repairPrompt.Contains(
@@ -780,6 +793,17 @@ namespace MacroStudio.Tests
                         "nextReady:!document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled" +
                         "})"));
+                    // The change arrives open: this screen exists to be
+                    // looked at. Closing and reopening it proves the
+                    // control still works both ways.
+                    await Execute(
+                        "document.querySelector(" +
+                        "'[data-action=\"toggle-disclosure\"]" +
+                        "[data-disclosure=\"change-detail\"]').click();");
+                    await WaitFor(
+                        "document.querySelector(" +
+                        "'[data-disclosure-box=\"change-detail\"]')" +
+                        ".getAttribute('data-open') === 'false'");
                     await Execute(
                         "document.querySelector(" +
                         "'[data-action=\"toggle-disclosure\"]" +
@@ -915,7 +939,7 @@ namespace MacroStudio.Tests
 
                     result.Add("diagnosisPromptReady",
                         diagnosisPrompt.Contains(diagnosisId) &&
-                        diagnosisPrompt.Contains("source-code.md"));
+                        diagnosisPrompt.Contains("source-code-for-ai.md"));
                     if (!pathMap)
                     {
                         result.Add("repairPromptReady",

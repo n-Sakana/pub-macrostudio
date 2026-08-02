@@ -362,24 +362,21 @@ Assert-True ($streamChanges.Count -eq 1) `
 Assert-True ($streamChanges.ContainsKey($writeModule.StreamEntry.Id)) `
     'Module change did not target the physical stream entry.'
 
+# A rewritten module keeps no PerformanceCache. The prefix is the old
+# code compiled, and Excel runs it in preference to the source, so a
+# module stream that still carried it showed the code we replaced.
 $newStream = $streamChanges[$writeModule.StreamEntry.Id]
-for ($index = 0; $index -lt $writeModule.SourceOffset; $index++) {
-    Assert-True (
-        $newStream[$index] -eq $writeModule.StreamData[$index]) `
-        "PerformanceCache prefix mismatch at $index."
-}
 $newSourceBytes = [MacroStudio.VbaCompression]::Decompress(
     $newStream,
-    [int]$writeModule.SourceOffset)
+    0)
 $expectedSourceBytes = $project.Encoding.GetBytes($newFullCode)
 Assert-Bytes $newSourceBytes $expectedSourceBytes `
     'Rebuilt module source'
 $expectedCompressed = [MacroStudio.VbaCompression]::Compress(
     $expectedSourceBytes)
 Assert-True (
-    $newStream.Length -eq
-        $writeModule.SourceOffset + $expectedCompressed.Length) `
-    'Rebuilt module stream contains padding.'
+    $newStream.Length -eq $expectedCompressed.Length) `
+    'Rebuilt module stream is not source alone.'
 
 $rebuiltProjectBytes = [MacroStudio.VbaProjectWriter]::RebuildProject(
     $project,
@@ -395,6 +392,49 @@ Assert-True ($rebuiltModule.StreamName -eq $originalStreamName) `
     'Rebuilt physical stream name changed.'
 Assert-True ($rebuiltModule.FullCode -ceq $newFullCode) `
     'Rebuilt module code mismatch.'
+
+# Excel believes a VBA project's compiled state whenever _VBA_PROJECT's
+# version matches its engine, and that state lives in three places at
+# once. Leaving any one of them behind meant the workbook still showed
+# and ran the code we had replaced, while reading the source back said
+# the change had landed. Clearing only some of the three does not
+# degrade gracefully: it produces a workbook Excel refuses to open, so
+# all three are asserted together.
+foreach ($rebuilt in $rebuiltProject.Modules) {
+    Assert-True ($rebuilt.SourceOffset -eq 0) `
+        ("Rebuilt module kept a PerformanceCache: " + $rebuilt.Name)
+}
+
+$rebuiltOle2 = [MacroStudio.Ole2File]::Parse($rebuiltProjectBytes)
+$rebuiltVbaStorage = $null
+foreach ($entry in $rebuiltOle2.Entries) {
+    if ($entry.ObjectType -eq 1 -and $entry.Name -eq 'VBA') {
+        $rebuiltVbaStorage = $entry
+    }
+}
+Assert-True ($null -ne $rebuiltVbaStorage) `
+    'Rebuilt VBA storage was not found.'
+
+$sawVbaProjectStamp = $false
+foreach ($childId in $rebuiltVbaStorage.Children) {
+    $child = $rebuiltOle2.Entries[$childId]
+    if ($child.ObjectType -ne 2) {
+        continue
+    }
+    if ($child.Name.StartsWith('__SRP_')) {
+        Assert-True ($child.Size -eq 0) `
+            ("Rebuilt project kept a compiled cache: " + $child.Name)
+    }
+    elseif ($child.Name -eq '_VBA_PROJECT') {
+        $stamp = $rebuiltOle2.ReadStream($child)
+        Assert-True (
+            $stamp[2] -eq 0xFF -and $stamp[3] -eq 0xFF) `
+            'Rebuilt _VBA_PROJECT still claims a compiled version.'
+        $sawVbaProjectStamp = $true
+    }
+}
+Assert-True $sawVbaProjectStamp `
+    'Rebuilt _VBA_PROJECT stream was not found.'
 
 $additionCode = (
     "Option Explicit`r`n`r`n" +

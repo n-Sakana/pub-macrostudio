@@ -17,6 +17,11 @@
   var MODE_TITLE = "用途";
   var QUESTION_TITLE = "質問";
   var DESCRIPTION_TITLE = "説明";
+  // A template whose whole point is that the reader writes the work
+  // themselves says so, and says what to call the field. The app puts
+  // out a field with that label; it does not decide which template
+  // needs one.
+  var WRITE_IN_TITLE = "記入欄";
   var SECTION_TITLES = [INSTRUCTION_TITLE, OUTPUT_TITLE];
   var OPTIONAL_SECTION_TITLES = [
     QUESTION_TITLE,
@@ -26,7 +31,8 @@
     REPLACE_TITLE,
     BEHAVIOR_CANDIDATES_TITLE,
     PRESERVE_TITLE,
-    RECOMMEND_TITLE
+    RECOMMEND_TITLE,
+    WRITE_IN_TITLE
   ];
   var STAGES = {
     diagnose: "diagnose",
@@ -57,6 +63,7 @@
       QUESTION_TITLE + "」「## " + DESCRIPTION_TITLE + "」「## " +
       REPLACE_TITLE + "」「## " + BEHAVIOR_CANDIDATES_TITLE + "」「## " +
       PRESERVE_TITLE + "」「## " + RECOMMEND_TITLE + "」「## " +
+      WRITE_IN_TITLE + "」「## " +
       SPLIT_OUTPUT_TITLE + "」「## " +
       SPLIT_DIAGNOSIS_OUTPUT_TITLE + "」です。",
     manyDescriptions:
@@ -208,6 +215,7 @@
       behaviorCandidates: [],
       preserveItems: [],
       recommendKeys: [],
+      writeIn: null,
       instruction: null,
       output: null,
       splitOutput: null,
@@ -426,6 +434,7 @@
       behaviorCandidates: [],
       preserveItems: [],
       recommendKeys: [],
+      writeIn: null,
       instruction: null,
       output: null,
       splitOutput: null,
@@ -502,6 +511,22 @@
           MESSAGES.invalidList,
           RECOMMEND_TITLE), stage);
       }
+    }
+    // The label the reader's own field carries, written by whoever
+    // wrote the template. One line, because it is a label.
+    if (Object.prototype.hasOwnProperty.call(sections, WRITE_IN_TITLE)) {
+      if (stage !== STAGES.repair) {
+        return failure(format(
+          MESSAGES.repairOnlySection,
+          WRITE_IN_TITLE), stage);
+      }
+      body = joinBody(sections[WRITE_IN_TITLE]);
+      if (body === "") {
+        return failure(format(
+          MESSAGES.emptySection,
+          WRITE_IN_TITLE), stage);
+      }
+      result.writeIn = body.split(CRLF)[0];
     }
     if (Object.prototype.hasOwnProperty.call(sections, PRESERVE_TITLE)) {
       if (stage !== STAGES.repair) {
@@ -610,6 +635,7 @@
         behaviorCandidates: [],
         preserveItems: [],
         recommendKeys: [],
+        writeIn: null,
         valid: false,
         message: MESSAGES.unreadable,
         instruction: null,
@@ -668,6 +694,7 @@
     behaviorCandidatesTitle: BEHAVIOR_CANDIDATES_TITLE,
     preserveTitle: PRESERVE_TITLE,
     recommendTitle: RECOMMEND_TITLE,
+    writeInTitle: WRITE_IN_TITLE,
     modeTitle: MODE_TITLE,
     questionTitle: QUESTION_TITLE,
     descriptionTitle: DESCRIPTION_TITLE,

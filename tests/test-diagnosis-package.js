@@ -93,7 +93,13 @@ var blockerMeta =
 
 function packageWith(findings, settings) {
   var config = settings || {};
-  var result = [marker("DIAG BEGIN " + (config.version || "1"))];
+  // The opener says how many findings this reply carries, the same value
+  // COMPLETE ends with. `beginCount` overrides it so the mismatch has a
+  // fixture of its own.
+  var result = [marker("DIAG BEGIN " +
+    (config.beginCount !== undefined
+      ? config.beginCount
+      : (findings || []).length))];
 
   result = result.concat(config.sections || sections());
   (findings || []).forEach(function (item) {
@@ -202,7 +208,10 @@ var outsideSentinel = marker("DIAG COMPLETE 1") + "\n" + validOne;
 var failures = {
   D01: validOne.replace(id, other),
   D02: validOne.replace("\n" + marker("DIAG END"), ""),
-  D03: packageWith([finding("1", defaultMeta)], { version: "2" }),
+  // The opener's number has to be a canonical decimal count, and it has
+  // to be the count that is actually there.
+  D03: packageWith([finding("1", defaultMeta)], { beginCount: "01" }),
+  D29: packageWith([finding("1", defaultMeta)], { beginCount: "2" }),
   D04: validOne.replace(
     section("ENVIRONMENT").join("\n") + "\n",
     ""),
@@ -305,5 +314,5 @@ assert(
 
 console.log("test-diagnosis-package: PASS");
 console.log(
-  "shipped example, D01-D28 pass/fail ids, zero findings, canonical " +
+  "shipped example, D01-D29 pass/fail ids, zero findings, canonical " +
     "counts, line forms and record formatting: PASS");

@@ -268,10 +268,21 @@ assert(!screens.isRepairIntakeCurrent(current()) &&
   screens.countImported(current()) === 0,
 "A new repair id must invalidate only the old repair package.");
 
-// Input mutation invalidates the repair request and output, not diagnosis.
+// Input mutation marks the written request as no longer current, but it
+// does not tear it down: SPEC 2.6.1 confirms the discard only when the
+// next request has actually been written. Screens read the snapshot, so
+// nothing stale can be carried forward in the meantime.
 store.setExtraRequest("別の追加要望");
-assert(current().repairRequestId === null && current().diagnosis,
-  "Changing repair input must drop the repair identity only.");
+assert(current().repairRequestId === REPAIR_ID_2 && current().diagnosis,
+  "Changing repair input must not tear down the written request.");
+assert(current().repairRequestSnapshot !== current().repairInputSnapshot,
+  "Changed input must stop matching the snapshot the request answered.");
+assert(!screens.isRepairIntakeCurrent(current()),
+  "A changed input must stop the old package from counting as current.");
+commitRepairRequest("2f0a0f6f-1e2b-4a3c-8d4e-5f6a7b8c9d01");
+assert(current().repairRequestSnapshot === current().repairInputSnapshot &&
+  screens.countImported(current()) === 0,
+"Writing the next request is what confirms the discard.");
 
 // Preset content is part of the identity even when the file name is equal.
 chooseAiPreset("# preset v2");

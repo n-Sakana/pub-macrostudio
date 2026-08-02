@@ -19,11 +19,18 @@ namespace MacroStudio
         public string StreamName;
         public uint SourceOffset;
         public ushort TypeId;
+        // Where MODULEOFFSET's value sits inside the decompressed dir
+        // stream. The writer has to set it to zero when it drops a
+        // module's compiled cache, and re-walking dir there would mean a
+        // second, looser parser; this lets it reuse the strict one.
+        // -1 when the record was not read from dir.
+        public int SourceOffsetPosition;
 
         public VbaDirModule()
         {
             Name = string.Empty;
             StreamName = string.Empty;
+            SourceOffsetPosition = -1;
         }
     }
 
@@ -72,6 +79,9 @@ namespace MacroStudio
         public Ole2DirectoryEntry DirEntry;
         public Ole2DirectoryEntry VbaStorage;
         public List<VbaModule> Modules;
+        // The dir records as read, kept so the writer can find each
+        // MODULEOFFSET field by position when it drops compiled caches.
+        public List<VbaDirModule> DirModules;
         public string FilePath;
         public bool IsZip;
         public string VbaEntryName;
@@ -111,6 +121,7 @@ namespace MacroStudio
             DirCompressed = new byte[0];
             DirDecompressed = new byte[0];
             Modules = new List<VbaModule>();
+            DirModules = new List<VbaDirModule>();
             FilePath = string.Empty;
             VbaEntryName = string.Empty;
             ProjectModulesOffset = -1;
@@ -237,6 +248,7 @@ namespace MacroStudio
             project.ProjectWmEntry = projectWmEntry;
             project.DirEntry = dirEntry;
             project.VbaStorage = vbaStorage;
+            project.DirModules = dirModules;
 
             if (projectTypes.Count != dirModules.Count ||
                 (projectWmEntry != null && !projectWmMatches))
@@ -1457,6 +1469,7 @@ namespace MacroStudio
             {
                 throw new InvalidDataException("Invalid MODULEOFFSET size.");
             }
+            int sourceOffsetPosition = position;
             uint sourceOffset = ReadUInt32AndAdvance(data, ref position);
 
             SkipFixedRecord(
@@ -1517,6 +1530,7 @@ namespace MacroStudio
                 unicodeStreamName :
                 streamName;
             module.SourceOffset = sourceOffset;
+            module.SourceOffsetPosition = sourceOffsetPosition;
             module.TypeId = typeId;
             return module;
         }
@@ -1980,36 +1994,194 @@ namespace MacroStudio
                     module.Name);
             }
 
+            // Everything before MODULEOFFSET is the compiled p-code of the
+            // code we are replacing, and it holds that old code's string
+            // literals verbatim. Excel runs the p-code whenever it accepts
+            // the cache, so carrying the prefix over meant the workbook
+            // still showed and ran the old code while our own read-back of
+            // the compressed source said the change had landed.
+            //
+            // We cannot rebuild p-code - there is no VBA compiler here - so
+            // the module stream becomes source only, and RebuildProject
+            // clears the rest of the compiled state so Excel compiles from
+            // that source. Dropping the prefix alone is not enough and not
+            // safe on its own; see DropCompiledCaches.
             byte[] sourceBytes =
                 GetWriteEncoding(project).GetBytes(fullCode);
-            byte[] compressed = VbaCompression.Compress(sourceBytes);
-            int prefixLength = (int)module.SourceOffset;
-            int outputLength;
-            try
-            {
-                outputLength = checked(
-                    prefixLength + compressed.Length);
-            }
-            catch (OverflowException)
+            return VbaCompression.Compress(sourceBytes);
+        }
+
+        // Excel keeps a VBA project's compiled state in three places, and it
+        // believes that state whenever _VBA_PROJECT's version matches its own
+        // engine. Measured on Excel 16 against a workbook this product had
+        // rebuilt:
+        //   * leaving all three alone  -> the old code is shown and run
+        //   * version mismatch only    -> Excel terminates (0x800706BE)
+        //   * MODULEOFFSET zeroed only -> "the data is in an invalid format"
+        //   * __SRP_* emptied only     -> the old code is still shown
+        // Only clearing all three together gives Excel one consistent answer,
+        // "nothing here is compiled", which makes it compile from source. So
+        // this is deliberately not a cache-deleting shotgun: each of the three
+        // is required, and any two without the third produce a broken book.
+        private const ushort UncompiledProjectVersion = 0xFFFF;
+
+        private static byte[] DropCompiledCaches(
+            VbaProjectData project,
+            byte[] dirBytes,
+            IDictionary<int, byte[]> streamChanges)
+        {
+            if (project.Ole2 == null ||
+                project.VbaStorage == null ||
+                dirBytes == null)
             {
                 throw new InvalidDataException(
-                    "The rebuilt VBA module stream is too large.");
+                    "The VBA project compiled state cannot be located.");
             }
 
-            byte[] result = new byte[outputLength];
-            Buffer.BlockCopy(
-                module.StreamData,
-                0,
-                result,
-                0,
-                prefixLength);
-            Buffer.BlockCopy(
-                compressed,
-                0,
-                result,
-                prefixLength,
-                compressed.Length);
+            // Which modules dir records a MODULEOFFSET for. A module whose
+            // stream we write has to be in here: the stream and dir have to
+            // say the same thing about where the source starts, and a
+            // module dir does not describe is one we cannot keep in step.
+            Dictionary<string, VbaDirModule> dirByName =
+                new Dictionary<string, VbaDirModule>(
+                    StringComparer.OrdinalIgnoreCase);
+            int index;
+            for (index = 0; index < project.DirModules.Count; index++)
+            {
+                VbaDirModule record = project.DirModules[index];
+                if (record.SourceOffsetPosition < 0 ||
+                    record.SourceOffsetPosition + 4 > dirBytes.Length ||
+                    dirByName.ContainsKey(record.Name))
+                {
+                    continue;
+                }
+                dirByName.Add(record.Name, record);
+            }
+
+            // 1. Modules we did not rewrite still carry their own p-code.
+            // Their source is unchanged, but a project where some modules
+            // have a cache and others do not is the mixed state Excel
+            // rejects outright, so every module loses its prefix.
+            for (index = 0; index < project.Modules.Count; index++)
+            {
+                VbaModule module = project.Modules[index];
+                if (module.StreamEntry == null ||
+                    module.StreamData == null)
+                {
+                    continue;
+                }
+
+                bool rewritten =
+                    streamChanges.ContainsKey(module.StreamEntry.Id);
+                bool hasCache =
+                    module.SourceOffset != 0 &&
+                    module.SourceOffset <= int.MaxValue &&
+                    module.SourceOffset < module.StreamData.Length;
+                if (!rewritten && !hasCache)
+                {
+                    continue;
+                }
+                if (!dirByName.ContainsKey(module.Name))
+                {
+                    // Rather than ship a workbook whose dir and module
+                    // stream disagree - which is the one shape Excel
+                    // refuses to open - stop and say which module.
+                    throw new InvalidDataException(
+                        "The VBA project does not record where this " +
+                        "module's source starts, so its compiled code " +
+                        "cannot be dropped safely: " + module.Name);
+                }
+                if (rewritten || !hasCache)
+                {
+                    continue;
+                }
+
+                int prefixLength = (int)module.SourceOffset;
+                int sourceLength =
+                    module.StreamData.Length - prefixLength;
+                byte[] sourceOnly = new byte[sourceLength];
+                Buffer.BlockCopy(
+                    module.StreamData,
+                    prefixLength,
+                    sourceOnly,
+                    0,
+                    sourceLength);
+                streamChanges.Add(
+                    module.StreamEntry.Id,
+                    sourceOnly);
+            }
+
+            // 2. dir must agree that the source now starts at byte zero.
+            byte[] result = new byte[dirBytes.Length];
+            Buffer.BlockCopy(dirBytes, 0, result, 0, dirBytes.Length);
+            foreach (KeyValuePair<string, VbaDirModule> pair in dirByName)
+            {
+                WriteUInt32(
+                    result,
+                    pair.Value.SourceOffsetPosition,
+                    0);
+            }
+
+            // 3. The per-project caches: __SRP_* streams, and the version
+            // stamp in _VBA_PROJECT that tells Excel the cache is its own.
+            for (index = 0;
+                index < project.VbaStorage.Children.Count;
+                index++)
+            {
+                Ole2DirectoryEntry child = project.Ole2.Entries[
+                    project.VbaStorage.Children[index]];
+                if (child.ObjectType != 2 ||
+                    streamChanges.ContainsKey(child.Id))
+                {
+                    continue;
+                }
+
+                if (child.Name.StartsWith(
+                    "__SRP_",
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    streamChanges.Add(child.Id, new byte[0]);
+                    continue;
+                }
+
+                if (string.Equals(
+                    child.Name,
+                    "_VBA_PROJECT",
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    byte[] stamped = project.Ole2.ReadStream(child);
+                    if (stamped.Length < 4)
+                    {
+                        throw new InvalidDataException(
+                            "The _VBA_PROJECT stream is too short.");
+                    }
+                    byte[] copy = new byte[stamped.Length];
+                    Buffer.BlockCopy(
+                        stamped,
+                        0,
+                        copy,
+                        0,
+                        stamped.Length);
+                    WriteUInt16(
+                        copy,
+                        2,
+                        UncompiledProjectVersion);
+                    streamChanges.Add(child.Id, copy);
+                }
+            }
+
             return result;
+        }
+
+        private static void WriteUInt32(
+            byte[] output,
+            int offset,
+            uint value)
+        {
+            output[offset] = (byte)(value & 0xFF);
+            output[offset + 1] = (byte)((value >> 8) & 0xFF);
+            output[offset + 2] = (byte)((value >> 16) & 0xFF);
+            output[offset + 3] = (byte)((value >> 24) & 0xFF);
         }
 
         public static byte[] RebuildProject(
@@ -2044,6 +2216,28 @@ namespace MacroStudio
                 CreateStreamChanges(project, moduleChanges);
             if (newModules.Count == 0)
             {
+                // A build that changes no code must leave the workbook
+                // exactly as it was, compiled state included.
+                if (moduleChanges.Count == 0)
+                {
+                    return Ole2Writer.Rebuild(
+                        project.Ole2,
+                        streamChanges);
+                }
+                if (project.Ole2 == null ||
+                    project.DirEntry == null)
+                {
+                    throw new InvalidDataException(
+                        "The VBA project dir stream is missing.");
+                }
+
+                byte[] changedDir = DropCompiledCaches(
+                    project,
+                    project.DirDecompressed,
+                    streamChanges);
+                streamChanges.Add(
+                    project.DirEntry.Id,
+                    VbaCompression.Compress(changedDir));
                 return Ole2Writer.Rebuild(
                     project.Ole2,
                     streamChanges);
@@ -2067,7 +2261,14 @@ namespace MacroStudio
                 names.Add(project.Modules[index].Name);
             }
 
-            byte[] dirBytes = project.DirDecompressed;
+            // Before AddDirModule appends anything, while the recorded
+            // MODULEOFFSET positions still match these bytes. A new module is
+            // written as source with no p-code, so without this the project
+            // would be exactly the mixed state Excel refuses to open.
+            byte[] dirBytes = DropCompiledCaches(
+                project,
+                project.DirDecompressed,
+                streamChanges);
             string projectText = project.ProjectText;
             byte[] projectWmBytes = project.ProjectWmBytes;
             List<Ole2StreamAddition> streamAdditions =

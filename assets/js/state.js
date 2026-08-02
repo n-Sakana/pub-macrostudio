@@ -33,6 +33,7 @@
       selectedModuleName: null,
       pasteEditing: false,
 
+
       targetEnvironment: null,
       targetEnvironmentSnapshot: "",
       diagnosisConcern: "",
@@ -71,6 +72,10 @@
       desiredBehaviour: {},
       extraRequest: "",
       pathMap: null,
+      // The exact module text the current candidates were detected in.
+      // Applying reads this and nothing else, so pressing the button a
+      // second time starts from the same place the first press did.
+      pathMapBasis: null,
       repairInputSnapshot: "",
 
       repairRequestId: null,
@@ -86,13 +91,20 @@
       repairResultSnapshot: null,
       repairResultEngine: null,
       deterministicCodeSnapshot: null,
-      needDecision: null,
+      // What the replacement table actually carried out in this run.
+      // It outlives a chat answer that comes afterwards, because the
+      // record of the run has to say the tool made those replacements
+      // even when a chat then edited the same code.
+      appliedMapping: null,
       outputRules: null,
       splitOutputRules: null,
       splitOutput: false,
       repairIntakeParts: null,
 
       runFolder: null,
+      // Where the one file the chat is given lives. Separate from the
+      // run folder on purpose: the deliverables never mix with it.
+      handoffFolder: null,
       outputTimestamp: null,
       outputName: "",
       outputDateStamp: "",
@@ -305,7 +317,14 @@
     return found;
   }
 
-  function clearImportedModulesInternal() {
+  // Taking an answer away takes the answer away. When the tool itself
+  // replaced strings earlier in the run, that replacement is the ground
+  // the answer stood on, and `keepReplacement` says to leave the record
+  // of it in place. Putting the code back is `restoreReplacedModules`,
+  // which the caller does once it knows what goes on top.
+  function clearImportedModulesInternal(keepReplacement) {
+    var snapshot = state.deterministicCodeSnapshot;
+    var mapping = state.appliedMapping;
     var kept = [];
     var discarded = 0;
 
@@ -336,26 +355,53 @@
     state.repairIntakeParts = null;
     state.repairResultSnapshot = null;
     state.repairResultEngine = null;
-    state.deterministicCodeSnapshot = null;
+    state.deterministicCodeSnapshot = keepReplacement ? snapshot : null;
+    state.appliedMapping = keepReplacement ? mapping : null;
     return discarded;
+  }
+
+  // Puts the code the replacement table produced back onto the modules,
+  // for every module it touched. A chat answer is then layered on top of
+  // this, so a reply that names one module leaves the others replaced
+  // rather than reverting them to the workbook.
+  function restoreReplacedModules() {
+    var snapshot = state.deterministicCodeSnapshot;
+
+    if (!snapshot || !state.appliedMapping) {
+      return;
+    }
+    Object.keys(snapshot).forEach(function (name) {
+      var module = findModule(name);
+
+      if (!module) {
+        return;
+      }
+      module.pastedCode = snapshot[name];
+      module.status = snapshot[name] === module.code ? "unchanged" : "changed";
+      module.changedLineCount = module.status === "changed"
+        ? countChangedLines(module.code, snapshot[name])
+        : 0;
+      module.accepted = module.status === "changed";
+      module.written = false;
+      module.showChangesOnly = (module.lineCount || 0) > 200;
+      module.wrapDiff = true;
+    });
+    state.repairResultEngine = "対応表による置換";
   }
 
   function resetOutputName() {
     state.outputName = getDefaultOutputName(state.book, state.outputDateStamp);
   }
 
-  function invalidateRepairPackage(keepDecision) {
-    clearImportedModulesInternal();
-    if (!keepDecision) {
-      state.needDecision = null;
-    }
+  function invalidateRepairPackage(keepReplacement) {
+    clearImportedModulesInternal(keepReplacement);
     state.buildTimestamp = null;
     state.buildResult = null;
     state.buildSlow = false;
     resetOutputName();
   }
 
-  function invalidateRepairRequest(keepDecision) {
+  function invalidateRepairRequest() {
     state.repairRequestId = null;
     state.repairRequestSnapshot = null;
     state.repairRequestText = "";
@@ -363,7 +409,7 @@
     state.repairPrompt = null;
     state.repairPromptCopied = false;
     state.repairFolderOpened = false;
-    invalidateRepairPackage(keepDecision);
+    invalidateRepairPackage();
   }
 
   // A finding the target environment stops the macro on is not optional
@@ -400,8 +446,9 @@
     state.desiredBehaviour = {};
     state.extraRequest = "";
     state.pathMap = null;
+    state.pathMapBasis = null;
     refreshRepairInputSnapshot();
-    invalidateRepairRequest(false);
+    invalidateRepairRequest();
   }
 
   function invalidateDiagnosisResult() {
@@ -547,6 +594,7 @@
     state.diagnosisRequestFilePath = next.requestPath || null;
     state.diagnosisPrompt = next.prompt || null;
     state.runFolder = next.runFolder || state.runFolder;
+    state.handoffFolder = next.handoffFolder || state.handoffFolder;
     state.outputTimestamp = next.outputTimestamp || state.outputTimestamp;
     state.diagnosisPromptCopied = false;
     state.diagnosisFolderOpened = false;
@@ -637,18 +685,36 @@
   function applyPresetSelection(entries) {
     var chosen = entries.slice();
     var first = chosen[0] || null;
-    var parsed = first ? (first.parsed || {}) : {};
+    // The chat stage needs a template that actually has something to send.
+    // Taking simply the first chosen one meant that picking 固定パス (02)
+    // together with リファクター (03) handed the table template to the chat
+    // stage: parsing it as a repair template failed, prepareRepairRequest
+    // returned in silence, and screen 4 dead-ended with [次へ] enabled and
+    // nothing happening. Picking 01 Win32 instead hid the bug, because that
+    // one sorts first and does send a request.
+    var speaker = null;
+    var parsed;
     var rules = [];
+
+    chosen.forEach(function (entry) {
+      if (!speaker && sendsRequest(entry)) {
+        speaker = entry;
+      }
+    });
+    if (!speaker) {
+      speaker = first;
+    }
+    parsed = speaker ? (speaker.parsed || {}) : {};
 
     state.presets = chosen;
     state.presetFiles = chosen.map(function (entry) {
       return entry.file;
     });
-    state.presetFile = first ? first.file : null;
+    state.presetFile = speaker ? speaker.file : null;
     state.presetName = chosen.map(function (entry) {
       return entry.name;
     }).join("・");
-    state.presetContent = first ? first.content : "";
+    state.presetContent = speaker ? speaker.content : "";
     chosen.forEach(function (entry) {
       if (usesTable(entry)) {
         rules = rules.concat(entry.parsed.replaceRules);
@@ -714,12 +780,13 @@
     } else {
       kept = orderPresets(state.presets.concat([entry]));
     }
-    invalidateRepairRequest(false);
+    invalidateRepairRequest();
     state.answers = {};
     state.selectedFindings = requiredFindingIds();
     state.desiredBehaviour = {};
     state.extraRequest = "";
     state.pathMap = null;
+    state.pathMapBasis = null;
     applyPresetSelection(kept);
     refreshRepairInputSnapshot();
     notify();
@@ -741,9 +808,14 @@
     });
   }
 
+  // Typing on screen 4 changes what the next request would say. It does
+  // not, by itself, throw away a request that has already been written or
+  // an answer that has already come back: SPEC 2.6.1 confirms the discard
+  // only once the new request has actually been written. Until then the
+  // snapshot comparison is what marks the old work as no longer current,
+  // so nothing stale can be carried forward.
   function changeRepairInput(mutator) {
     mutator();
-    invalidateRepairRequest(true);
     refreshRepairInputSnapshot();
     notify();
     return true;
@@ -819,11 +891,21 @@
     });
   }
 
-  function setPathMap(rows) {
+  // `basis` is the module text detection just read. Only the detect call
+  // sites pass it; editing a row keeps the basis the rows were found in.
+  function setPathMap(rows, basis) {
     var next = rows;
 
     if (!isPathMapProduct(next) || next.kind !== "mapping") {
       return false;
+    }
+    if (Array.isArray(basis)) {
+      state.pathMapBasis = basis.map(function (module) {
+        return {
+          name: String(module && module.name || ""),
+          code: String(module && module.code || "")
+        };
+      });
     }
     if (next === state.pathMap ||
         JSON.stringify(next) === JSON.stringify(state.pathMap)) {
@@ -849,15 +931,17 @@
         (!state.diagnosis && state.diagnosisSkipped !== true)) {
       return false;
     }
-    invalidateRepairPackage(false);
+    // The request was written from the code the table produced, so
+    // writing it does not throw that replacement away.
+    invalidateRepairPackage(true);
     state.repairRequestId = requestId;
     state.repairRequestSnapshot = state.repairInputSnapshot;
     state.repairRequestText = String(next.requestText || "");
     state.repairRequestFilePath = next.requestPath || null;
+    state.handoffFolder = next.handoffFolder || state.handoffFolder;
     state.repairPrompt = next.prompt || null;
     state.repairPromptCopied = false;
     state.repairFolderOpened = false;
-    state.needDecision = null;
     state.lastError = null;
     notify();
     return true;
@@ -871,24 +955,6 @@
       state.repairFolderOpened = folderOpened === true;
     }
     notify();
-  }
-
-  function setNeedDecision(result) {
-    if (!isResponseProduct(result) || result.ok !== true ||
-        result.requestId !== state.repairRequestId ||
-        result.noChange !== "NEEDDECISION") {
-      return false;
-    }
-    clearImportedModulesInternal();
-    state.needDecision = {
-      requestId: state.repairRequestId,
-      summary: String(result.summary || ""),
-      decisions: Array.isArray(result.decisions)
-        ? result.decisions.slice()
-        : []
-    };
-    notify();
-    return true;
   }
 
   function setSplitOutputRules(outputRules) {
@@ -905,7 +971,7 @@
       return false;
     }
     state.splitOutput = next;
-    invalidateRepairRequest(false);
+    invalidateRepairRequest();
     refreshRepairInputSnapshot();
     notify();
     return true;
@@ -941,6 +1007,81 @@
           : String(module.code || "")
       };
     });
+  }
+
+  // SPEC 7.7.1: replacing always recomputes from the same text the
+  // candidates were found in, never from a previous replacement. Without
+  // this, pressing the button a second time reads code the first press
+  // already rewrote and E-MAP-02 is certain.
+  function getPathMapBaseModules() {
+    if (Array.isArray(state.pathMapBasis)) {
+      return state.pathMapBasis.map(function (module) {
+        return {name: module.name, code: module.code};
+      });
+    }
+    return getBookModules().map(function (module) {
+      return {name: module.name, code: String(module.code || "")};
+    });
+  }
+
+  // ---- the run's own record ----
+  //
+  // One set of confirmed values, written beside the artifacts it
+  // describes. The screen reads them from state, result.md is built from
+  // the same state, and a session that starts again reads them back from
+  // here - so no second copy can disagree with the first.
+
+  var MANIFEST_VERSION = 1;
+
+  function createRunManifest() {
+    if (!state.runFolder || !state.book) {
+      return null;
+    }
+    return {
+      schemaVersion: MANIFEST_VERSION,
+      screen: state.screen,
+      book: {
+        name: state.book.name,
+        path: state.book.path,
+        ext: state.book.ext,
+        totalLines: state.book.totalLines
+      },
+      bookSnapshot: state.bookSnapshot,
+      environmentSnapshot: state.targetEnvironmentSnapshot,
+      runFolder: state.runFolder,
+      handoffFolder: state.handoffFolder,
+      outputTimestamp: state.outputTimestamp,
+      outputDateStamp: state.outputDateStamp,
+      outputName: state.outputName,
+      diagnosis: {
+        requestId: state.diagnosisRequestId,
+        requestSnapshot: state.diagnosisRequestSnapshot,
+        requestPath: state.diagnosisRequestFilePath,
+        concern: state.diagnosisConcern,
+        split: state.diagnosisSplit === true,
+        skipped: state.diagnosisSkipped === true,
+        version: state.diagnosisVersion,
+        filePath: state.diagnosisFilePath,
+        attribution: state.diagnosisAttribution,
+        accepted: state.diagnosis
+      },
+      repair: {
+        presets: (state.presets || []).map(function (entry) {
+          return {
+            file: entry.file,
+            name: entry.name,
+            content: entry.content
+          };
+        }),
+        answers: state.answers,
+        selectedFindings: state.selectedFindings,
+        extraRequest: state.extraRequest,
+        splitOutput: state.splitOutput === true,
+        requestId: state.repairRequestId,
+        requestSnapshot: state.repairRequestSnapshot,
+        requestPath: state.repairRequestFilePath
+      }
+    };
   }
 
   function selectModule(moduleName) {
@@ -1040,7 +1181,13 @@
 
   function importPackageItems(items, engine) {
     var applied = [];
-    clearImportedModulesInternal();
+    // The chat was handed the replaced code, so that - not the workbook
+    // - is what its reply sits on top of. A second pass of the table
+    // itself is a redo and starts from the workbook again.
+    var keepReplacement = engine !== "対応表による置換";
+
+    clearImportedModulesInternal(keepReplacement);
+    restoreReplacedModules();
     (items || []).forEach(function (item) {
       var module = findModule(item.name);
       if (!module) {
@@ -1135,6 +1282,7 @@
     state.repairResultSnapshot = state.repairInputSnapshot;
     state.repairResultEngine = "対応表による置換";
     state.deterministicCodeSnapshot = snapshot;
+    state.appliedMapping = result;
     state.intakeResult = result;
     notify();
     return count;
@@ -1164,14 +1312,23 @@
     return true;
   }
 
+  // A repair answer refuses in one of three ways, and none of them is a
+  // question. Anything else is not a refusal this run can record.
+  function isRefusalVerdict(verdict) {
+    return verdict === "UNNECESSARY" || verdict === "IMPOSSIBLE" ||
+      verdict === "UNCLEAR";
+  }
+
   function setNoChangeResult(result) {
     if (!isResponseProduct(result) || result.ok !== true ||
         result.requestId !== state.repairRequestId ||
-        (result.noChange !== "UNNECESSARY" &&
-         result.noChange !== "IMPOSSIBLE")) {
+        !isRefusalVerdict(result.noChange)) {
       return false;
     }
-    clearImportedModulesInternal();
+    // "改修できません" is an answer about the chat's part of the work.
+    // What the tool replaced itself still stands.
+    clearImportedModulesInternal(true);
+    restoreReplacedModules();
     state.noChangeResult = {
       verdict: result.noChange,
       summary: String(result.summary || ""),
@@ -1182,7 +1339,10 @@
   }
 
   function discardImportedModules() {
-    var discarded = clearImportedModulesInternal();
+    // Starting the intake over goes back to the code the chat was
+    // given, not to the workbook.
+    var discarded = clearImportedModulesInternal(true);
+    restoreReplacedModules();
     notify();
     return discarded;
   }
@@ -1339,13 +1499,14 @@
     setPathMap: setPathMap,
     commitRepairRequest: commitRepairRequest,
     setRepairHandoffProgress: setRepairHandoffProgress,
-    setNeedDecision: setNeedDecision,
     setSplitOutputRules: setSplitOutputRules,
     setSplitOutput: setSplitOutput,
     setRepairIntakeParts: setRepairIntakeParts,
     hasImportedModules: hasImportedModules,
     getBookModules: getBookModules,
     getCurrentModules: getCurrentModules,
+    getPathMapBaseModules: getPathMapBaseModules,
+    createRunManifest: createRunManifest,
     selectModule: selectModule,
     findModule: findModule,
     acceptModuleCode: acceptModuleCode,

@@ -219,11 +219,30 @@ assert(noMacro.length === 1, "E-ATTACH-03 must keep its screen card.");
 assert(
   readText(noMacro[0]).indexOf("マクロがありません") >= 0,
   "E-ATTACH-03 must keep its own wording.");
+// A file that never read as a workbook container is not recoverable inside
+// this run either - the same file will not read on a retry - so it gets a
+// card of its own rather than a toast that fades and leaves the screen
+// looking untouched. The card must not describe it as a workbook that
+// merely has no macros: that would assert it IS a workbook.
+var unreadable = collect(
+  buildBookScreen({
+    code: "E-ATTACH-02",
+    message: "",
+    path: "C:\\books\\broken.xlsm"
+  }),
+  "inline-error-card");
+
 assert(
-  collect(
-    buildBookScreen({ code: "E-ATTACH-02", message: "", path: "x" }),
-    "inline-error-card").length === 0,
-  "An unreadable file stays a toast, not a screen card.");
+  unreadable.length === 1,
+  "An unreadable file must stay on the screen, not fade as a toast.");
+assert(
+  readText(unreadable[0]).indexOf("マクロ") < 0,
+  "An unreadable file must not be called a workbook without macros: " +
+    readText(unreadable[0]));
+assert(
+  readText(unreadable[0]).indexOf("読み取れませんでした") >= 0,
+  "An unreadable file must say it could not be read: " +
+    readText(unreadable[0]));
 assert(
   collect(buildBookScreen(null), "inline-error-card").length === 0,
   "Without an error there is no card.");

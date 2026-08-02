@@ -135,7 +135,7 @@
       "difference": "ActiveX が無効化された端末ではコントロールが読み込まれず、それに触るコードが実行時に落ちる。コントロールはコードではなくシートの持ち物。",
       "expectedKeys": ["LEGACY_UI_AUTOMATION"],
       "codeMarkers": ["OLEObjects", "CommandButton"],
-      "inventory": {"activeXAtLeast": 1},
+      "inventory": {"activeXExactly": 0},
       "fix": "human",
       "fixNote": "ActiveX を有効化する前提の解決は取らない（ガイド 3.4 留意点・3.5 推奨順位）。代替の可否は人が決める。",
       "sheets": ["作業"],

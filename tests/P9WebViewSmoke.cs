@@ -171,7 +171,7 @@ namespace MacroStudio.Tests
                         "var id='11111111-1111-4111-8111-111111111111';" +
                         "var marker=String.fromCharCode(39)+" +
                         "'@MACROSTUDIO '+id+' ';" +
-                        "var lines=[marker+'DIAG BEGIN 1'];" +
+                        "var lines=[marker+'DIAG BEGIN 0'];" +
                         "['PURPOSE','FLOW','DEPENDENCY','ENVIRONMENT']" +
                         ".forEach(function(name){" +
                         "lines.push(marker+'SECTION BEGIN '+name);" +

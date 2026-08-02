@@ -120,6 +120,7 @@ namespace MacroStudio
             bool looksOle2 = HasOle2Signature(bookBytes);
             byte[] vbaBytes = null;
             bool hadWarnings = false;
+            bool archiveEnumerated = false;
             string entryName = null;
 
             // A workbook encrypted as a whole file is also an OLE2
@@ -140,6 +141,7 @@ namespace MacroStudio
                 vbaBytes = TryReadZipVbaProject(
                     bookBytes,
                     out entryName,
+                    out archiveEnumerated,
                     ref hadWarnings);
                 if (vbaBytes != null)
                 {
@@ -176,6 +178,19 @@ namespace MacroStudio
                     content.Salvaged = true;
                     content.SalvagedProject = salvaged;
                 }
+            }
+            if (vbaBytes == null && !looksOle2 && !archiveEnumerated)
+            {
+                // Nothing here read as a workbook container: no OLE2
+                // signature, and the ZIP directory never enumerated - a
+                // zero-byte file, a truncated download, or something that
+                // only wears the extension. Saying "this workbook has no
+                // macros" would assert it IS a workbook, which we never
+                // established. SPEC 13.4 reserves E-ATTACH-03 for a
+                // container that WAS read and holds no VBA anywhere.
+                throw new MacroStudioException(
+                    "E-ATTACH-02",
+                    "The file did not read as a workbook container.");
             }
             if (vbaBytes == null)
             {
@@ -1249,8 +1264,7 @@ namespace MacroStudio
             if (newModules.Count > 0)
             {
                 if (sourceProject.ProjectEntry == null ||
-                    sourceProject.ProjectWmEntry == null ||
-                    sourceProject.DirEntry == null)
+                    sourceProject.ProjectWmEntry == null)
                 {
                     throw new BuildVerificationException(
                         "VBA project metadata streams are missing.");
@@ -1263,10 +1277,15 @@ namespace MacroStudio
                     GetEntryPath(
                         sourceProject.Ole2,
                         sourceProject.ProjectWmEntry));
-                changedPaths.Add(
-                    GetEntryPath(
-                        sourceProject.Ole2,
-                        sourceProject.DirEntry));
+            }
+
+            if (changedModules.Count > 0 || newModules.Count > 0)
+            {
+                VerifyCompiledStateDropped(
+                    sourceProject,
+                    outputProject,
+                    changedModules,
+                    changedPaths);
             }
 
             VerifyLogicalEntries(
@@ -1274,6 +1293,151 @@ namespace MacroStudio
                 outputProject.Ole2,
                 changedPaths,
                 addedPaths);
+        }
+
+        // A build that rewrites any code drops the whole project's compiled
+        // state, because Excel runs that state in preference to the source
+        // and a project where only some modules still carry it will not
+        // open. So the streams holding it are expected to differ, and the
+        // byte comparison in VerifyLogicalEntries cannot cover them.
+        //
+        // Exempting them without putting anything in their place is what
+        // hid the original defect: the build read its own source back,
+        // agreed with itself, and reported success while Excel showed the
+        // code we had replaced. These checks are the replacement - the
+        // untouched modules must still carry identical source, and the
+        // compiled state must genuinely be gone rather than merely allowed
+        // to differ.
+        private static void VerifyCompiledStateDropped(
+            VbaProjectData sourceProject,
+            VbaProjectData outputProject,
+            Dictionary<string, string> changedModules,
+            HashSet<string> changedPaths)
+        {
+            if (sourceProject.DirEntry == null)
+            {
+                throw new BuildVerificationException(
+                    "VBA project metadata streams are missing.");
+            }
+            changedPaths.Add(
+                GetEntryPath(
+                    sourceProject.Ole2,
+                    sourceProject.DirEntry));
+
+            Dictionary<string, VbaModule> outputModules =
+                BuildModuleMap(outputProject);
+            int index;
+            for (index = 0; index < sourceProject.Modules.Count; index++)
+            {
+                VbaModule before = sourceProject.Modules[index];
+                VbaModule after;
+                if (!outputModules.TryGetValue(before.Name, out after))
+                {
+                    throw new BuildVerificationException(
+                        "A VBA module is missing after build: " +
+                        before.Name);
+                }
+
+                if (before.StreamEntry != null)
+                {
+                    changedPaths.Add(
+                        GetEntryPath(
+                            sourceProject.Ole2,
+                            before.StreamEntry));
+                }
+                if (after.SourceOffset != 0)
+                {
+                    throw new BuildVerificationException(
+                        "A VBA module kept its compiled code: " +
+                        before.Name);
+                }
+                if (!changedModules.ContainsKey(before.Name) &&
+                    !string.Equals(
+                        NormalizeCrLf(before.FullCode),
+                        NormalizeCrLf(after.FullCode),
+                        StringComparison.Ordinal))
+                {
+                    throw new BuildVerificationException(
+                        "An unchanged VBA module was altered: " +
+                        before.Name);
+                }
+            }
+
+            if (outputProject.VbaStorage == null ||
+                sourceProject.VbaStorage == null)
+            {
+                throw new BuildVerificationException(
+                    "The VBA storage is missing after build.");
+            }
+
+            for (index = 0;
+                index < sourceProject.VbaStorage.Children.Count;
+                index++)
+            {
+                Ole2DirectoryEntry child = sourceProject.Ole2.Entries[
+                    sourceProject.VbaStorage.Children[index]];
+                if (child.ObjectType != 2)
+                {
+                    continue;
+                }
+                if (child.Name.StartsWith(
+                        "__SRP_",
+                        StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(
+                        child.Name,
+                        "_VBA_PROJECT",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    changedPaths.Add(
+                        GetEntryPath(sourceProject.Ole2, child));
+                }
+            }
+
+            bool sawVersionStamp = false;
+            for (index = 0;
+                index < outputProject.VbaStorage.Children.Count;
+                index++)
+            {
+                Ole2DirectoryEntry child = outputProject.Ole2.Entries[
+                    outputProject.VbaStorage.Children[index]];
+                if (child.ObjectType != 2)
+                {
+                    continue;
+                }
+                if (child.Name.StartsWith(
+                    "__SRP_",
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    if (child.Size != 0)
+                    {
+                        throw new BuildVerificationException(
+                            "A VBA compiled cache stream survived: " +
+                            child.Name);
+                    }
+                }
+                else if (string.Equals(
+                    child.Name,
+                    "_VBA_PROJECT",
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    byte[] stamp = outputProject.Ole2.ReadStream(child);
+                    if (stamp.Length < 4 ||
+                        stamp[2] != 0xFF ||
+                        stamp[3] != 0xFF)
+                    {
+                        throw new BuildVerificationException(
+                            "The output VBA project still claims a " +
+                            "compiled version.");
+                    }
+                    sawVersionStamp = true;
+                }
+            }
+
+            if (!sawVersionStamp)
+            {
+                throw new BuildVerificationException(
+                    "The output _VBA_PROJECT stream is missing.");
+            }
         }
 
         private static Dictionary<string, VbaModule> BuildModuleMap(
@@ -1677,9 +1841,15 @@ namespace MacroStudio
             return BitConverter.ToUInt32(bytes, (int)offset);
         }
 
+        // archiveEnumerated reports whether the file read as an archive at
+        // all, separately from whether it carried VBA. The caller needs the
+        // difference: a readable container with no VBA is a macro-free
+        // workbook, while a file that never enumerated is not a workbook we
+        // managed to read, and the two must not be described the same way.
         private static byte[] TryReadZipVbaProject(
             byte[] bookBytes,
             out string entryName,
+            out bool archiveEnumerated,
             ref bool hadWarnings)
         {
             bool enumerated;
@@ -1688,6 +1858,7 @@ namespace MacroStudio
                 out enumerated,
                 out entryName,
                 ref hadWarnings);
+            archiveEnumerated = enumerated;
             if (result != null)
             {
                 return result;

@@ -47,7 +47,8 @@ macrostudio/
 │   ├── 05_Ole2.cs           # OLE2(CFB) リーダ/ライタ
 │   ├── 06_VbaCompression.cs # MS-OVBA 2.4.1 展開・圧縮
 │   ├── 07_VbaProject.cs     # dir の MODULE レコードを正本とするモジュール一覧・コード取得・コードページ・書き戻し計画
-│   └── 08_BookIO.cs         # xlsm/xlam/xlsb(zip) の入出力、コピー生成、ビルド、検証
+│   ├── 08_BookIO.cs         # xlsm/xlam/xlsb(zip) の入出力、コピー生成、ビルド、検証
+│   └── 09_BookInventory.cs  # コードの外にある事実（参照設定・クエリ・外部リンク・ActiveX・フォント・署名・ハッシュ）
 ├── assets/                  # UI 実体
 │   ├── fonts/               # Noto Sans JP / UDEV Gothic の TTF と OFL
 │   ├── css/                 # variables / layout / flow / module-list / diff / path-map
@@ -101,6 +102,12 @@ macrostudio/
   モジュール単位出力の文面も同じ扱いで、任意の `## 出力指示（モジュール単位）` 節が
   正本である。持たないひな形では画面に選択肢を出さず、代わりの文面を補わない
   （`tests\test-module-split.js` が門番として検査する）。
+- **改修の返答は 2 つしかない**。指定の形で改修後コードを返すか、
+  `NOCHANGE UNNECESSARY` / `IMPOSSIBLE` / `UNCLEAR` と理由を返すかである。
+  **利用者へ質問を返す・選択肢を出して選ばせる返答は禁止**で、`DECISION` や
+  `TEXT BEGIN QUESTION` を含む返答は R3（`questionNotAllowed`）で拒否する。
+  情報が足りず決められない場合も対話を始めず `UNCLEAR` に理由を書いて返す。
+  ひな形・パーサ・画面はこの二択に揃っていること（`tests\test-no-questions.js` が門番）。
 - **返答パッケージの解釈は `assets/js/response-package.js` だけが持つ**（SPEC §13.9）。
   区切り行の書式・依頼 ID の検証・拒否理由はここにまとめ、`app.js` は結果を
   画面へ出すだけにする。ホスト（C#）はクリップボードの文字列を渡すだけで、
@@ -114,17 +121,41 @@ macrostudio/
   `assets/js/path-map.js` だけが持つ**。前者は UTF-16 座標で原文へ可逆な token を返し、
   後者は private brand を持つ検出結果だけを受け取る。適用直前に全 occurrence を再字句解析し、
   module / line / column / value が 1 件でも違えば E-MAP-02 で全件中止する。
+  **検出と適用は同じ基準コードを読む**（SPEC §7.7.1）。検出したときのモジュール本文を
+  `state.pathMapBasis` に記録し、`getPathMapBaseModules()` だけが適用へ渡す。
+  前回の置換結果を基準にすると、値を直して置き換え直す操作が必ず E-MAP-02 になる。
   `app.js` に lexer、分類、置換の第 2 実装を置かず、任意文字列の全置換 API を公開しない。
   **何を候補として拾うかは `path-map.js` が決めない**。ひな形の
   `## 置換の候補`（`- 呼び方 | 正規表現 | 既定で選ぶ`）を `detect(modules, rules)` へ
   渡し、上から順に当てはめて最初に一致した行の呼び方になる。どの規則にも当たらない
   文字列は候補にしない。読み取りが安全でない行は規則を当てず一律に伏せる。
   置き換え後の値の「形」は検査しない（それは人の判断）。
+- **1 回の実行は 3 経路のどれかになる**（SPEC §7.2）。AI だけ・対応表だけ・両方。
+  両方のときは**機械的置換が先**で、画面 4 が 2 段になる（画面は増えない）。
+  AI へ渡すのは置換後のコードで、依頼文に「置き換え済み・元へ戻さない」を書く。
+  置換した事実は `state.appliedMapping` が持ち、後から来る返答では消えない。
+  返答を捨てる操作（取り込み直し・`改修できません`・新しい依頼の書き出し）は
+  返答だけを捨て、`restoreReplacedModules()` が置換結果を戻す。
+  ここを `repairResultEngine` で判定し直さないこと。返答が名乗らなかった
+  モジュールが原本へ戻り、最終ブックに古い値が残る
+  （`tests\test-three-routes.js` が門番）。
 - **取り込みの単位はパッケージ 1 つで、適用は必ず置き換え**（SPEC §5.3 / §10.2）。
   `importPackage` は先に `clearImportedModules` で前回分を取り消してから適用する。
   検証は `getBookModules()`（= ブック由来のモジュール）に対して行い、前回の返答が
   追加した新規モジュールを既存扱いしない。取り込み済み状態は `intakeRequestId` で
   依頼 ID に結び付け、`screens.isIntakeCurrent` が古い取り込みで先へ進むのを止める。
+- **1 回の実行は必ず新規**。作業途中のセッションを読み戻す経路は持たない
+  （状態不整合の温床になるため 2026-08-02 に撤去した）。記録は残す:
+  `state.js` の `createRunManifest()` が確定済みの値だけを書き出し、`app.js` が
+  host の成功後に `run-manifest.json` を原子的に置き換える。画面・ログ・`result.md`・
+  この記録を別々の値から作らないこと。**読み戻す関数を足さないこと。**
+- **成果物はブックの隣に置かない**。1 回の実行 = 1 案件で、
+  `<macrostudio>/exports/<ブック名>_<yyyyMMdd_HHmmss>/` が最終成果物、
+  `<macrostudio>/temp/<同じ名前>/` が AI へ実際に添付するファイルだけを置く場所。
+  それぞれ一層で、入れ子にしない。`exports` の `source-code.md` は**常に読み取った
+  時点のコード**で、置換済みコードになるのは `temp/source-code-for-ai.md` だけ。
+  ［ファイルの場所を開く］は `temp` を、完了画面の［フォルダを開く］は `exports` を
+  開く（表示文言と実際に開く場所を一致させる）。
 - **ビルドだけは固定の client timeout を持たない**（SPEC §13.12.3）。
   `host-bridge.js` の既定 120 秒 reject は他の action のためのもので、`buildBook` は
   `timeoutMilliseconds: 0` + `onSlow` で送る。処理の正本は host の応答であり、
@@ -223,9 +254,13 @@ Node test（UI ロジックの単体検証）:
 ```powershell
 node tests\test-attach-blocked.js
 node tests\test-audit-fixes.js
+node tests\test-back-and-forth.js
+node tests\test-both-route-preset.js
 node tests\test-build-payload.js
+node tests\test-change-source.js
 node tests\test-contract-singleton.js
 node tests\test-diagnose-flow.js
+node tests\test-diagnosis-headline.js
 node tests\test-diagnosis-package.js
 node tests\test-diagnosis-preset-cardinality.js
 node tests\test-diagnosis-recovery.js
@@ -242,12 +277,14 @@ node tests\test-handover.js
 node tests\test-flow-state.js
 node tests\test-host-bridge.js
 node tests\test-module-split.js
-node tests\test-need-decision.js
+node tests\test-no-questions.js
 node tests\test-no-change.js
+node tests\test-output-name.js
 node tests\test-p6-state.js
 node tests\test-p7-state.js
 node tests\test-paste-edit.js
 node tests\test-paste-normalize.js
+node tests\test-path-candidate-rules.js
 node tests\test-path-map.js
 node tests\test-preset-description.js
 node tests\test-preset-document.js
@@ -255,9 +292,12 @@ node tests\test-preset-migration.js
 node tests\test-preset-value-migration.js
 node tests\test-prompt-template.js
 node tests\test-read-report.js
+node tests\test-real-diagnosis-reply.js
+node tests\test-reject-answer.js
 node tests\test-repair-input.js
 node tests\test-response-package.js
 node tests\test-shortest-path.js
+node tests\test-three-routes.js
 node tests\test-target-environment.js
 node tests\test-vba-highlight.js
 node tests\test-vba-lexer.js
@@ -304,6 +344,21 @@ node tests\test-vba-lexer.js
   プロセス名と PID だけを扱い、ウィンドウタイトルを取得しない。
 - `tests\test-audit-fixes.js` … 2026-07-30 監査の UI 側 4 件（旧パッケージ混入、
   ［取り込み直す］の到達性、`resultError` の表示、長いビルドの扱い）。
+- `tests\test-back-and-forth.js` … 2026-08-02 監査の［戻る］経路。入力を変えずに
+  5→4→5 を歩いても改修依頼 ID と取り込み済み回答が残ること、入力を変えたときは
+  新しい依頼を書き出した時点で（それまでではなく）下流が捨てられること、
+  置換のやり直し（7→4→7 と値の訂正）が添付時コードから成立すること、
+  取り込み拒否が検査番号付きでログへ出ること、成功文言に否定的な語が
+  混ざらないこと、実行の記録が書かれ、それを読み戻す経路が無いことを固定する。
+- `tests\test-real-diagnosis-reply.js` … 実際のチャットが S01 へ返した診断を
+  そのまま持ち、受理されることを固定する。`DIAG BEGIN <件数>` を版番号として
+  読んでいたために正しい回答が D03 で落ちた（2026-08-02）ので、契約が
+  「読めばそう書く」形から離れていないことを実物で見張る。別依頼ID・件数の
+  食い違い・非正準表記・知らないモジュール・途中で切れた回答は拒否のまま。
+- `tests\test-reject-answer.js` … 構造検査を通った回答が意味として
+  誤っている場合。成功表示が肯定文だけであること、変更が既定で開くこと、
+  ［この回答は採用しない］→ 理由 → 修正依頼文のクリップボード投入、
+  拒否が本文抜きでログへ残ること、1 万行の全面置換が同じ画面を通ることを固定する。
 - `tests\test-module-split.js` … モジュール単位出力（SPEC §13.10）の区切り行・
   複数回の取り込み・統合・全拒否経路・ひな形が文面を持つこと・既定経路の非回帰。
 - `tests\test-book-inventory.ps1` … 実ブックから、ファイルのハッシュ・サイズ・
