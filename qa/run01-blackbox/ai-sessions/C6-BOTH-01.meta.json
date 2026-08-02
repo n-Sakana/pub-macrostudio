@@ -1,0 +1,81 @@
+{
+  "blind_request_id": "C6-BOTH-01",
+  "requested_by": "participant:opus-qa-supervisor",
+  "room_message_id": 50,
+  "stage": "both route (replace + AI) repair request",
+  "target_workbook_per_request_text": "S01_fixed_drive.xlsm",
+  "subagent_type": "blind-ai-responder",
+  "subagent_run_id": "ae156f5aa6f9dff4d",
+  "fresh_instance": true,
+  "instance_reused": false,
+  "prior_instance_or_context_reused": false,
+  "prior_response_reused": false,
+  "followup_questions_asked": 0,
+  "started_utc": "2026-08-02T11:32:50Z",
+  "ended_utc": "2026-08-02T11:36:41Z",
+  "duration_ms": 128275,
+  "subagent_tokens": 20475,
+  "tool_uses_observed_by_harness": 0,
+  "inputs_embedded_verbatim": [
+    {
+      "role": "request_body",
+      "source_file": "C6_both_repair_request.txt",
+      "bytes": 19290,
+      "lines": 313,
+      "sha256_stated_by_supervisor": "BA57DA738EAC9655FF52AD31953F9D28DC8C0A1F70A4A2977AC6B10AFC364D8C",
+      "sha256_verified_by_orchestrator": "BA57DA738EAC9655FF52AD31953F9D28DC8C0A1F70A4A2977AC6B10AFC364D8C",
+      "match": true
+    },
+    {
+      "role": "attachment_body",
+      "source_file": "C6_attachment_source-code-for-ai.md",
+      "bytes": 3547,
+      "lines": 104,
+      "sha256_stated_by_supervisor": "683D93AB2410C77979545CB0DDEF61EBB06BAE588830AD69ED3DA345ECE868DB",
+      "sha256_verified_by_orchestrator": "683D93AB2410C77979545CB0DDEF61EBB06BAE588830AD69ED3DA345ECE868DB",
+      "match": true
+    }
+  ],
+  "prompt_fidelity_verification": {
+    "method": "Built the expected prompt mechanically from the two source files (cat request + separator + cat attachment), wrote the hand-transcribed prompt to a separate file, and diffed them BEFORE sending.",
+    "expected_bytes": 22891,
+    "transcribed_bytes": 22471,
+    "character_level_result": "IDENTICAL - diff reports no difference after normalizing line endings and BOM.",
+    "byte_delta_fully_accounted": "420 bytes = 417 CRLF->LF conversions + 3-byte UTF-8 BOM at the start of the attachment file.",
+    "source_encoding": "Both source files are CRLF. C6_attachment_source-code-for-ai.md additionally carries a UTF-8 BOM (EF BB BF).",
+    "assessment": "No character of the request or attachment text was altered, omitted, summarized, or reordered. The only deltas are invisible encoding artifacts that a chat AI does not read as content."
+  },
+  "prompt_composition": "Request body verbatim in full, then the single separator line '添付ファイル source-code-for-ai.md の内容:', then the attachment body verbatim in full. No summarization, excerpting, omission, or line reduction.",
+  "only_added_text": "添付ファイル source-code-for-ai.md の内容:",
+  "only_added_text_authorized_by": "Room message #12 「渡し方の指定」, reaffirmed by #41, #46 and #50 「渡し方」",
+  "withheld_from_responder": [
+    "product repo / source tree",
+    "SPEC and any design documents",
+    "tests and expected answers",
+    "prior attempts (C1-DIAG-01, C3-DIAG-01, C4-REPAIR-01) request texts and responses",
+    "supervisor's analysis, findings, and what this trial is used to verify",
+    "the supervisor's note that C4 was accepted despite having no code fence",
+    "product name explanation beyond what the request text itself contains"
+  ],
+  "response_file": "C6-BOTH-01.response.raw.txt",
+  "response_handling": "Stored byte-for-byte as returned. No correction, reformatting, completion, summarization, or contract-conformance repair was applied by the orchestrator.",
+  "observed_facts_not_judgements": {
+    "code_fence": "The reply IS wrapped in a fenced block, and the opening fence carries a language tag: ```vba (not a bare ```). Fence forms observed so far differ per trial: C1 and C3 = bare ```, C4 = no fence at all, C6 = ```vba. Recorded as observation only; the orchestrator neither added nor removed a fence or tag.",
+    "first_line": "```vba",
+    "second_line": "'@MACROSTUDIO bcbc0483-343e-4ae8-bdf2-d5dbceb33b77 SUMMARY BEGIN",
+    "last_content_line": "'@MACROSTUDIO bcbc0483-343e-4ae8-bdf2-d5dbceb33b77 COMPLETE 1",
+    "last_line": "```",
+    "summary_body_lines_prefixed_with_apostrophe": "Every line inside the SUMMARY block begins with a VBA comment apostrophe. The C4 SUMMARY body lines did not.",
+    "module_blocks_present": ["ExportSummary"],
+    "declared_completion_count": 1,
+    "nochange_line_present": false,
+    "replaced_path_literal_in_returned_code": "E:\\eigyo\\shinsei\\ (the request instructed not to revert it; recorded as an observation, not a verdict)"
+  },
+  "orchestrator_did_not": [
+    "judge correctness or contract conformance of the reply",
+    "add, remove, or normalize a code fence or language tag",
+    "check whether the replaced path was preserved as a pass/fail determination",
+    "read or modify the product repo",
+    "reuse or re-question any responder instance"
+  ]
+}

@@ -1,0 +1,15 @@
+﻿{
+    "id":  "G07",
+    "file":  "G07_spoofed_extension.xlsm",
+    "format":  "xlsm",
+    "expect":  "boundary",
+    "why":  "拡張子だけ .xlsm の別物。受理してはいけない",
+    "entryMacro":  null,
+    "postRun":  {
+
+                },
+    "mustReject":  "ファイルを読み取れませんでした",
+    "route":  [
+                  "ai"
+              ]
+}

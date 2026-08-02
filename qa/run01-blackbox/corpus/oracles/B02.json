@@ -1,0 +1,31 @@
+﻿{
+    "id":  "B02",
+    "file":  "B02_japanese_idents.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "日本語＋全角記号の識別子（実測: accepted-but-normalised）",
+    "entryMacro":  "売上集計実行",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "全角済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "全角識別子",
+                        "type":  1
+                    }
+                ],
+    "identifierVariant":  "accepted-but-normalised"
+}

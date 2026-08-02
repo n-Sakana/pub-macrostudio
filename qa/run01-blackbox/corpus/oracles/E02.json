@@ -1,0 +1,30 @@
+﻿{
+    "id":  "E02",
+    "file":  "E02_ptrsafe_long_handle.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "PtrSafe あり・ハンドルが Long。PtrSafe だけ見て「対応済み」と判定しないこと",
+    "entryMacro":  "RunPtr",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "PtrSafe済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "PtrLong",
+                        "type":  1
+                    }
+                ]
+}

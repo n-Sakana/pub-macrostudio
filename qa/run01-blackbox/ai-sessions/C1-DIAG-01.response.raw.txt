@@ -1,0 +1,217 @@
+```
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 DIAG BEGIN 8
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 SECTION BEGIN PURPOSE
+このブックは「申請一覧」シートの申請データを 1 行ずつ点検し、誤りを「検証結果」列に書き出し、
+期限と基準日の関係からステータスを付け替えるマクロです。あわせて色分けと罫線の書式を整え、
+「設定」シートに件数と金額の集計表を作り、「処理ログ」シートに実行の記録を残します。
+外部からのデータ取り込みも、ファイルへの保存もせず、対象はこのブック自身の 3 枚のシートだけです。
+申請 ID の形式が "TEST-2026-###" に限定され、進行表示が「架空申請データを検証しています...」で
+あることから、動作確認用として作られたブックだと読み取れます。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 SECTION END PURPOSE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 SECTION BEGIN FLOW
+入口は AppController の RunApplicationReview ひとつです。ThisWorkbook と Sheet1〜Sheet3 の
+モジュールは空で、ブックを開いたときに自動で走る処理はありません。
+流れは、(1) SystemInfo で「申請一覧」「処理ログ」「設定」の 3 シートを取得し、見出しを 1 列ずつ照合、
+(2) 申請一覧の最終行と、設定シートの「基準日」「期限警告日数」を読み取り、
+(3) Excel の計算方法・画面更新・イベント・ステータスバーの状態を控えてから抑止に切り替え、
+(4) 5 行目から最終行まで、WindowUtils の ValidateApplicationRow で 12 項目を点検し、
+問題があれば「要確認」、無ければ DetermineUpdatedStatus で「期限超過」「期限間近」「受付済」などに
+付け替えて最終処理日時を記録、(5) ApplyApplicationFormatting で書式、WriteApplicationSummary で
+設定シートの F 列 G 列へ集計、FormatProcessingLog でログの色分け、(6) 最後に処理件数と経過秒を
+ログへ追記、という順です。途中で失敗した場合は HandleError へ飛び、控えた Excel の設定を戻して
+終わります。各処理の節目には合計 19 か所の待ち時間が置かれ、問題の無い行で 1 行あたり 45 ミリ秒、
+要確認の行で 30 ミリ秒の待ちが入る作りです。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 SECTION END FLOW
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 SECTION BEGIN DEPENDENCY
+外へ出ていく依存はひとつだけで、TimerUtils が Windows の kernel32 にある Sleep を Declare で
+直接呼んでいます。参照設定は stdole と Office のみで、追加のライブラリはありません。
+ファイルの読み書き、他ブックを開く処理、フォルダやドライブを指す文字列、ネットワーク接続、
+プリンタ指定、データベース接続、外部プログラムやスクリプトの起動、CreateObject / GetObject に
+よる部品生成は、492 行のどこにもありません。
+残る依存はブックの中身で、シート名 3 つ、申請一覧の 4 行目の見出し 12 個、処理ログの 3 行目の
+見出し 6 個、設定シートの A 列 B 列にある設定値、D 列 4〜20 行目の許可ステータス一覧、
+F 列 G 列という集計の出力先に依存します。ブックを保存する処理は含まれていないため、
+書き込んだ結果は利用者が保存するまでファイルには残りません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 SECTION END DEPENDENCY
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 SECTION BEGIN ENVIRONMENT
+提示された環境で影響を受けるのは Win32 API の一点だけです。TimerUtils の Sleep 宣言は
+WIN32API_BLOCKED に該当し、宣言は構文として成立するのでコンパイルは通りますが、Sleep を呼んだ
+時点で止まります。最初に通るのは SystemInfo の GetRequiredWorksheet 先頭にある Sleep 20 なので、
+シートを 1 枚取得するより前に止まり、セルは 1 つも書き換わりません。同じ宣言は
+DLL_LOAD_BLOCKED にも触れます。
+保存先に関する項目 (BOOK_PATH_IS_URL、PATH_CONCATENATION、DIR_EXISTENCE_CHECK、CURDIR_CHDIR、
+FIXED_DRIVE_LETTER、UNC_PATH、USER_PROFILE_PATH、APPDATA_PATH、PROGRAM_FILES_PATH、
+KNOWN_FOLDER_PATH、EXTERNAL_WORKBOOK_LINK) は、パスを組み立てる箇所も ThisWorkbook.Path を
+使う箇所も無いため、このコードには当てはまりません。接続先に関する項目、DAO、DDE と
+Internet Explorer、SendKeys などの画面操作、スクリプトホスト、外部プログラム起動、WMI も、
+該当する記述がありません。POINTER_AND_32BIT については、宣言が #If VBA7 で分けられ PtrSafe が
+付き、引数 dwMilliseconds は 32 ビットでも 64 ビットでも Long で正しく、VarPtr / ObjPtr / StrPtr も
+ハンドルの受け渡しも無いため、64 ビット版 Office でも宣言そのものは成立します。
+したがってこの環境で起きる事実は「Sleep が呼べないために処理が最初の待ち時間で終わり、その事実が
+ログにも画面にも残らない」ことに集約されます。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 SECTION END ENVIRONMENT
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING BEGIN 1
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 META CLASS=BLOCKER CONFIDENCE=CONFIRMED MODULE=TimerUtils PROC=- LINES=3-7,11 ENVKEY=WIN32API_BLOCKED
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN TITLE
+待ち時間に使う Sleep が Windows の kernel32 を直接呼ぶ宣言で、これがブック唯一の外部依存です。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END TITLE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN CONDITION
+このマクロを一度でも実行すれば必ず通ります。設定や分岐で避けられる場所ではありません。
+宣言を置いてあるだけでは止まらず、Sleep を呼んだ時点で止まる位置づけです。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END CONDITION
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN IMPACT
+ブック全体にある 19 か所の Sleep 呼び出しがすべて同じ宣言を使うため、待ち時間を伴う処理は
+1 回目で止まります。セルの読み書きや集計そのものは、この宣言に依存していません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END IMPACT
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN EVIDENCE
+TimerUtils の 3 行目から 7 行目に #If VBA7 で分けた Declare PtrSafe Sub Sleep Lib "kernel32" の
+宣言があり、11 行目の ElapsedSeconds も Sleep 15 を呼びます。呼び出しは AppController に 4 か所、
+SystemInfo に 6 か所、TimerUtils に 1 か所、WindowUtils に 8 か所、合計 19 か所です。
+宣言は VBA7 と 64 ビットの双方で構文として成立するため、止まるのは実行時です。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END EVIDENCE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING END 1
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING BEGIN 2
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 META CLASS=BLOCKER CONFIDENCE=CONFIRMED MODULE=SystemInfo PROC=GetRequiredWorksheet LINES=18 ENVKEY=WIN32API_BLOCKED
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN TITLE
+実行して最初に通る 1 行が Sleep のため、シートを 1 枚も取得しないうちに処理が終わります。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END TITLE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN CONDITION
+常に起きます。AppController の 14 行目が最初の呼び出しで、その手続きの先頭が 18 行目の
+Sleep 20 です。データ件数やシートの内容には左右されません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END CONDITION
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN IMPACT
+セルは 1 つも書き換わらず、処理ログにも 1 行も残りません。画面更新や自動計算の切り替えは
+23 行目以降で行われるため、この時点ではまだ変更されておらず、Excel の設定が抑止のまま残ることも
+ありません。結果として、実行しても何も起きない状態になります。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END IMPACT
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN EVIDENCE
+SystemInfo の 18 行目 Sleep 20 は、19 行目の On Error Resume Next より前にあります。そのため
+シートが見つからない場合に備えた無視の指定はこの行に掛からず、中断はそのまま呼び出し元へ戻ります。
+呼び出し元は AppController の 14 行目で、13 行目の On Error GoTo HandleError が有効な状態です。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END EVIDENCE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING END 2
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING BEGIN 3
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 META CLASS=BLOCKER CONFIDENCE=CONFIRMED MODULE=AppController PROC=RunApplicationReview LINES=39,66,71,74 ENVKEY=WIN32API_BLOCKED
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN TITLE
+入口の手続き自身も 4 か所で Sleep を呼んでおり、いずれも実行できません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END TITLE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN CONDITION
+39 行目は必ず通り、66 行目は 10 件処理するごと、71 行目と 74 行目は行の繰り返しが終わったあとに
+通ります。ただし指摘 2 の位置でより早く止まるため、実際にはこの 4 か所へ到達しません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END CONDITION
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN IMPACT
+仮に先の待ち時間を通過できたとしても、ログ書き出し直後の 39 行目で同じ理由により止まります。
+その先の点検・書式・集計・完了ログはいずれも始まりません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END IMPACT
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN EVIDENCE
+AppController の 39 行目 Sleep 100 は AppendProcessLog の直後、66 行目 Sleep 50 は
+processed Mod 10 = 0 の分岐の中、71 行目 Sleep 100 は ApplyApplicationFormatting の直後、
+74 行目 Sleep 250 は FormatProcessingLog の直後にあります。いずれも TimerUtils の宣言を使います。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END EVIDENCE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING END 3
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING BEGIN 4
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 META CLASS=BLOCKER CONFIDENCE=CONFIRMED MODULE=WindowUtils PROC=- LINES=7,48,55,73,117,144,161,190 ENVKEY=WIN32API_BLOCKED
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN TITLE
+点検・書式・集計の各処理の節目にも Sleep があり、8 か所すべてが実行できません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END TITLE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN CONDITION
+申請一覧の 1 行ごとに 7 行目と 48 行目、ステータス判定ごとに 55 行目を通ります。到達すれば必ず通る
+位置で、条件では避けられません。実際には指摘 2 の位置で先に止まるため到達しません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END CONDITION
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN IMPACT
+到達した場合でも 1 行目の点検が入口の 7 行目で止まるため、検証結果、期限の色分け、設定シートの
+集計表のいずれも作られません。すでにシートにある値が壊れることはありません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END IMPACT
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN EVIDENCE
+7 行目と 48 行目は ValidateApplicationRow の入口と出口、55 行目は DetermineUpdatedStatus の先頭、
+73 行目と 117 行目は ApplyApplicationFormatting、144 行目と 161 行目は WriteApplicationSummary、
+190 行目は FormatProcessingLog にあります。呼び出し元は AppController の 42 行目、51 行目、
+70 行目、72 行目、73 行目です。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END EVIDENCE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING END 4
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING BEGIN 5
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 META CLASS=BLOCKER CONFIDENCE=CONFIRMED MODULE=SystemInfo PROC=- LINES=38,42,61,113,126 ENVKEY=WIN32API_BLOCKED
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN TITLE
+見出し確認・設定読み取り・ログ追記にも Sleep があり、同じ理由で 5 か所が実行できません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END TITLE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN CONDITION
+見出し確認と設定読み取りは実行のたびに通り、ログ追記は 1 行ごとの警告記録でも通ります。
+これも指摘 2 の位置で先に止まるため、実際には到達しません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END CONDITION
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN IMPACT
+到達した場合、ブック構造の確認、基準日と期限警告日数の読み取り、処理ログへの追記が同じ理由で
+止まります。ログが書けないため、止まった事実の記録も残りません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END IMPACT
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN EVIDENCE
+38 行目と 42 行目は ValidateWorkbookStructure の見出し照合の合間、61 行目は GetSettingValue の
+先頭、113 行目は PrepareLogSheet の先頭、126 行目は AppendProcessLog の中にあります。
+AppendProcessLog は AppController の 36 行目、48 行目、75 行目、97 行目から呼ばれます。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END EVIDENCE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING END 5
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING BEGIN 6
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 META CLASS=BLOCKER CONFIDENCE=LIKELY MODULE=TimerUtils PROC=- LINES=3-7 ENVKEY=DLL_LOAD_BLOCKED
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN TITLE
+Sleep の呼び出しは実行時に kernel32 を解決する処理を伴い、DLL 読み込みの制限にも当たります。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END TITLE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN CONDITION
+想定環境の「実行時の DLL 読み込みができない」に該当します。ただし kernel32 が Excel の起動時点で
+すでに読み込まれている場合、止められる契機が読み込み側か API 呼び出し側かは、コードだけからは
+判断できません。どちらであっても Sleep が動かないという結果は変わりません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END CONDITION
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN IMPACT
+指摘 1 と同じ 1 か所の宣言が原因で、追加で動かなくなる処理はありません。端末側に残る記録が
+読み込み遮断として残るか、API 遮断として残るかが変わりうる点だけが異なります。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END IMPACT
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN EVIDENCE
+TimerUtils の 3 行目から 7 行目が Lib "kernel32" を指定した唯一の外部ライブラリ指定です。
+ブック全体に CreateObject、GetObject、Shell の記述はなく、参照設定も stdole と Office だけなので、
+実行時に外部の部品を持ち込む箇所は他にありません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END EVIDENCE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING END 6
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING BEGIN 7
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 META CLASS=DEFECT CONFIDENCE=LIKELY MODULE=AppController PROC=RunApplicationReview LINES=13,82,92,94-102 ENVKEY=WIN32API_BLOCKED
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN TITLE
+中断がログにも画面にも残らず、何も起きていないのに正常終了と同じ形で終わります。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END TITLE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN CONDITION
+中断が VBA の実行時エラーとして拾える場合に起きます。ログへの記録は wsLog が取得済みのときだけ
+行われ、指摘 2 の位置で止まると wsLog は未取得のままです。EDR がプロセスごと止める形であれば
+エラー処理そのものが動かず、この経路も通りません。どちらになるかはコードからは判断できません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END CONDITION
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN IMPACT
+利用者にはエラー表示も完了表示も出ません。492 行のどこにも MsgBox は無く、唯一の記録先である
+処理ログにも書けないため、動かなかった理由が端末側に残りません。データは壊れません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END IMPACT
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN EVIDENCE
+13 行目で On Error GoTo HandleError を設定し、94 行目の HandleError では 96 行目の
+If Not wsLog Is Nothing Then が成り立つときだけ AppendProcessLog を呼びます。95 行目の
+On Error Resume Next により記録自体の失敗も無視され、102 行目の Resume CleanExit を経て
+82 行目のラベルへ移り、92 行目の Exit Sub で戻ります。84 行目の If stateSaved は 28 行目に到達して
+いなければ成り立たないため、設定の復元も行われません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END EVIDENCE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING END 7
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING BEGIN 8
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 META CLASS=CONDITIONAL CONFIDENCE=UNVERIFIED MODULE=WindowUtils PROC=ValidateApplicationRow LINES=43-47 ENVKEY=-
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN TITLE
+このマクロが書き込むステータスが設定シートの許可一覧に載っているかは、コードからは確認できません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END TITLE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN CONDITION
+書き込まれる「要確認」「期限超過」「期限間近」「受付済」が、設定シートの D 列 4 行目から 20 行目の
+一覧に含まれていない場合に起きます。一覧の中身はシート上のデータであり、今回の資料には
+含まれていないため、そうなるかどうかは断定できません。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END CONDITION
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN IMPACT
+該当する場合、前回このマクロが更新した行が、次回の実行では「未定義のステータス」として要確認に
+振り替わり、検証結果の列が上書きされます。値が消えるのではなく判定が入れ替わる形です。
+該当しない場合は何も起きません。なお、この事象は待ち時間が動く環境でのみ観測できます。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END IMPACT
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT BEGIN EVIDENCE
+WindowUtils の 45 行目で IsAllowedStatus を呼び、46 行目で「未定義のステータス」を積みます。
+IsAllowedStatus は SystemInfo の 146 行目から 157 行目にあり、設定シートの 4 列目の 4 行目から
+20 行目だけを参照します。書き込む側は AppController の 45 行目と 57 行目、および WindowUtils の
+59 行目、61 行目、63 行目です。
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 TEXT END EVIDENCE
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 FINDING END 8
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 DIAG COMPLETE 8
+'@MACROSTUDIO de337c53-d198-4686-92f3-d3f86be48074 DIAG END
+```

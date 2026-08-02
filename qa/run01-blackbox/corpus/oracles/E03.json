@@ -1,0 +1,31 @@
+﻿{
+    "id":  "E03",
+    "file":  "E03_both_bitness.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "#If VBA7 で32/64両方の Declare を持つ。片側だけ直すと他方が壊れる",
+    "entryMacro":  "RunBit",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "両対応済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+                         "#Else",
+                         "#End If"
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "BothBit",
+                        "type":  1
+                    }
+                ]
+}

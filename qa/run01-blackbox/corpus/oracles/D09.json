@@ -1,0 +1,24 @@
+﻿{
+    "id":  "D09",
+    "file":  "D09_concat.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "連結の部分置換をしないこと",
+    "entryMacro":  "RunConcat",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "連結済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+                         "\"S:\\\" \u0026 folder"
+                     ],
+    "route":  [
+                  "path"
+              ]
+}

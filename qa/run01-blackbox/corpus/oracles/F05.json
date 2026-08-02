@@ -1,0 +1,34 @@
+﻿{
+    "id":  "F05",
+    "file":  "F05_activex.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "ActiveX/OLEObjects を触るコード。入口マクロからは呼ばない",
+    "entryMacro":  "RunAx",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "ActiveX済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "AxMod",
+                        "type":  1
+                    }
+                ],
+    "doNotRun":  [
+                     "AddButton",
+                     "TouchProgressBar"
+                 ]
+}

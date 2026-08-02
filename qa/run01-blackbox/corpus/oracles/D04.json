@@ -1,0 +1,24 @@
+﻿{
+    "id":  "D04",
+    "file":  "D04_relative.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "相対パス（制限対象）",
+    "entryMacro":  "RunRel",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "相対済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "path"
+              ]
+}

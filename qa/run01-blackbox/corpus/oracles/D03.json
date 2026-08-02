@@ -1,0 +1,25 @@
+﻿{
+    "id":  "D03",
+    "file":  "D03_unc.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "UNC 複数",
+    "entryMacro":  "RunUnc",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "UNC済み"
+                    }
+                ],
+    "mustFix":  [
+                    "\\\\fileserver\\share\\",
+                    "\\\\srv2\\keiri\\"
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "path"
+              ]
+}

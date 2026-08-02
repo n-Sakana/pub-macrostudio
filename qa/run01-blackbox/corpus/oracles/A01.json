@@ -1,0 +1,30 @@
+﻿{
+    "id":  "A01",
+    "file":  "A01_minimal.xlsm",
+    "format":  "xlsm",
+    "entryMacro":  "RunMin",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "Min 済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "expect":  "normal",
+    "why":  "最小構成。1標準モジュール",
+    "modules":  [
+                    {
+                        "name":  "Mod1",
+                        "type":  1
+                    }
+                ]
+}

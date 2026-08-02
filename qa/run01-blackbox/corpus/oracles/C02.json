@@ -1,0 +1,30 @@
+﻿{
+    "id":  "C02",
+    "file":  "C02_cond_compile.xlsm",
+    "format":  "xlsm",
+    "entryMacro":  "RunCond",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "条件済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "expect":  "normal",
+    "why":  "#If VBA7 条件コンパイル",
+    "modules":  [
+                    {
+                        "name":  "Cond",
+                        "type":  1
+                    }
+                ]
+}

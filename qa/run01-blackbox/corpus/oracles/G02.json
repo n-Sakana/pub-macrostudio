@@ -1,0 +1,17 @@
+﻿{
+    "id":  "G02",
+    "file":  "G02_binary.xlsb",
+    "format":  "xlsb",
+    "expect":  "normal",
+    "why":  ".xlsb バイナリブック",
+    "entryMacro":  "RunFmt",
+    "postRun":  {
+                    "sheet":  "作業",
+                    "cell":  "B2",
+                    "equals":  "形式済み"
+                },
+    "mustReject":  null,
+    "route":  [
+                  "ai"
+              ]
+}

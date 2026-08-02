@@ -1,0 +1,67 @@
+{
+  "blind_request_id": "C3-DIAG-01",
+  "requested_by": "participant:opus-qa-supervisor",
+  "room_message_id": 41,
+  "purpose_known_to_orchestrator_only": "PROD-04 clean-path proof. NOT disclosed to the responder.",
+  "subagent_type": "blind-ai-responder",
+  "subagent_run_id": "a6046bf2a08fdbe2f",
+  "fresh_instance": true,
+  "instance_reused": false,
+  "c1_instance_or_context_reused": false,
+  "c1_response_reused": false,
+  "followup_questions_asked": 0,
+  "started_utc": "2026-08-02T09:48:02Z",
+  "ended_utc": "2026-08-02T09:56:42Z",
+  "duration_ms": 366602,
+  "subagent_tokens": 51977,
+  "tool_uses_observed_by_harness": 0,
+  "inputs_embedded_verbatim": [
+    {
+      "role": "request_body",
+      "source_file": "C3_diagnose_request.txt",
+      "bytes": 15251,
+      "sha256_stated_by_supervisor": "A030BAD539C15F8C332D50F0FAE1DAF4AE4EFB232CA9FACBB74799BDBAB779D6",
+      "sha256_verified_by_orchestrator": "A030BAD539C15F8C332D50F0FAE1DAF4AE4EFB232CA9FACBB74799BDBAB779D6",
+      "match": true
+    },
+    {
+      "role": "attachment_body",
+      "source_file": "C3_attachment_source-code-for-ai.md",
+      "bytes": 23177,
+      "sha256_stated_by_supervisor": "A4C66573165CB07E902DB231B9469729C887461FB398E6C0264B31B6F8834E3D",
+      "sha256_verified_by_orchestrator": "A4C66573165CB07E902DB231B9469729C887461FB398E6C0264B31B6F8834E3D",
+      "match": true
+    }
+  ],
+  "delta_vs_c1_measured_by_diff": {
+    "request": "Only the request UUID differs: de337c53-d198-4686-92f3-d3f86be48074 -> ee9ee14e-0836-4ee4-bcf9-6c145f05821f, 34 occurrences. Verified by normalizing both UUIDs and diffing: no other difference.",
+    "attachment": "Only line 3 differs: ' Generated: 2026-08-02 15:40:54' -> ' Generated: 2026-08-02 18:41:30'. Verified by deleting line 3 from both and diffing: no other difference."
+  },
+  "prompt_fidelity_verification": {
+    "method": "Built the expected prompt mechanically from the two source files (cat request + separator + cat attachment), wrote the hand-transcribed prompt to a separate file, and diffed them.",
+    "expected_bytes": 38482,
+    "transcribed_bytes": 37708,
+    "character_level_result": "IDENTICAL - diff reports no difference after normalizing line endings and BOM.",
+    "byte_delta_fully_accounted": "774 bytes = 771 CRLF->LF conversions + 3-byte UTF-8 BOM at the start of the attachment file.",
+    "source_encoding": "Both source files are CRLF. C3_attachment_source-code-for-ai.md additionally carries a UTF-8 BOM (EF BB BF). C1 inputs have identical encoding properties.",
+    "assessment": "No character of the request or attachment text was altered, omitted, summarized, or reordered. The only deltas are invisible encoding artifacts that a chat AI does not read as content."
+  },
+  "prompt_composition": "Request body verbatim in full, then the single separator line '添付ファイル source-code-for-ai.md の内容:', then the attachment body verbatim in full. No summarization, excerpting, omission, or line reduction.",
+  "only_added_text": "添付ファイル source-code-for-ai.md の内容:",
+  "only_added_text_authorized_by": "Room message #12 「渡し方の指定」, reaffirmed by #41 「渡し方（前回と同じ）」",
+  "withheld_from_responder": [
+    "product repo / source tree",
+    "SPEC and any design documents",
+    "tests and expected answers",
+    "prior attempts including the C1-DIAG-01 request text and its response",
+    "supervisor's analysis, findings, PROD-04 context and the stated purpose of this trial",
+    "product name explanation beyond what the request text itself contains"
+  ],
+  "response_file": "C3-DIAG-01.response.raw.txt",
+  "response_handling": "Stored byte-for-byte as returned. No correction, reformatting, completion, summarization, or contract-conformance repair was applied by the orchestrator.",
+  "orchestrator_did_not": [
+    "judge correctness of the reply",
+    "read or modify the product repo",
+    "reuse or re-question any responder instance"
+  ]
+}

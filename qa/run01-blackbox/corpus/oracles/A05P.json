@@ -1,0 +1,25 @@
+﻿{
+    "id":  "A05P",
+    "file":  "A05P_xlarge_with_path.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "A05（30モジュール12,000行）に固定パス1件を足した派生。置換のみ経路で大規模ビルドを走らせ、画面8を捕まえるための試料",
+    "entryMacro":  "RunXLarge",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "超大規模済み"
+                    }
+                ],
+    "mustFix":  [
+                    "S:\\eigyo\\shinsei\\"
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "path"
+              ],
+    "derivedFrom":  "A05"
+}

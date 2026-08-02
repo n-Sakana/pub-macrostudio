@@ -1,0 +1,229 @@
+```
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f DIAG BEGIN 7
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f SECTION BEGIN PURPOSE
+ブック内の「申請一覧」シートに並んだ申請データを 1 行ずつ点検し、入力の不備を見つけ、
+期限と基準日を比べてステータスを付け替え、表の見た目を整えたうえで、
+件数と金額の集計を「設定」シートへ書き出し、実行の経過を「処理ログ」シートへ残すマクロです。
+扱うのは架空の申請データで、実行中のステータスバー表示も「架空申請データを検証しています...」となっており、
+申請 ID の形式も "TEST-2026-###" に固定されています（WindowUtils 17 行目、AppController 33 行目）。
+ファイルの読み書き、外部ブック、データベース、印刷、他アプリの操作は一切行わず、
+処理はすべて自分のブックの中で完結します。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f SECTION END PURPOSE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f SECTION BEGIN FLOW
+入口は AppController.RunApplicationReview の 1 つだけです（3 行目）。他に呼び出し口はありません。
+まず SystemInfo.GetRequiredWorksheet で「申請一覧」「処理ログ」「設定」の 3 シートを取得し（14-16 行目）、
+ValidateWorkbookStructure で見出し文字列と設定シートの入力有無を検査します（17 行目）。
+続いて最終行を求め、設定シートから「基準日」と「期限警告日数」を読み取ります（18-20 行目）。
+その後 Application の計算方法・画面更新・イベント・ステータスバーの状態を控えてから停止し（23-33 行目）、
+ログ見出しを整えて開始ログを書きます（35-38 行目）。
+本体は 41-68 行目の行ループで、WindowUtils.ValidateApplicationRow が 1 行分の不備を文字列で返し、
+不備があれば「要確認」を、無ければ DetermineUpdatedStatus が期限と基準日から
+「期限超過」「期限間近」「受付済」などを決め、ステータス・検証結果・最終処理日時をセルへ書き込みます。
+10 行ごとにステータスバーを更新します（62-67 行目）。
+ループの後は ApplyApplicationFormatting で罫線・色・取り消し線・表示形式を適用し（70 行目）、
+WriteApplicationSummary で設定シートの F 列 G 列へ集計を書き（72 行目）、
+FormatProcessingLog でログの色分けを行い（73 行目）、完了ログを書きます（75-80 行目）。
+最後に CleanExit で Application の設定を元に戻します（82-92 行目）。
+途中で失敗した場合は HandleError へ飛び、処理ログへ ERROR を 1 行書いてから CleanExit へ戻ります（94-102 行目）。
+全体を通して特徴的なのは、ほぼすべての手続きの先頭または要所に Sleep が挟まれていることです。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f SECTION END FLOW
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f SECTION BEGIN DEPENDENCY
+外部への依存は 1 つだけです。TimerUtils の 3-7 行目で Windows の kernel32 にある Sleep を
+Declare で宣言しており、これが 4 モジュール・12 手続き・合計 19 か所から呼ばれています。
+参照設定は stdole と Office だけで、これは Excel の既定の構成であり、追加のライブラリはありません。
+DAO、ADO、WMI、WScript.Shell、Internet Explorer、SendKeys、CreateObject / GetObject は
+コード上に一切現れません。ファイルパス、UNC、ドライブ文字、URL、Dir、CurDir、
+Workbooks.Open、SaveAs、接続文字列、プリンタ名も現れません。
+ブックの保存はコードでは行っていません。
+一方で、ブック内のデータ構造には強く依存します。
+シート名は「申請一覧」「処理ログ」「設定」の 3 つが必須で（SystemInfo 3-5 行目）、
+申請一覧は 4 行目が見出し・5 行目からデータ、列は 1 列目から 12 列目まで用途が固定されています
+（SystemInfo 6-15 行目）。見出しの文字列は 12 個・6 個とも完全一致が求められます（SystemInfo 31-34 行目）。
+設定シートは A 列に設定名・B 列に値、D4:D20 に許可ステータスの一覧、F 列 G 列が集計の出力先です。
+なお、Sleep が待つ対象となる外部の処理はコード上に存在せず、19 か所すべてがブック内のセル操作の前後に
+置かれています。1 行あたり最低でも 20 ミリ秒、不備の無い行では 45 ミリ秒の待ちが積み上がります。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f SECTION END DEPENDENCY
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f SECTION BEGIN ENVIRONMENT
+提示された環境で問題になるのは 1 点に集約されます。Windows の Sleep を Declare で直接呼ぶ処理が
+[WIN32API_BLOCKED] に真正面から該当し、しかもその最初の 1 回が、入口から数えて最初に実行される
+処理の中（SystemInfo 18 行目）にあるため、申請データの検証にも書き込みにも到達しません。
+[DLL_LOAD_BLOCKED] も同じ宣言に関わりますが、kernel32 は Excel が起動した時点ですでに読み込まれている
+システムの部品であるため、読み込みの遮断と呼び出しの遮断のどちらが先に働くかは、コードからは判断できません。
+どちらであっても止まる点は変わりません。
+これ以外の環境キーについては、該当するコードがありません。
+保存場所に関する項目（[BOOK_PATH_IS_URL] [FIXED_DRIVE_LETTER] [UNC_PATH] [USER_PROFILE_PATH]
+[APPDATA_PATH] [PROGRAM_FILES_PATH] [KNOWN_FOLDER_PATH] [PATH_CONCATENATION] [DIR_EXISTENCE_CHECK]
+[CURDIR_CHDIR] [EXTERNAL_WORKBOOK_LINK]）は、パスを組み立てる行も、ファイルを開く行もないため
+影響しません。ThisWorkbook は 20 行目で Worksheets の取得にだけ使われており、Path は読んでいないので、
+ブックが SharePoint / OneDrive 上にあっても、この参照自体は成立します。
+[SCRIPT_HOST_BLOCKED] [SHELL_EXEC_BLOCKED] [WMI_BLOCKED] [DDE_IE_UNAVAILABLE] [LEGACY_UI_AUTOMATION]
+[DAO_UNAVAILABLE] [CONNECTION_STRING] [FIXED_HOST_NAME] [FIXED_IP_ADDRESS] [FIXED_PRINTER_NAME] も、
+対応する記述がコードにありません。
+[POINTER_AND_32BIT] については、宣言が #If VBA7 で分岐し PtrSafe が付いており、引数もポインタや
+ハンドルではなくミリ秒の数値であるため、形式としては 64 ビット版 Office でも成立しています。
+ただし形式が正しくても [WIN32API_BLOCKED] は働くため、動かないことに変わりはありません。
+検証の判定、ステータスの決定、集計、書式設定といった中身のロジックは、環境に依存していません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f SECTION END ENVIRONMENT
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING BEGIN 1
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f META CLASS=BLOCKER CONFIDENCE=CONFIRMED MODULE=TimerUtils PROC=- LINES=3-7,11 ENVKEY=WIN32API_BLOCKED
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN TITLE
+待ち時間に使う Windows の Sleep を直接呼んでおり、19 か所すべてが実行できません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END TITLE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN CONDITION
+このマクロを起動すれば必ず通ります。設定や分岐で避けられる箇所ではなく、
+呼び出しは 4 モジュール・12 の手続きに散らばっているため、一部だけを通らずに済ませることもできません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END CONDITION
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN IMPACT
+Sleep を含む手続きはどれも最後まで進めません。申請データの検証、ステータスの更新、書式の適用、
+集計の書き出し、ログの記録という、このマクロの機能のほぼ全部が該当します。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END IMPACT
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN EVIDENCE
+TimerUtils の 3-7 行目に #If VBA7 で分岐した Declare があり、4 行目が PtrSafe 付き、
+6 行目が旧形式で、いずれも Lib "kernel32" の Sleep を宣言しています。Public 宣言なので全モジュールから見えます。
+呼び出しは TimerUtils 11 行目、AppController 39・66・71・74 行目、
+SystemInfo 18・38・42・61・113・126 行目、
+WindowUtils 7・48・55・73・117・144・161・190 行目の計 19 か所です。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END EVIDENCE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING END 1
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING BEGIN 2
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f META CLASS=BLOCKER CONFIDENCE=CONFIRMED MODULE=SystemInfo PROC=GetRequiredWorksheet LINES=17,18 ENVKEY=WIN32API_BLOCKED
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN TITLE
+止まる位置が入口の直後で、シートを 1 枚も取得しないうちに終わります。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END TITLE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN CONDITION
+実行するたびに同じ位置で起きます。データの中身やシートの状態には関係しません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END CONDITION
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN IMPACT
+セルは 1 つも書き換わらず、シートの内容も Excel の設定も変わりません。
+言い換えると、この環境でこのマクロを実行してもブックが壊れることはありませんが、成果物も一切得られません。
+検証結果も集計も処理ログも空のままです。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END IMPACT
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN EVIDENCE
+AppController の 4-11 行目は変数の宣言だけ、13 行目はエラー処理の指定で、
+実際に何かをする最初の行は 14 行目の GetRequiredWorksheet の呼び出しです。
+呼ばれた SystemInfo の GetRequiredWorksheet は 17 行目で始まり、その本体の 1 行目である
+18 行目が Sleep 20 です。シートを探す 20 行目より前に置かれています。
+Application の設定変更（AppController 29-33 行目）もセルへの書き込みも、これより後にあります。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END EVIDENCE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING END 2
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING BEGIN 3
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f META CLASS=CONDITIONAL CONFIDENCE=UNVERIFIED MODULE=TimerUtils PROC=- LINES=4,6 ENVKEY=DLL_LOAD_BLOCKED
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN TITLE
+kernel32 の読み込みと呼び出しのどちらで止められるかは、コードからは判断できません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END TITLE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN CONDITION
+kernel32 は Excel が動いている時点ですでに読み込まれている Windows 標準の部品です。
+そのため、DLL の読み込みを対象にした遮断が働くのか、Declare の呼び出しを対象にした遮断が働くのかは、
+監視製品の設定しだいで、コードの側からは確かめられません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END CONDITION
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN IMPACT
+どちらが働いた場合でも、止まる位置は指摘 2 と同じ SystemInfo の 18 行目です。
+違いが出るのは、記録されるエラーの番号や文言だけで、結果は変わりません。
+ただし、遮断のしかたによっては通常のエラーとして扱われずマクロが強制的に終了する可能性があり、
+その場合は下の指摘 4 のエラー処理そのものが動きません。これはコードからは確認できません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END IMPACT
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN EVIDENCE
+TimerUtils の 4 行目と 6 行目は、いずれも Lib "kernel32" と書かれた宣言です。
+この形式の宣言は、宣言した時点ではなく、最初に Sleep が呼ばれた時点で対象の部品を参照します。
+コードの中に、読み込みの成否を確かめたり、失敗したときに別の手段へ切り替えたりする記述はありません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END EVIDENCE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING END 3
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING BEGIN 4
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f META CLASS=DEFECT CONFIDENCE=LIKELY MODULE=AppController PROC=RunApplicationReview LINES=13,15,94-102 ENVKEY=WIN32API_BLOCKED
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN TITLE
+失敗しても画面に何も出ず、記録先のログシートも未取得のため、原因が利用者に伝わりません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END TITLE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN CONDITION
+シートの取得が終わる前に失敗したときに起きます。この環境では指摘 2 のとおり、
+最初のシート取得の中で止まるため、この条件に必ず当てはまります。
+なお、遮断が通常のエラーとして扱われない場合には、そもそもこのエラー処理に入りません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END CONDITION
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN IMPACT
+利用者から見ると、マクロを実行しても何も表示されず、何も変わらず、
+エラーメッセージすら出ないまま終わったように見えます。
+処理ログにも 1 行も残らないため、後から原因をたどる手がかりがブックの中に残りません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END IMPACT
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN EVIDENCE
+13 行目でエラー時の飛び先を HandleError に指定しています。HandleError は 94 行目からで、
+96 行目の「If Not wsLog Is Nothing Then」を満たしたときだけ 97-99 行目でログを書きます。
+ところが処理ログのシートを変数へ入れるのは 15 行目で、失敗するのは 14 行目の呼び出しの中ですから、
+その時点で wsLog は未設定のままです。したがって 97-99 行目は実行されません。
+このモジュールを含め、8 モジュールのどこにも MsgBox や画面表示によるエラー通知はありません。
+102 行目で CleanExit へ戻り、84 行目の stateSaved も 28 行目に達していないため False で、
+85-89 行目の復元も行われないまま 92 行目で終了します。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END EVIDENCE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING END 4
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING BEGIN 5
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f META CLASS=CONDITIONAL CONFIDENCE=UNVERIFIED MODULE=AppController PROC=RunApplicationReview LINES=47,54,57,60,82-90 ENVKEY=WIN32API_BLOCKED
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN TITLE
+仮に途中まで進んで止まった場合、書き込み済みのセルは元に戻りません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END TITLE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN CONDITION
+遮断が最初の呼び出しで確実に働くのであれば、この状態にはなりません。
+一方、遮断の働き方が呼び出しごとに異なる場合や、行ループより後ろの Sleep で初めて止まる場合には
+起こります。どちらになるかはコードからは判断できないため、可能性としてのみ記します。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END CONDITION
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN IMPACT
+申請一覧の上の方の行だけステータスと検証結果と処理日時が新しくなり、
+下の方の行は古いまま、という食い違った状態でブックが残ります。
+設定シートの集計はその途中の状態を反映しないため、表と集計が合わなくなります。
+書き戻しの取り消しは行われず、Excel の設定だけが元に戻ります。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END IMPACT
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN EVIDENCE
+行ループの中で 47 行目が検証結果、54 行目が "OK"、57 行目がステータス、60 行目が処理日時を
+その場でセルへ書き込んでおり、いったん退避して後でまとめて反映する作りにはなっていません。
+82 行目からの CleanExit が戻すのは 85-89 行目の Calculation、ScreenUpdating、EnableEvents、
+DisplayStatusBar、StatusBar だけで、セルの値や書式を戻す記述はありません。
+書き込みの後にも Sleep は 71・74 行目、WindowUtils の 117・144・161・190 行目に残っています。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END EVIDENCE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING END 5
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING BEGIN 6
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f META CLASS=CONDITIONAL CONFIDENCE=LIKELY MODULE=WindowUtils PROC=ValidateApplicationRow LINES=17,18 ENVKEY=-
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN TITLE
+申請 ID の形式が "TEST-2026-###" に固定されており、年と接頭辞がコードに埋め込まれています。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END TITLE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN CONDITION
+申請 ID が TEST- で始まり、続く 4 桁が 2026 で、最後が数字 3 桁、という形以外のデータを
+処理させたときに起きます。2027 年の ID や、実際の業務で使う ID の体系はこの形に当てはまりません。
+この判定は設定シートからは変更できず、コードの中の文字列だけで決まっています。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END CONDITION
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN IMPACT
+当てはまらない行はすべて「申請IDの形式が不正」と判定され、ステータスが「要確認」に置き換えられます。
+その結果、期限による判定（期限超過・期限間近・受付済）は行われず、集計の内訳も要確認に偏ります。
+このマクロが架空の試験データを前提にしていることを示す箇所でもあります。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END IMPACT
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN EVIDENCE
+WindowUtils の 17 行目に「If Not id Like "TEST-2026-###" Then」とあり、
+18 行目で「申請IDの形式が不正」を不備一覧へ追加しています。
+この不備が 1 つでもあると AppController の 44-47 行目で「要確認」が選ばれ、
+51-53 行目の期限判定は通りません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END EVIDENCE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING END 6
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING BEGIN 7
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f META CLASS=CONDITIONAL CONFIDENCE=UNVERIFIED MODULE=WindowUtils PROC=ValidateApplicationRow LINES=43-47 ENVKEY=-
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN TITLE
+このマクロが書き込むステータスが設定シートの許可一覧に無いと、次の実行で不備扱いになります。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END TITLE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN CONDITION
+「要確認」「期限超過」「期限間近」「受付済」の 4 つが、設定シートの D 列 4 行目から 20 行目までの
+一覧に載っていない場合に起きます。載っていれば問題ありません。
+シートの中身は今回の資料に含まれていないため、実際に載っているかどうかは確認できません。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END CONDITION
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN IMPACT
+1 回目の実行で正常に更新された行が、2 回目の実行では「未定義のステータス」と判定され、
+ステータスが「要確認」に塗り替えられます。実行するたびに結果が変わり、
+要確認の件数が増えていく形になります。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END IMPACT
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT BEGIN EVIDENCE
+WindowUtils の 43-47 行目で、ステータスが空でなく、かつ IsAllowedStatus が False のとき
+「未定義のステータス」を不備に追加しています。IsAllowedStatus は SystemInfo の 146-157 行目にあり、
+設定シートの 4 列目（D 列）の 4 行目から 20 行目までと突き合わせるだけで、
+コードの側に既定の一覧は持っていません。
+一方、書き込まれる値は AppController 45 行目の「要確認」と、
+WindowUtils の DetermineUpdatedStatus が返す 59 行目「期限超過」、61 行目「期限間近」、
+63 行目「受付済」であり、これらは AppController 57 行目でステータス列へ書き戻されます。
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f TEXT END EVIDENCE
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f FINDING END 7
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f DIAG COMPLETE 7
+'@MACROSTUDIO ee9ee14e-0836-4ee4-bcf9-6c145f05821f DIAG END
+```

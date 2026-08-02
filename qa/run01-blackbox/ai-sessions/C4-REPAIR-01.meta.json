@@ -1,0 +1,78 @@
+{
+  "blind_request_id": "C4-REPAIR-01",
+  "requested_by": "participant:opus-qa-supervisor",
+  "room_message_id": 46,
+  "stage": "repair (stage 2) - different response contract from the C1/C3 diagnose trials",
+  "subagent_type": "blind-ai-responder",
+  "subagent_run_id": "a24d88af87ab8f245",
+  "fresh_instance": true,
+  "instance_reused": false,
+  "c1_c3_instance_or_context_reused": false,
+  "c1_c3_response_reused": false,
+  "followup_questions_asked": 0,
+  "started_utc": "2026-08-02T10:51:46Z",
+  "ended_utc": "2026-08-02T10:58:47Z",
+  "duration_ms": 189880,
+  "subagent_tokens": 43511,
+  "tool_uses_observed_by_harness": 0,
+  "inputs_embedded_verbatim": [
+    {
+      "role": "request_body",
+      "source_file": "C4_repair_request.txt",
+      "bytes": 33870,
+      "lines": 419,
+      "sha256_stated_by_supervisor": "45A97004256676A5A9FDD4582BE34F5AD3A70D2DDF42A16E742C6DE0230A5BC3",
+      "sha256_verified_by_orchestrator": "45A97004256676A5A9FDD4582BE34F5AD3A70D2DDF42A16E742C6DE0230A5BC3",
+      "match": true
+    },
+    {
+      "role": "attachment_body",
+      "source_file": "C4_attachment_source-code-for-ai.md",
+      "bytes": 23177,
+      "lines": 541,
+      "sha256_stated_by_supervisor": "385B657C1B1074CFF5BF6A1712D84A054A9511FBF3C195F080CC84F4148CA8D0",
+      "sha256_verified_by_orchestrator": "385B657C1B1074CFF5BF6A1712D84A054A9511FBF3C195F080CC84F4148CA8D0",
+      "match": true
+    }
+  ],
+  "delta_vs_c3_measured_by_diff": {
+    "attachment": "Only line 3 differs: ' Generated: 2026-08-02 18:41:30' -> ' Generated: 2026-08-02 19:44:46'. No other difference.",
+    "request": "Entirely different document (repair contract, 419 lines vs 231). Request UUID is ce3f10b1-3a5c-4c84-bc5b-c3e0431c71d3."
+  },
+  "prompt_fidelity_verification": {
+    "method": "Built the expected prompt mechanically from the two source files (cat request + separator + cat attachment), wrote the hand-transcribed prompt to a separate file, and diffed them BEFORE sending.",
+    "expected_bytes": 57101,
+    "transcribed_bytes": 56138,
+    "character_level_result": "IDENTICAL - diff reports no difference after normalizing line endings and BOM.",
+    "byte_delta_fully_accounted": "963 bytes = 960 CRLF->LF conversions + 3-byte UTF-8 BOM at the start of the attachment file.",
+    "source_encoding": "Both source files are CRLF. C4_attachment_source-code-for-ai.md additionally carries a UTF-8 BOM (EF BB BF).",
+    "assessment": "No character of the request or attachment text was altered, omitted, summarized, or reordered. The only deltas are invisible encoding artifacts that a chat AI does not read as content."
+  },
+  "prompt_composition": "Request body verbatim in full, then the single separator line '添付ファイル source-code-for-ai.md の内容:', then the attachment body verbatim in full. No summarization, excerpting, omission, or line reduction.",
+  "only_added_text": "添付ファイル source-code-for-ai.md の内容:",
+  "only_added_text_authorized_by": "Room message #12 「渡し方の指定」, reaffirmed by #41 and #46 「渡し方」",
+  "withheld_from_responder": [
+    "product repo / source tree",
+    "SPEC and any design documents",
+    "tests and expected answers",
+    "prior attempts including the C1-DIAG-01 and C3-DIAG-01 request texts and responses",
+    "supervisor's analysis, findings, and what this trial is used to verify",
+    "product name explanation beyond what the request text itself contains"
+  ],
+  "response_file": "C4-REPAIR-01.response.raw.txt",
+  "response_handling": "Stored byte-for-byte as returned. No correction, reformatting, completion, summarization, or contract-conformance repair was applied by the orchestrator.",
+  "observed_facts_not_judgements": {
+    "code_fence": "The reply as returned is NOT wrapped in a ``` code block. It begins directly with the SUMMARY BEGIN marker line and ends with the COMPLETE line. The C1 and C3 replies DID include the ``` fences. This is recorded as an observed difference, not as a verdict; the orchestrator did not add a fence.",
+    "first_line": "'@MACROSTUDIO ce3f10b1-3a5c-4c84-bc5b-c3e0431c71d3 SUMMARY BEGIN",
+    "last_line": "'@MACROSTUDIO ce3f10b1-3a5c-4c84-bc5b-c3e0431c71d3 COMPLETE 5",
+    "module_blocks_present": ["WaitUtils", "AppController", "SystemInfo", "TimerUtils", "WindowUtils"],
+    "declared_completion_count": 5,
+    "nochange_line_present": false
+  },
+  "orchestrator_did_not": [
+    "judge correctness or contract conformance of the reply",
+    "add or remove a code fence",
+    "read or modify the product repo",
+    "reuse or re-question any responder instance"
+  ]
+}

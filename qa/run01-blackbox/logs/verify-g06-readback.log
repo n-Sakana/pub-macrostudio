@@ -1,0 +1,24 @@
+
+== A01（保護なし・元） ==
+  attach       : OK
+  vbaProject   : 10240 bytes
+  読取警告     : False   salvage経路: False
+  モジュール数 : 3
+      Sheet1  (1 行)
+      ThisWorkbook  (1 行)
+      Mod1  (7 行)
+
+== G06（閲覧保護あり） ==
+  attach       : OK
+  vbaProject   : 10240 bytes
+  読取警告     : False   salvage経路: False
+  モジュール数 : 3
+      Sheet1  (1 行)
+      ThisWorkbook  (1 行)
+      Mod1  (7 行)
+
+== 突合 ==
+PASS: 閲覧保護ありでも、保護なしの元ブックと 1 文字も違わずに読めた。
+      → SPEC §13.4 の「保護は VBE の閲覧ゲートに過ぎない」が実ファイルで成り立つ。
+      → Excel 側では VBIDE から 0 モジュールしか見えない（Protection=1）のに、
+         製品はバイト列から全モジュールを読めている、という対比が取れた。

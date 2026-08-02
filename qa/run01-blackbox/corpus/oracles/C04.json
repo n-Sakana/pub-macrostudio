@@ -1,0 +1,30 @@
+﻿{
+    "id":  "C04",
+    "file":  "C04_no_option_explicit.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "Option Explicit 無し＋暗黙変数。勝手に Option Explicit を足すと未宣言で落ちる",
+    "entryMacro":  "RunImplicit",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "暗黙済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "Implicit",
+                        "type":  1
+                    }
+                ]
+}

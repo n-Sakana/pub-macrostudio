@@ -1,0 +1,25 @@
+﻿{
+    "id":  "D07",
+    "file":  "D07_all_mixed.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "ドライブ・UNC・相対・URL・書式の全混在",
+    "entryMacro":  "RunMixed",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "混在済み"
+                    }
+                ],
+    "mustFix":  [
+                    "S:\\eigyo\\"
+                ],
+    "mustPreserve":  [
+                         "yyyy/mm/dd",
+                         "0.00"
+                     ],
+    "route":  [
+                  "path"
+              ]
+}

@@ -1,0 +1,30 @@
+﻿{
+    "id":  "C06",
+    "file":  "C06_error_handling.xlsm",
+    "format":  "xlsm",
+    "entryMacro":  "RunErr",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "例外済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "expect":  "normal",
+    "why":  "On Error GoTo / Err.Raise",
+    "modules":  [
+                    {
+                        "name":  "ErrH",
+                        "type":  1
+                    }
+                ]
+}

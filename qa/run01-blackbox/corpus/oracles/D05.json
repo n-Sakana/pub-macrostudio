@@ -1,0 +1,24 @@
+﻿{
+    "id":  "D05",
+    "file":  "D05_url.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "URL（SharePoint）",
+    "entryMacro":  "RunUrl",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "URL済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "path"
+              ]
+}

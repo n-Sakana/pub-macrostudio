@@ -1,0 +1,33 @@
+﻿{
+    "id":  "B06",
+    "file":  "B06_unicode_literals.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "Unicode 文字列リテラル（絵文字/CJK拡張B/結合文字）。実測で残ったのは: ",
+    "entryMacro":  "RunUni",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "Unicode済み"
+                    }
+                ],
+    "mustFix":  [
+                    "S:\\eigyo\\shinsei\\"
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "both"
+              ],
+    "modules":  [
+                    {
+                        "name":  "Uni",
+                        "type":  1
+                    }
+                ],
+    "unicodeSurvived":  [
+
+                        ]
+}

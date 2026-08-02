@@ -1,0 +1,17 @@
+﻿{
+    "id":  "G03",
+    "file":  "G03_legacy.xls",
+    "format":  "xls",
+    "expect":  "normal",
+    "why":  ".xls 旧形式（OLE2 直）",
+    "entryMacro":  "RunFmt",
+    "postRun":  {
+                    "sheet":  "作業",
+                    "cell":  "B2",
+                    "equals":  "形式済み"
+                },
+    "mustReject":  null,
+    "route":  [
+                  "ai"
+              ]
+}
