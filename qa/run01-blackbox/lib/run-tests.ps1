@@ -28,7 +28,8 @@ $nodeTests = @(
   'test-paste-normalize','test-path-candidate-rules','test-path-map','test-preset-description',
   'test-preset-document','test-preset-migration','test-preset-value-migration',
   'test-prompt-template','test-read-report','test-real-diagnosis-reply','test-reject-answer',
-  'test-repair-input','test-response-package','test-shortest-path','test-three-routes',
+  'test-repair-input','test-response-package','test-shortest-path',
+  'test-skipped-diagnosis-artifacts','test-three-routes',
   'test-target-environment','test-vba-highlight','test-vba-lexer'
 )
 

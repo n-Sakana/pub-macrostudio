@@ -1285,6 +1285,13 @@
   font-size: var(--type-meta-size);
 }
 
+/* The same line carries the standing note and, when the field is refused,
+   the reason. Muted grey reads as "for your information", which is the
+   wrong voice for the thing blocking the next step. */
+.field-help--problem {
+  color: var(--danger-text);
+}
+
 /* An optional choice on the request screen. It sits beside the main
    path, never in it: leaving it alone is the normal way through. */
 

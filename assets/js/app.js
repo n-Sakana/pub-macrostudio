@@ -766,7 +766,12 @@
     lines.push(global.MacroStudioHandover.sections(state));
     lines.push("## このフォルダのファイル");
     lines.push("");
-    lines.push("- diagnose-request.md … 診断のためAIへ渡した第1依頼");
+    // Same as the completion screen: the request file exists either way, but
+    // on a skipped diagnosis nobody was handed anything.
+    lines.push(state.diagnosisFilePath
+      ? "- diagnose-request.md … 診断のためAIへ渡した第1依頼"
+      : "- diagnose-request.md … 診断のために用意した第1依頼" +
+        "（この実行では使っていません）");
     lines.push("- source-code.md … 読み取った時点のコード全文（改修前）");
     // 診断を飛ばした実行では diagnosis.md は作られない。無い物を並べると
     // 「すべてこのフォルダにまとまっています」が嘘になる。
@@ -786,9 +791,18 @@
     lines.push("- result.md … このメモ");
     lines.push("- run-manifest.json … この実行の記録");
     lines.push("");
-    lines.push("AIへ添付したコードは、この実行と同じ名前の temp フォルダーに" +
-      "`source-code-for-ai.md` として置いてあります。上の source-code.md は" +
-      "読み取った時点のままです。");
+    // The attachment copy is prepared with the request, so it exists even when
+    // no AI was involved. Saying "the code attached to the AI" on a run that
+    // never asked one is the same false claim as the line above.
+    if (state.diagnosisFilePath || state.repairRequestFilePath) {
+      lines.push("AIへ添付したコードは、この実行と同じ名前の temp フォルダーに" +
+        "`source-code-for-ai.md` として置いてあります。上の source-code.md は" +
+        "読み取った時点のままです。");
+    } else {
+      lines.push("この実行では AI へ何も渡していません。依頼に添えるつもりで" +
+        "用意したコードは、この実行と同じ名前の temp フォルダーに" +
+        "`source-code-for-ai.md` として残っています。");
+    }
     lines.push("");
     return lines.join("\r\n");
   }
@@ -1533,15 +1547,20 @@
     input.value = state.outputName;
     input.spellcheck = false;
     input.disabled = state.busyAction !== null;
+    var nameProblem = api.getOutputNameProblem(state);
+
     if (!api.isOutputNameValid(state)) {
       input.setAttribute("aria-invalid", "true");
     }
     panel.appendChild(label);
     panel.appendChild(input);
+    // A red box on its own does not say what is wrong. When the name is
+    // refused, put the reason here instead of the standing extension note.
     panel.appendChild(createElement(
       "p",
-      "field-help",
-      "拡張子は " + (state.book ? state.book.ext : "") + " のままにします。"));
+      nameProblem ? "field-help field-help--problem" : "field-help",
+      nameProblem ||
+        "拡張子は " + (state.book ? state.book.ext : "") + " のままにします。"));
     task.appendChild(panel);
     task.appendChild(createFolderDisclosure(state, "output-folder", true));
     return task;
@@ -1589,8 +1608,16 @@
     var panel = createElement("div", "panel success-panel");
     var actions = createElement("div", "completion-actions");
     var list = createElement("div", "result-list");
+    // Both files are written on the way into screen 1, before the reader gets
+    // to decide whether to use a diagnosis at all. Calling them "handed to the
+    // AI" on a run that skipped the diagnosis states something that did not
+    // happen. They are still in the folder, so keep listing them - just say
+    // what they actually are.
     var rows = [
-      ["診断のためAIへ渡した第1依頼", "diagnose-request.md"],
+      [state.diagnosisFilePath
+        ? "診断のためAIへ渡した第1依頼"
+        : "診断のために用意した第1依頼（この実行では使っていません）",
+        "diagnose-request.md"],
       ["元マクロのコード全文", "source-code.md"]
     ];
 

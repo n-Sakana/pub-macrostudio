@@ -1,0 +1,38 @@
+﻿[
+    {
+        "id":  "G04",
+        "file":  "G04_no_macro.xlsx",
+        "attached":  true,
+        "runFolder":  "",
+        "modules":  [
+
+                    ],
+        "totalLines":  0,
+        "verdict":  "REFUSED-AS-EXPECTED",
+        "note":  ""
+    },
+    {
+        "id":  "G05",
+        "file":  "G05_encrypted.xlsm",
+        "attached":  true,
+        "runFolder":  "",
+        "modules":  [
+
+                    ],
+        "totalLines":  0,
+        "verdict":  "REFUSED-AS-EXPECTED",
+        "note":  ""
+    },
+    {
+        "id":  "G07",
+        "file":  "G07_spoofed_extension.xlsm",
+        "attached":  true,
+        "runFolder":  "",
+        "modules":  [
+
+                    ],
+        "totalLines":  0,
+        "verdict":  "REFUSED-AS-EXPECTED",
+        "note":  ""
+    }
+]

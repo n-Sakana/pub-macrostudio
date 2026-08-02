@@ -213,6 +213,39 @@
     return parts && parts.total ? parts.total : 0;
   }
 
+  // Windows resolves these names to devices instead of files. A book built
+  // under one of them is created and announced as a success, but the result
+  // cannot be opened, renamed or deleted - not even by the rollback steps
+  // result.md prints. The set is what
+  // qa\run01-blackbox\lib\probe-reserved-names.ps1 measured, which is wider
+  // than the usual documentation: COM0, LPT0 and CLOCK$ behave exactly like
+  // COM1..COM9 and LPT1..LPT9.
+  var RESERVED_DEVICE_NAME = /^(?:CON|PRN|AUX|NUL|CLOCK\$|COM[0-9]|LPT[0-9])$/i;
+
+  function isReservedDeviceName(name) {
+    // Windows looks at the component up to the first period and ignores any
+    // trailing spaces and periods on it, so "CON.xlsm", "CON .xlsm" and
+    // "CON.backup.xlsm" all reach the device. "backup.CON.xlsm" does not.
+    return RESERVED_DEVICE_NAME.test(
+      name.split(".")[0].replace(/[ .]+$/, "")
+    );
+  }
+
+  // Control characters cannot appear in a Windows file name at all - the
+  // write is refused outright - and they arrive by paste, not by typing.
+  // Tested by code point rather than by a character class so that no control
+  // character ever has to appear in this source file.
+  function hasControlCharacter(name) {
+    var i;
+
+    for (i = 0; i < name.length; i += 1) {
+      if (name.charCodeAt(i) < 32) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   function isOutputNameValid(state) {
     var name = state && state.outputName
       ? String(state.outputName).trim()
@@ -222,11 +255,56 @@
       : "";
 
     if (name.length === 0 || name.length > 120 ||
-        /[\\/:*?"<>|]/.test(name) || name.indexOf(".") <= 0) {
+        /[\\/:*?"<>|]/.test(name) || name.indexOf(".") <= 0 ||
+        hasControlCharacter(name) || isReservedDeviceName(name)) {
       return false;
     }
     return !extension || name.toLowerCase().slice(-extension.length) ===
       extension.toLowerCase();
+  }
+
+  // Why the name was refused, in one sentence, or "" when it is fine.
+  //
+  // Screen 7 used to turn the box red and leave the same line underneath
+  // either way: "the extension will stay .xlsm". For a path separator that
+  // was merely unhelpful; for a reserved device name it was wrong, because
+  // the extension was never the problem. The reader was left to guess.
+  // Order matters - report the first thing that actually stops the build.
+  function getOutputNameProblem(state) {
+    var name = state && state.outputName
+      ? String(state.outputName).trim()
+      : "";
+    var extension = state && state.book && state.book.ext
+      ? String(state.book.ext)
+      : "";
+    var stem = name.split(".")[0].replace(/[ .]+$/, "");
+
+    if (name.length === 0) {
+      return "作成するファイル名を入力してください。";
+    }
+    if (name.length > 120) {
+      return "ファイル名が長すぎます。120文字までにしてください。";
+    }
+    if (/[\\/:*?"<>|]/.test(name)) {
+      return "ファイル名だけを入れてください。" +
+        "フォルダの区切りや \\ / : * ? \" < > | は使えません。";
+    }
+    if (hasControlCharacter(name)) {
+      return "ファイル名に使えない文字が混ざっています。" +
+        "貼り付けた場合は、もう一度入力し直してください。";
+    }
+    if (isReservedDeviceName(name)) {
+      return "「" + stem + "」は Windows が装置の名前として扱うため、" +
+        "この名前ではファイルを作っても開けません。別の名前にしてください。";
+    }
+    if (name.indexOf(".") <= 0) {
+      return "拡張子 " + extension + " を付けた名前にしてください。";
+    }
+    if (extension && name.toLowerCase().slice(-extension.length) !==
+        extension.toLowerCase()) {
+      return "拡張子は " + extension + " のままにしてください。";
+    }
+    return "";
   }
 
   // A selected finding is the whole instruction: it already says what is
@@ -582,6 +660,7 @@
     countAcceptedLines: countAcceptedLines,
     countUnchangedImports: countUnchangedImports,
     isOutputNameValid: isOutputNameValid,
+    getOutputNameProblem: getOutputNameProblem,
     isRepairInputReady: isRepairInputReady,
     hasReplacementStage: hasReplacementStage,
     isReplacementDone: isReplacementDone,

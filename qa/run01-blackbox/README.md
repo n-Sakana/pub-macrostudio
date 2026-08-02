@@ -10,8 +10,10 @@ MacroStudio beta 2.0.0 に対する実機ブラックボックス試験（run01�
 
 ## まず読むもの
 
-1. **[HANDOFF-3.md](HANDOFF-3.md)** — 現状と残件。**ここから読む**
-2. [HANDOFF-2.md](HANDOFF-2.md) — 2代目。座標表・罠・コーパスの経緯（HANDOFF-3 が参照する）
+1. **[HANDOFF-4.md](HANDOFF-4.md)** — 現状と残件。**ここから読む**（note 端末で追記）
+2. [HANDOFF-3.md](HANDOFF-3.md) — 3代目。PROD-13 の経緯と残件の元リスト
+3. [HANDOFF-2.md](HANDOFF-2.md) — 2代目。罠とコーパスの経緯。
+   **ただし §1 の座標表は 1600x1050 前提で、note 端末では使えません**（HANDOFF-4 §0）
 3. [HANDOFF.md](HANDOFF.md) — 初代。**§6 ハーネスの使い方 / §7 安全境界 / §8 盲検AIの規律は今も有効**
 4. [findings/FINDINGS.md](findings/FINDINGS.md) — PROD-01〜14・DOC-01/02・SIG-01 の全詳細
 5. [ledger/component-ledger.md](ledger/component-ledger.md) — 画面部品ごとの操作台帳

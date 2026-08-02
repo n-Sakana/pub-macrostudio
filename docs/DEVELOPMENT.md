@@ -297,6 +297,7 @@ node tests\test-reject-answer.js
 node tests\test-repair-input.js
 node tests\test-response-package.js
 node tests\test-shortest-path.js
+node tests\test-skipped-diagnosis-artifacts.js
 node tests\test-three-routes.js
 node tests\test-target-environment.js
 node tests\test-vba-highlight.js
