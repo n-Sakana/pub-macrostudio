@@ -442,6 +442,57 @@
   font-size: var(--type-meta-size);
 }
 
+/* The workbook that is still loaded, said inside the refusal. It is the
+   answer to "why is 次へ still live", so it reads as ordinary text
+   rather than as more of the warning. */
+.inline-error-kept {
+  margin-top: var(--space-2) !important;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--danger);
+  color: var(--text-main) !important;
+}
+
+/* The one thing on the book screen the reader has to act on later. */
+.signature-warning {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  border: 1px solid var(--caution);
+  border-radius: var(--radius-sm);
+  color: var(--caution-text);
+  font-size: var(--type-meta-size);
+  line-height: var(--type-label-line);
+}
+
+/* A run that finished, seen from a screen the reader walked back to. */
+.completed-notice {
+  margin-bottom: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--success);
+  border-radius: var(--radius-md);
+  background: var(--success-soft);
+}
+
+.completed-notice-title {
+  margin: 0 0 var(--space-1);
+  color: var(--success-text);
+  font-size: var(--type-section-size);
+}
+
+.completed-notice p {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+}
+
+.completed-notice-path {
+  display: block;
+  margin-top: var(--space-2);
+  overflow-wrap: anywhere;
+  color: var(--text-sub);
+  font-family: var(--font-code);
+  font-size: var(--type-micro-size);
+}
+
 .book-panel {
   overflow: hidden;
 }
@@ -1475,6 +1526,16 @@
   margin: var(--space-3) 0 0;
   color: var(--danger-text);
   font-size: var(--type-meta-size);
+}
+
+/* Losing the signature is not a failure of this run - it is the correct
+   outcome of rewriting a signed project - but it is work the reader now
+   has to do elsewhere, so it is set apart from the plain result rows. */
+.result-note--signature {
+  padding: var(--space-3);
+  border: 1px solid var(--caution);
+  border-radius: var(--radius-sm);
+  color: var(--caution-text);
 }
 
 .failure-message {

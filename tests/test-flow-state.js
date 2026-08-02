@@ -391,6 +391,39 @@ assert(store.canGoBack() && !store.canGoNext() &&
   screens.canFinish(current(), screens.doneScreen),
 "Done is terminal but may return to the actual previous state.");
 
+// ---- leaving the completion screen does not undo the run ----
+//
+// The workbook, the diff report and the memo are on disk by the time this
+// screen appears. Back used to clear buildResult, so an earlier screen
+// showed no sign that any of it existed and [次へ] would have quietly
+// built a second generation. Being able to go back and knowing the run
+// finished are not in conflict; the state has to carry both.
+store.setBuildConfirmation("20260803_120000");
+store.setBuildResult({
+  status: "ok",
+  success: true,
+  outputPath: "C:\\out\\book-Modified.xlsm",
+  results: []
+});
+store.goTo(screens.doneScreen, false);
+assert(current().buildResult !== null && current().buildTimestamp !== null,
+  "The completion screen knows what was built.");
+assert(store.goBack(), "Back off the completion screen is allowed.");
+assert(current().screen !== screens.doneScreen,
+  "Back actually leaves the completion screen.");
+assert(current().buildResult !== null,
+  "The created workbook still exists, so the run still knows it was made.");
+assert(current().buildTimestamp !== null,
+  "The stamp that names the created folder survives going back.");
+assert(current().book !== null,
+  "Going back does not drop the workbook the run is about.");
+
+// Work that genuinely invalidates the output still clears it - the point
+// is that walking backwards is not that kind of work.
+store.setBuildConfirmation("20260803_130000");
+assert(current().buildResult === null,
+  "Starting another build clears the previous result.");
+
 store.setBusyAction("writeRequestFiles");
 assert(!store.canGoBack() && !store.canGoNext(),
   "A host transaction freezes navigation.");

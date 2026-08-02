@@ -130,16 +130,36 @@ Add-Type -TypeDefinition (Get-EngineSource) `
 $project = [MacroStudio.BookIO]::ReadProject(
     (Resolve-Path -LiteralPath $BookPath))
 Assert-True ($project.CodePage -eq 932) 'Code page mismatch.'
-Assert-True ($project.Modules.Count -eq 6) 'Module count mismatch.'
 
-$expected = @(
-    @('Sheet1', 'Document', 'cls', 819),
-    @('ThisWorkbook', 'Document', 'cls', 819),
-    @('AppController', 'Standard', 'bas', 779),
-    @('SystemInfo', 'Standard', 'bas', 1443),
-    @('TimerUtils', 'Standard', 'bas', 1115),
-    @('WindowUtils', 'Standard', 'bas', 2259)
-)
+# The module set comes from the committed fixture, not from a list typed
+# out a second time here, so a rebuilt testdata\test_large.xlsm is judged
+# against the same source of truth that built it (ENV-01). What is NOT
+# asserted is where inside its stream each module's source begins: that
+# offset is decided by the Attribute block Excel wrote, so recording it
+# pinned the test to one machine's workbook. The structural claim that
+# offset actually makes - it points at the start of a compressed
+# container - is checked below and holds for any workbook.
+$moduleFixturePath = Join-Path `
+    $PSScriptRoot `
+    'fixtures\lexer\test-large-modules.json'
+Assert-True (Test-Path -LiteralPath $moduleFixturePath -PathType Leaf) `
+    'The real-book module fixture is missing.'
+$moduleFixture = [IO.File]::ReadAllText(
+    (Resolve-Path -LiteralPath $moduleFixturePath),
+    [Text.UTF8Encoding]::new($false, $true)) | ConvertFrom-Json
+Assert-True ($moduleFixture.schemaVersion -eq 1) `
+    'The real-book module fixture schema is unknown.'
+
+$expected = @($moduleFixture.modules | ForEach-Object {
+    ,@(
+        [string]$_.name,
+        [string]$_.kind,
+        $(if ([string]$_.kind -eq 'Document') { 'cls' } else { 'bas' })
+    )
+})
+Assert-True ($project.Modules.Count -eq $expected.Count) `
+    ('Module count mismatch: read ' + $project.Modules.Count +
+     ', fixture ' + $expected.Count)
 
 for ($index = 0; $index -lt $expected.Count; $index++) {
     $module = $project.Modules[$index]
@@ -151,8 +171,10 @@ for ($index = 0; $index -lt $expected.Count; $index++) {
         "Module kind mismatch at $index."
     Assert-True ($module.Extension -eq $expected[$index][2]) `
         "Module extension mismatch at $index."
-    Assert-True ($module.SourceOffset -eq $expected[$index][3]) `
-        "MODULEOFFSET mismatch at $index."
+    Assert-True (
+        $module.SourceOffset -gt 0 -and
+        $module.SourceOffset -lt $module.StreamData.Length) `
+        "MODULEOFFSET is outside the module stream at $index."
     Assert-True (
         $module.StreamData[$module.SourceOffset] -eq 0x01) `
         "Compressed container signature mismatch at $index."

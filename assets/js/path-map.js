@@ -38,6 +38,19 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  // Asking for match positions is how a capture group's span is read
+  // back exactly. Where the flag is not available the span is found by
+  // searching the match text, which is the same answer whenever the
+  // captured text appears once - and a rule whose group could land in
+  // two places has not said which one it meant anyway.
+  function compilePattern(source) {
+    try {
+      return new RegExp(source, "d");
+    } catch (error) {
+      return new RegExp(source);
+    }
+  }
+
   // The rules a template declared, compiled once. An entry the template
   // could not express is dropped rather than guessed at.
   function compileRules(rules) {
@@ -45,20 +58,29 @@
 
     (Array.isArray(rules) ? rules : []).forEach(function (rule, index) {
       var pattern;
+      var contextExclude = null;
 
       if (!rule || !rule.label || !rule.pattern) {
         return;
       }
       try {
-        pattern = new RegExp(String(rule.pattern));
+        pattern = compilePattern(String(rule.pattern));
       } catch (error) {
         return;
+      }
+      if (rule.contextExclude) {
+        try {
+          contextExclude = new RegExp(String(rule.contextExclude));
+        } catch (error) {
+          return;
+        }
       }
       compiled.push({
         index: index,
         className: "rule-" + index,
         label: String(rule.label),
         pattern: pattern,
+        contextExclude: contextExclude,
         selectedByDefault: rule.selectedByDefault === true,
         picksLocation: rule.picksLocation === true
       });
@@ -66,11 +88,43 @@
     return compiled;
   }
 
+  // Which part of the literal the rule pointed at. No capture group
+  // means the whole literal, which is what every rule meant before one
+  // could be written.
+  function editableSpan(match, value) {
+    var offset;
+
+    if (match.length < 2 || match[1] === undefined || match[1] === null) {
+      return {start: 0, end: value.length};
+    }
+    if (match.indices && match.indices[1]) {
+      return {
+        start: match.indices[1][0],
+        end: match.indices[1][1]
+      };
+    }
+    offset = match[0].indexOf(match[1]);
+    if (offset < 0) {
+      return {start: 0, end: value.length};
+    }
+    return {
+      start: match.index + offset,
+      end: match.index + offset + match[1].length
+    };
+  }
+
   // The first rule that matches wins, so a template orders its rules
   // from the most specific to the least. A literal the code could not be
   // read safely around is never classified at all.
-  function classifyOccurrence(value, compiled, unsafe) {
+  //
+  // before: the code standing in front of the literal on its line. A
+  // rule that named a context it does not want simply does not match
+  // there, and the rules after it still get their turn.
+  function classifyOccurrence(value, compiled, unsafe, before) {
     var index;
+    var rule;
+    var match;
+    var span;
 
     if (unsafe) {
       return {
@@ -78,19 +132,36 @@
         label: UNSAFE_LABEL,
         rank: -1,
         selectedByDefault: false,
-        picksLocation: false
+        picksLocation: false,
+        start: 0,
+        end: value.length
       };
     }
     for (index = 0; index < compiled.length; index += 1) {
-      if (compiled[index].pattern.test(value)) {
-        return {
-          className: compiled[index].className,
-          label: compiled[index].label,
-          rank: compiled[index].index,
-          selectedByDefault: compiled[index].selectedByDefault,
-          picksLocation: compiled[index].picksLocation
-        };
+      rule = compiled[index];
+      if (rule.contextExclude &&
+          rule.contextExclude.test(String(before || ""))) {
+        continue;
       }
+      rule.pattern.lastIndex = 0;
+      match = rule.pattern.exec(value);
+      if (!match) {
+        continue;
+      }
+      span = editableSpan(match, value);
+      // A group that captured nothing points at nothing to edit.
+      if (span.end <= span.start) {
+        continue;
+      }
+      return {
+        className: rule.className,
+        label: rule.label,
+        rank: rule.index,
+        selectedByDefault: rule.selectedByDefault,
+        picksLocation: rule.picksLocation,
+        start: span.start,
+        end: span.end
+      };
     }
     return null;
   }
@@ -157,6 +228,7 @@
           var occurrence;
           var row;
           var unsafe;
+          var segment;
 
           if (token.kind !== "string") {
             return;
@@ -165,12 +237,21 @@
           unsafe = line.unterminatedString ||
             line.unterminatedBracket ||
             !parsed.conditionalBalanced;
-          classification = classifyOccurrence(value, compiled, unsafe);
+          classification = classifyOccurrence(
+            value,
+            compiled,
+            unsafe,
+            String(line.text || "").slice(0, token.column));
           // A literal no rule claims is not a candidate. Deciding it
           // might be one anyway would be the app having an opinion.
           if (!classification) {
             return;
           }
+          // What the reader edits, and the parts of the literal that
+          // stay put around it. For a rule with no capture group the
+          // segment IS the literal and both sides are empty, which is
+          // the shape every row had before.
+          segment = value.slice(classification.start, classification.end);
           occurrence = {
             module: moduleName,
             procedure: token.procedure || "-",
@@ -179,6 +260,12 @@
             endColumn: token.endColumn,
             class: classification.className,
             label: classification.label,
+            // The whole literal, so the re-check before replacing has
+            // something to compare against even when only a part of it
+            // is being replaced.
+            literal: value,
+            prefix: value.slice(0, classification.start),
+            suffix: value.slice(classification.end),
             inConditional: line.inConditional === true,
             conditionalUnbalanced: !parsed.conditionalBalanced,
             logicalLine: logical ? logical.text : line.text,
@@ -187,22 +274,25 @@
               text: line.text
             }]
           };
-          row = groups[value];
+          // Grouping on the segment is what lets one folder be typed
+          // once even when it sits inside five different connection
+          // strings; each occurrence carries its own surroundings.
+          row = groups[segment];
           if (!row) {
             row = {
-              groupKey: value,
+              groupKey: segment,
               "class": classification.className,
               label: classification.label,
               rank: classification.rank,
-              from: value,
+              from: segment,
               to: "",
               included: classification.selectedByDefault,
               picksLocation: classification.picksLocation,
               applied: false,
               occurrences: []
             };
-            groups[value] = row;
-            order.push(value);
+            groups[segment] = row;
+            order.push(segment);
           } else if (classification.rank < row.rank) {
             row["class"] = classification.className;
             row.label = classification.label;
@@ -413,6 +503,17 @@
     appliedRows.forEach(function (row) {
       row.occurrences.forEach(function (occurrence) {
         var parsed = parsedByName[occurrence.module];
+        var prefix = occurrence.prefix === undefined
+          ? ""
+          : String(occurrence.prefix);
+        var suffix = occurrence.suffix === undefined
+          ? ""
+          : String(occurrence.suffix);
+        // Rows recorded before the rules could point inside a literal
+        // named the whole literal and nothing else.
+        var expected = occurrence.literal === undefined
+          ? row.from
+          : String(occurrence.literal);
         var token;
         var key;
 
@@ -421,7 +522,10 @@
           return;
         }
         token = findStringToken(parsed, occurrence);
-        if (!token || lexer.decodeStringToken(token) !== row.from) {
+        // The literal has to be the one that was read, all of it, even
+        // when only the middle of it is being replaced.
+        if (!token || lexer.decodeStringToken(token) !== expected ||
+            prefix + row.from + suffix !== expected) {
           preflightFailed = true;
           return;
         }
@@ -432,7 +536,7 @@
         }
         replacements[occurrence.module][key] = {
           token: token,
-          literal: escapeLiteral(row.to)
+          literal: escapeLiteral(prefix + row.to + suffix)
         };
       });
     });

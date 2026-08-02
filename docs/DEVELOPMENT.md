@@ -205,13 +205,39 @@ macrostudio/
 
 ## 4. テストデータ（`testdata/`。git 管理外）
 
-`.gitignore` で `testdata/` を除外している。ローカルに以下を用意する。
+`.gitignore` で `testdata/` を除外している。**clone 直後に一度だけ次を実行すれば全部そろう。**
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\make-testdata.ps1
+```
+
+これを走らせずに psA を回すと 2 PASS / 12 FAIL になる。**製品の不具合ではなく
+テストデータが無いだけ**なので、赤を見たらまずこれを実行すること（ENV-01）。
 
 | 置き名 | 用意の仕方 | 用途 |
 |---|---|---|
-| `testdata\test_large.xlsm` | 複数モジュールを含むマクロ付きブックを Excel で作成 | 標準ケース |
+| `testdata\test_large.xlsm` | `tests\make-test-large.ps1`（`tests\fixtures\lexer\test-large-modules.json` の原文を実 Excel の容器に戻す） | 標準ケース |
+| `testdata\guide-samples\` | `tests\make-guide-samples.ps1` が実 Excel で生成 | 改善ガイド §3 の見本 10 本 |
+| `testdata\input_win32_sleep.xlsm` | `sample-book\sample_win32_sleep.xlsm` の複製 | ブック付帯情報の読み取り |
+| `testdata\input_monthly_report.xlsm` | `tests\make-input-monthly-report.ps1` が実 Excel で生成 | 一般リファクタの入力見本 |
 | `testdata\synthetic_difat_v3.cfb` | `tests\test-ole2.ps1` が生成 | DIFAT 継続（ヘッダ 109 参照超の FAT）の読み・再構築検証 |
-| `testdata\test.xlsb` / 保護付き `.xlsm` | Excel で作成（任意） | xlsb・プロジェクト保護の検証（SPEC §15 の未検証項目） |
+| `testdata\test.xlsb` / 保護付き `.xlsm` | Excel で作成（任意） | xlsb・プロジェクト保護の追加検証 |
+
+`make-testdata.ps1 -SkipExcel` は Excel を使わない分だけを用意する。
+
+### テストが fixture について主張してよいこと
+
+**fixture 固有の実測値を直値で持たない。** `vbaProject.bin` が 17,920 バイト、
+モジュールが 6 本、といった数は「その日その端末にあった 1 冊の性質」であって製品の契約ではない。
+`testdata/` は git 管理外なので、直値で持つと**作り直した fixture では二度と緑にならない**
+（実際そうなった。ENV-01）。
+
+判定に使うのは製品の不変条件のほう:
+
+- **読んだモジュール集合とその原文** — コミット済みの `tests\fixtures\lexer\test-large-modules.json` が正本。生成もこれ、照合もこれ
+- **コードページ**
+- **往復後の保全** — 無変更で再構築したら全ストリームがバイト一致すること
+- **読み手が容器の中身どおりを返すこと** — 例: `ReadVbaProjectBytes` の結果は ZIP の `vbaProject.bin` エントリそのもの。バイト数を覚えるのではなく、その場で取り出して突き合わせる
 
 `tests\test-extract.ps1` は、抽出結果を別途用意した期待値ディレクトリと突き合わせる
 オラクル照合に対応している。`-OracleDir` を指定したときだけ有効になる（省略可）。
@@ -241,6 +267,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-split-webview
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-diff-report-webview.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-webview-security.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-encrypted-book.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-vba-signature.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-window-icon.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-editor-focus.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-no-change-webview.ps1
@@ -412,6 +439,14 @@ node tests\test-vba-lexer.js
   プロジェクトのロック（DPB/CMG）・破損ファイル・ヘッダだけの OLE2 が暗号化と
   判定されないことを見る。`-EncryptedBookPath` を渡すと Excel が実際に作った
   暗号化ファイルにも同じ検査を掛ける。
+- `tests\test-vba-signature.ps1` … 署名付きブックを書き戻したとき、署名部品・
+  その関連付け（`xl/_rels/vbaProject.bin.rels`）・コンテンツタイプの Override が
+  **3 つとも**出力から消えること（SIG-01）。署名対象の VBA を書き換えた以上、
+  引き継いだ署名は必ず不整合になる。`.bin` だけ消すと**存在しない部品を指す
+  関連付けが残り、壊れたパッケージになる**ので、そこが本題。
+  併せて、署名と無関係な部品がバイト単位で不変であること、
+  **署名なしブックは一切変化しないこと**を確認する。
+  `-SignedBookPath` を渡すと、実際の証明書で署名されたブックにも同じ検査を掛ける。
 - `tests\test-shortest-path.js` と `tests\test-shortest-path-webview.ps1` …
   β1.10 の簡易モード入口と自動ひな形選択が戻っていないこと、および一本道の最短経路を
   固定する。実 WebView2 側は診断、指摘選択、希望動作、改修、差分、読み直し検証済みの

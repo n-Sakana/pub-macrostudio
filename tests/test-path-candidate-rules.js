@@ -41,15 +41,50 @@ assert(!parsed.invalid, "the shipped fixed-path preset must parse: " + parsed.me
 assert(parsed.replaceRules && parsed.replaceRules.length > 0,
   "the fixed-path preset must declare 置換の候補");
 
-// Same semantics the screen uses: first rule whose pattern matches names it.
-function classify(value) {
+// Same semantics the screen uses: the first rule that matches and that has
+// not ruled itself out for this context names the literal, and a capture
+// group narrows what may be edited to part of it.
+function match(value, before) {
   var i;
+  var rule;
+  var found;
+  var start;
+  var end;
+  var offset;
+
   for (i = 0; i < parsed.replaceRules.length; i++) {
-    if (new RegExp(parsed.replaceRules[i].pattern).test(value)) {
-      return parsed.replaceRules[i].label;
+    rule = parsed.replaceRules[i];
+    if (rule.contextExclude &&
+        new RegExp(rule.contextExclude).test(before || "")) {
+      continue;
     }
+    found = new RegExp(rule.pattern, "d").exec(value);
+    if (!found) {
+      continue;
+    }
+    start = 0;
+    end = value.length;
+    if (found.length > 1 && found[1] !== undefined && found[1] !== null) {
+      if (found.indices && found.indices[1]) {
+        start = found.indices[1][0];
+        end = found.indices[1][1];
+      } else {
+        offset = found[0].indexOf(found[1]);
+        start = found.index + offset;
+        end = start + found[1].length;
+      }
+    }
+    if (end <= start) {
+      continue;
+    }
+    return {label: rule.label, segment: value.slice(start, end)};
   }
   return null;
+}
+
+function classify(value, before) {
+  var found = match(value, before);
+  return found === null ? null : found.label;
 }
 
 // ---- real locations: must stay candidates ----
@@ -104,18 +139,134 @@ var MUST_REJECT = [
   ["//", "区切りだけ"]
 ];
 
+// ---- PROD-11: the same literal, in and out of the call ----
+//
+// "WScript.Shell" and "Report.Backup" are the same shape. No rule reading a
+// literal on its own can separate them, so the rules read the code standing
+// in front of it instead. Both directions are pinned here: tightening the
+// shape alone would have taken real file names with it, and that is a bug of
+// its own, not a smaller one.
+//
+// value, 直前のコード, 候補であるべきか, why
+var CONTEXT = [
+  ["WScript.Shell", "    Set sh = CreateObject(", false,
+    "ProgID (F04 の実物)"],
+  ["Shell.Application", "    Set app = CreateObject(", false,
+    "ProgID (F04 の実物)"],
+  ["Scripting.FileSystemObject", "    Set fso = CreateObject(", false,
+    "ProgID"],
+  ["ADODB.Connection", "    Set cn = CreateObject(", false, "ProgID"],
+  ["Forms.CommandButton.1",
+    "    ThisWorkbook.Worksheets(1).OLEObjects.Add ClassType:=", false,
+    "ProgID (F05 の実物)"],
+  ["notepad.exe", "    Shell ", false, "実行ファイル名 (F04 の実物)"],
+  ["cmd.exe /c echo hello", "    sh.Run ", false,
+    "コマンド行 (F04 の実物)"],
+  // The same two strings, outside those calls, are ordinary values.
+  ["notepad.exe", "    logName = ", true, "Shell の外なら普通の名前"],
+  ["Report.Backup", "    name = ", true, "ProgID と同型の本物のファイル名"],
+  ["Word.docx", "    f = ", true, "ProgID と同型 (Word.) のファイル名"],
+  // A real path handed to a call is still a real path: the context column is
+  // only on the last two rules, so nothing above them can be lost this way.
+  ["S:\\eigyo\\shinsei\\", "    app.Explore ", true,
+    "Explore の引数は本物のパス (F04 の実物)"],
+  ["C:\\data\\", "    Set sh = CreateObject(", true,
+    "ドライブ始まりは文脈に関係なく場所"]
+];
+
+// ---- PROD-11: shapes that are not locations at all ----
+var MUST_REJECT_SHAPE = [
+  [".csv", "裸の拡張子"],
+  [".xlsx", "裸の拡張子"],
+  ["*.xlsx", "純粋なワイルドカード (H01 の実物)"],
+  ["*.*", "純粋なワイルドカード"]
+];
+
+// ---- PROD-16: what the reader is actually asked to retype ----
+//
+// A connection string is one literal, but only the folder inside it is a
+// place. Without a capture group the reader had to retype the whole string -
+// including the quotes inside Extended Properties - to move a folder.
+var F06_ACCDB =
+  "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=S:\\eigyo\\shinsei\\" +
+  "master.accdb;Persist Security Info=False;";
+var F06_XLSX =
+  "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=S:\\eigyo\\shinsei\\" +
+  "rate.xlsx;Extended Properties=\"Excel 12.0 Xml;HDR=YES\";";
+
+// value, 直前のコード, 編集できる部分, 呼び方, why
+var SEGMENTS = [
+  [F06_ACCDB, "    Private Const CONN As String = ",
+    "S:\\eigyo\\shinsei\\", "接続文字列の中の場所",
+    "F06 の実物・Data Source のパス部分だけ"],
+  [F06_XLSX, "    ExcelSource = ",
+    "S:\\eigyo\\shinsei\\", "接続文字列の中の場所",
+    "F06 の実物・HDR=YES を打ち直させない"],
+  // Backward compatibility: a rule with no capture group still means the
+  // whole literal, exactly as before.
+  ["C:\\data\\", "", "C:\\data\\", "ドライブから始まる場所",
+    "捕獲グループの無い規則はリテラル全体"],
+  ["data.csv", "", "data.csv", "ファイル名",
+    "捕獲グループの無い規則はリテラル全体"],
+  // The naming complaint in PROD-16: a string that is not concatenated must
+  // not be called a concatenated fragment.
+  ["\\data\\", "", "\\data\\", "連結された場所の一部",
+    "区切りで始まる断片は今までどおりの呼び方"],
+  [F06_ACCDB.replace("Data Source=", "DataSrc="),
+    "    x = ",
+    F06_ACCDB.replace("Data Source=", "DataSrc="), "場所を含む文字列",
+    "連結されていない文字列に「連結された…」と出さない"]
+];
+
 MUST_KEEP.forEach(function (row) {
-  var label = classify(row[0]);
+  var label = classify(row[0], "");
   assert(label !== null,
     "候補から落ちてはいけない値が落ちた: " + JSON.stringify(row[0]) + " (" + row[1] + ")");
 });
 
 MUST_REJECT.forEach(function (row) {
-  var label = classify(row[0]);
+  var label = classify(row[0], "");
   assert(label === null,
     "書式文字列が「" + label + "」として候補に出た: " +
       JSON.stringify(row[0]) + " (" + row[1] + ")");
 });
 
+MUST_REJECT_SHAPE.forEach(function (row) {
+  var label = classify(row[0], "");
+  assert(label === null,
+    "場所でない形が「" + label + "」として候補に出た: " +
+      JSON.stringify(row[0]) + " (" + row[1] + ")");
+});
+
+CONTEXT.forEach(function (row) {
+  var label = classify(row[0], row[1]);
+  if (row[2]) {
+    assert(label !== null,
+      "文脈のせいで本物が落ちた: " + JSON.stringify(row[0]) +
+        " 直前=" + JSON.stringify(row[1]) + " (" + row[3] + ")");
+  } else {
+    assert(label === null,
+      "場所でないものが「" + label + "」として候補に出た: " +
+        JSON.stringify(row[0]) + " 直前=" + JSON.stringify(row[1]) +
+        " (" + row[3] + ")");
+  }
+});
+
+SEGMENTS.forEach(function (row) {
+  var found = match(row[0], row[1]);
+  assert(found !== null,
+    "候補にならなかった: " + JSON.stringify(row[0]) + " (" + row[4] + ")");
+  assert(found.label === row[3],
+    "呼び方が違う: 期待 " + row[3] + " 実際 " + found.label +
+      " 値=" + JSON.stringify(row[0]) + " (" + row[4] + ")");
+  assert(found.segment === row[2],
+    "編集できる部分が違う: 期待 " + JSON.stringify(row[2]) +
+      " 実際 " + JSON.stringify(found.segment) +
+      " 値=" + JSON.stringify(row[0]) + " (" + row[4] + ")");
+});
+
 console.log("test-path-candidate-rules: PASS (" +
-  MUST_KEEP.length + " keep / " + MUST_REJECT.length + " reject)");
+  MUST_KEEP.length + " keep / " +
+  (MUST_REJECT.length + MUST_REJECT_SHAPE.length) + " reject / " +
+  CONTEXT.length + " context / " +
+  SEGMENTS.length + " segment)");

@@ -74,6 +74,10 @@ namespace MacroStudio
         public string ErrorCode;
         public string Message;
         public long ElapsedMilliseconds;
+        // The source workbook was signed, and the output is not. The
+        // screen has to say so: whoever distributes this file needs to
+        // sign it again, and nothing else in the run would tell them.
+        public bool SignatureRemoved;
         public List<ModuleBuildResult> Results;
 
         public BookBuildResult()
@@ -792,7 +796,7 @@ namespace MacroStudio
                         sourceProject,
                         changedModules,
                         additions);
-                WriteZipVbaProject(
+                result.SignatureRemoved = WriteZipVbaProject(
                     workPath,
                     rebuiltProject,
                     sourceProject.IsZip,
@@ -1100,7 +1104,192 @@ namespace MacroStudio
             }
         }
 
-        private static void WriteZipVbaProject(
+        // A signature signs the VBA project. This build rewrote the VBA
+        // project, so any signature the source carried no longer matches
+        // what it is attached to.
+        //
+        // The output is a copy of the original file, so parts nobody
+        // touches ride along - which is right for every other part and
+        // wrong for this one: the copy would carry a signature that
+        // cannot verify. "It has a signature" is exactly the claim a
+        // reader uses to decide the file is safe to run, so leaving a
+        // broken one behind is worse than having none.
+        //
+        // Removing the .bin alone would leave a relationship pointing at
+        // a part that no longer exists and a content-type override for
+        // it, which is a malformed package. All three go together.
+        private const string SignaturePartMarker = "vbaprojectsignature";
+
+        private static bool IsSignaturePart(string fullName)
+        {
+            if (string.IsNullOrEmpty(fullName))
+            {
+                return false;
+            }
+            return fullName.Replace('\\', '/').ToLowerInvariant().IndexOf(
+                SignaturePartMarker,
+                StringComparison.Ordinal) >= 0;
+        }
+
+        private static string ReadZipEntryText(ZipArchiveEntry entry)
+        {
+            using (Stream input = entry.Open())
+            using (StreamReader reader = new StreamReader(
+                input,
+                new UTF8Encoding(false),
+                true))
+            {
+                return reader.ReadToEnd();
+            }
+        }
+
+        // Office writes these parts as UTF-8 with no byte order mark, and
+        // they are read back by the same package readers that wrote them,
+        // so they go back the same way.
+        private static void WriteZipEntryText(
+            ZipArchiveEntry entry,
+            string text)
+        {
+            byte[] bytes = new UTF8Encoding(false).GetBytes(text);
+
+            using (Stream output = entry.Open())
+            {
+                output.SetLength(0);
+                output.Write(bytes, 0, bytes.Length);
+                output.Flush();
+            }
+        }
+
+        // Drops every <elementName .../> whose text names a signature
+        // part. These parts hold attribute-only elements whose values are
+        // part names and URIs, so a '>' can only end the element - any
+        // in a value would be written as &gt;.
+        private static string RemoveSignatureElements(
+            string xml,
+            string elementName)
+        {
+            StringBuilder builder = new StringBuilder(xml.Length);
+            int position = 0;
+
+            while (true)
+            {
+                int start = xml.IndexOf(
+                    elementName,
+                    position,
+                    StringComparison.Ordinal);
+                int end;
+                string element;
+
+                if (start < 0)
+                {
+                    break;
+                }
+                end = xml.IndexOf('>', start);
+                if (end < 0)
+                {
+                    break;
+                }
+                element = xml.Substring(start, end - start + 1);
+                builder.Append(xml, position, start - position);
+                if (!IsSignaturePart(element))
+                {
+                    builder.Append(element);
+                }
+                position = end + 1;
+            }
+            builder.Append(xml, position, xml.Length - position);
+            return builder.ToString();
+        }
+
+        // Returns true when the output carried a signature that has now
+        // been taken out of it.
+        private static bool RemoveVbaSignature(ZipArchive archive)
+        {
+            List<ZipArchiveEntry> signatureParts =
+                new List<ZipArchiveEntry>();
+            List<ZipArchiveEntry> relationshipParts =
+                new List<ZipArchiveEntry>();
+            ZipArchiveEntry contentTypes = null;
+            int index;
+
+            for (index = 0; index < archive.Entries.Count; index++)
+            {
+                ZipArchiveEntry entry = archive.Entries[index];
+                string name = entry.FullName.Replace('\\', '/');
+
+                if (IsSignaturePart(name))
+                {
+                    signatureParts.Add(entry);
+                }
+                else if (name.EndsWith(
+                    ".rels",
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    relationshipParts.Add(entry);
+                }
+                else if (string.Equals(
+                    name,
+                    "[Content_Types].xml",
+                    StringComparison.OrdinalIgnoreCase))
+                {
+                    contentTypes = entry;
+                }
+            }
+            if (signatureParts.Count == 0)
+            {
+                // Nothing to do, and nothing rewritten: an unsigned
+                // workbook comes through this build untouched.
+                return false;
+            }
+
+            for (index = 0; index < signatureParts.Count; index++)
+            {
+                signatureParts[index].Delete();
+            }
+
+            // A relationship left pointing at a deleted part is what
+            // makes a package refuse to open, so these go with it.
+            for (index = 0; index < relationshipParts.Count; index++)
+            {
+                ZipArchiveEntry entry = relationshipParts[index];
+                string xml = ReadZipEntryText(entry);
+                string cleaned;
+
+                if (!IsSignaturePart(xml))
+                {
+                    continue;
+                }
+                cleaned = RemoveSignatureElements(xml, "<Relationship ");
+                if (cleaned.IndexOf(
+                    "<Relationship ",
+                    StringComparison.Ordinal) < 0)
+                {
+                    // An empty relationship part is what a workbook that
+                    // was never signed does not have at all.
+                    entry.Delete();
+                }
+                else
+                {
+                    WriteZipEntryText(entry, cleaned);
+                }
+            }
+
+            if (contentTypes != null)
+            {
+                string xml = ReadZipEntryText(contentTypes);
+
+                if (IsSignaturePart(xml))
+                {
+                    WriteZipEntryText(
+                        contentTypes,
+                        RemoveSignatureElements(xml, "<Override "));
+                }
+            }
+            return true;
+        }
+
+        // Returns true when a VBA signature was taken out of the output.
+        private static bool WriteZipVbaProject(
             string outputPath,
             byte[] projectBytes,
             bool isZip,
@@ -1108,8 +1297,10 @@ namespace MacroStudio
         {
             if (!isZip)
             {
+                // An OLE2-era workbook is the VBA project; it carries no
+                // package parts, so there is no signature to remove.
                 File.WriteAllBytes(outputPath, projectBytes);
-                return;
+                return false;
             }
 
             using (FileStream file = new FileStream(
@@ -1154,6 +1345,10 @@ namespace MacroStudio
                         projectBytes.Length);
                     output.Flush();
                 }
+
+                // After the project is in place, because what makes the
+                // signature stale is the project having changed.
+                return RemoveVbaSignature(archive);
             }
         }
 

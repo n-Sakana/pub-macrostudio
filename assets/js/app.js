@@ -323,6 +323,48 @@
     return createElement("p", "task-intro", message);
   }
 
+  // A run that has already finished, seen from a screen the reader
+  // walked back to.
+  //
+  // Going back off the completion screen is allowed - someone who
+  // arrived there by mistake, or who wants to read the review again,
+  // should not be trapped. What must not happen is the run quietly
+  // looking unfinished: the workbook and its folder are on disk, and
+  // pressing [次へ] from here builds a second generation. Saying so is
+  // the difference between "you may go back" and "nothing happened".
+  function isBuildComplete(state) {
+    return Boolean(state &&
+      state.buildResult &&
+      state.buildResult.status !== "error" &&
+      state.buildTimestamp);
+  }
+
+  function createCompletedNotice(state) {
+    var note;
+    var folder;
+
+    if (!isBuildComplete(state)) {
+      return null;
+    }
+    note = createElement("section", "panel completed-notice");
+    note.setAttribute("role", "status");
+    note.appendChild(createElement(
+      "h2",
+      "completed-notice-title",
+      "この実行は完了しています"));
+    note.appendChild(createElement(
+      "p",
+      "",
+      "作成済みの改修済みブックと関連ファイルは、そのまま残っています。" +
+        "この画面から進めると、同じフォルダーへもう一度作成します。"));
+    folder = state.runFolder || state.handoffFolder;
+    if (folder) {
+      note.appendChild(createElement("code", "completed-notice-path",
+        String(folder)));
+    }
+    return note;
+  }
+
   function createTask(className) {
     return createElement(
       "section",
@@ -393,9 +435,20 @@
       blockingAttachErrors.indexOf(error.code) >= 0;
   }
 
-  function createAttachErrorCard(error) {
+  // book: the workbook that is still loaded, if there is one.
+  //
+  // A refused file is never read, so whatever was loaded before is still
+  // the workbook this run is about - which is why [次へ] stays enabled.
+  // Seen from the screen that was not obvious: a red card with a live
+  // [次へ] under it reads as "it failed, but go on anyway". Disabling
+  // [次へ] would have been the wrong fix, because it punishes the
+  // reader for a file they already abandoned, and dropping the loaded
+  // workbook would be worse still - it throws away work over a mistyped
+  // pick. So the card names the workbook that is still in hand.
+  function createAttachErrorCard(error, book) {
     var card = createElement("section", "inline-error-card");
     var code = error.code;
+    var keptName = book && book.name ? String(book.name) : "";
 
     card.setAttribute("role", "alert");
     card.appendChild(createElement("span", "inline-error-code", code));
@@ -407,6 +460,13 @@
       "p",
       "",
       attachErrorMessages[code]));
+    if (keptName) {
+      card.appendChild(createElement(
+        "p",
+        "inline-error-kept",
+        "読み込み済みのブックは " + keptName +
+          " のままです。このまま次へ進めます。"));
+    }
     return card;
   }
 
@@ -1708,6 +1768,19 @@
         "result-note",
         resultNoteErrorMessage));
     }
+    // The source workbook was signed. The signature signed the VBA
+    // project, this run rewrote the VBA project, so it was taken out
+    // rather than carried into a file it no longer matches. Whoever
+    // distributes this workbook has to sign it again, and nothing else
+    // in the run would tell them that.
+    if (result && result.signatureRemoved) {
+      panel.appendChild(createElement(
+        "p",
+        "result-note result-note--signature",
+        "元のブックにあったコード署名は、この改修済みブックには" +
+          "付いていません。コードを書き換えたため、元の署名は" +
+          "内容と一致しなくなります。配布する前に署名し直してください。"));
+    }
     // The result comes first: the workbook is built and the folder is one
     // press away. What is left to do is real, but it is not the headline,
     // so it opens from a line that says how much of it there is.
@@ -2036,6 +2109,7 @@
     var workspace = createElement("div", "workspace screen-body");
     var live;
     var keep;
+    var completedNotice;
 
     screen.setAttribute("data-screen", String(state.screen));
     if (direction) {
@@ -2066,6 +2140,16 @@
     if (state.screen === global.MacroStudioScreens.diagnoseScreen &&
         !isDiagnosisPresetReady()) {
       workspace.appendChild(createDiagnosisPresetErrorCard());
+    }
+    // Shown on every screen the reader can walk back to, not just the
+    // one before the build: [戻る] can be pressed all the way to the
+    // start, and the created files stay created the whole way.
+    if (state.screen !== global.MacroStudioScreens.doneScreen &&
+        state.screen !== global.MacroStudioScreens.buildScreen) {
+      completedNotice = createCompletedNotice(state);
+      if (completedNotice) {
+        workspace.appendChild(completedNotice);
+      }
     }
     workspace.appendChild(screenBuilders[state.screen](state));
     screen.appendChild(workspace);
@@ -2464,7 +2548,8 @@
         diffPath: result.diffPath || "",
         diffError: result.diffError || "",
         resultPath: result.resultPath || "",
-        resultError: result.resultError || ""
+        resultError: result.resultError || "",
+        signatureRemoved: result.signatureRemoved === true
       };
 
       global.MacroStudioState.setLastError(null);

@@ -45,6 +45,28 @@ function Get-NormalizedCode {
     return ($value -replace "\n+$", '')
 }
 
+# Counts the ActiveX parts in the package without going through the
+# product, so "the reader reports what the file holds" is checked against
+# the file rather than against a number someone wrote down.
+function Get-PackageActiveXCount {
+    param([string]$Path)
+
+    $count = 0
+    $archive = [IO.Compression.ZipFile]::OpenRead($Path)
+    try {
+        foreach ($entry in $archive.Entries) {
+            $name = $entry.FullName.Replace('\', '/').ToLowerInvariant()
+            if ($name.IndexOf('/activex') -ge 0 -and
+                $name.EndsWith('.bin')) {
+                $count++
+            }
+        }
+    } finally {
+        $archive.Dispose()
+    }
+    return $count
+}
+
 if ([string]::IsNullOrEmpty($ProductRoot)) {
     $ProductRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 }
@@ -218,15 +240,18 @@ foreach ($sample in @($manifest.samples)) {
             $missed += 'activeX'
         }
     }
-    # A count the sample states exactly, because the sample is what it
-    # is: an expectation of "at least one" that the terminal cannot build
-    # would be a standing failure, and recording the real number is the
-    # only honest way to notice if it ever changes.
-    $wanted = Get-Property $expectations 'activeXExactly'
-    if ($null -ne $wanted) {
-        Assert-True ($inventory.ActiveXCount -eq [int]$wanted) `
-            ($id + ': the ActiveX count must be ' + [int]$wanted +
-             ', found ' + $inventory.ActiveXCount)
+    # The exact count is not written down anywhere, because it is not the
+    # product's to decide: how many controls end up in the package is up
+    # to the Excel that built the sample, and a number recorded on one
+    # terminal became a standing failure on the next (ENV-01). What the
+    # product owes is that it reports what the file actually holds, so
+    # the package is counted independently and compared with the reader.
+    $wanted = Get-Property $expectations 'activeXMatchesPackage'
+    if ($null -ne $wanted -and [bool]$wanted) {
+        $inPackage = Get-PackageActiveXCount $bookPath
+        Assert-True ($inventory.ActiveXCount -eq $inPackage) `
+            ($id + ': the reader says ' + $inventory.ActiveXCount +
+             ' ActiveX parts, the package holds ' + $inPackage)
         $checked++
     }
     $wanted = Get-Property $expectations 'barcodeFontsAtLeast'

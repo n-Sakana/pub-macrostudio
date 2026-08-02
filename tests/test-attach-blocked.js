@@ -247,6 +247,72 @@ assert(
   collect(buildBookScreen(null), "inline-error-card").length === 0,
   "Without an error there is no card.");
 
+// ---- a refusal does not throw away the workbook already in hand ----
+//
+// A refused file is never read, so whatever was loaded before is still the
+// workbook this run is about, and [次へ] stays live for it. From the screen
+// that looked wrong: a red card with a working [次へ] under it reads as
+// "it failed, carry on anyway". The two obvious fixes are both worse -
+// disabling [次へ] punishes the reader for a file they already abandoned,
+// and dropping the loaded workbook throws away real work over a mistyped
+// pick. So the card says which workbook is still loaded.
+function buildBookScreenWithBook(error) {
+  stateApi.reset();
+  stateApi.setAppInfo({
+    version: "test",
+    presets: { diagnose: [], repair: [] }
+  });
+  stateApi.setBook({
+    name: "受注管理.xlsm",
+    path: "C:\\work\\受注管理.xlsm",
+    ext: ".xlsm",
+    totalLines: 4
+  }, [{
+    name: "Main",
+    type: "standard",
+    typeLabel: "標準モジュール",
+    ext: "bas",
+    lineCount: 2,
+    code: "Option Explicit\r\nSub A()\r\nEnd Sub\r\n",
+    attributes: ""
+  }]);
+  if (error) {
+    stateApi.setLastError(error);
+  }
+  return windowObject.MacroStudioWorkflow.createBookScreen(
+    stateApi.getState());
+}
+
+var keptScreen = buildBookScreenWithBook({
+  code: "E-ATTACH-02",
+  message: app.getHostErrorMessage({ code: "E-ATTACH-02" }),
+  path: "C:\\books\\broken.xlsm"
+});
+var keptCard = collect(keptScreen, "inline-error-card")[0];
+
+assert(keptCard, "The refusal is still reported on the screen.");
+var keptText = readText(keptCard);
+assert(
+  keptText.indexOf("broken.xlsm") >= 0,
+  "The card still names the file it refused: " + keptText);
+assert(
+  keptText.indexOf("受注管理.xlsm") >= 0,
+  "The card must name the workbook that is still loaded, because that is " +
+    "what [次へ] would carry on with: " + keptText);
+assert(
+  stateApi.getState().book !== null &&
+    stateApi.getState().book.name === "受注管理.xlsm",
+  "A refused file must not discard the workbook already read.");
+assert(
+  collect(
+    buildBookScreen({
+      code: "E-ATTACH-02",
+      message: app.getHostErrorMessage({ code: "E-ATTACH-02" }),
+      path: "C:\\books\\broken.xlsm"
+    }),
+    "inline-error-kept").length === 0,
+  "With no workbook loaded there is nothing to keep, so nothing is said.");
+
 // The message the host error resolves to is the one shown.
 assert(
   app.getHostErrorMessage({ code: ENCRYPTED }).indexOf("暗号化") >= 0,
@@ -255,4 +321,5 @@ assert(
 console.log("test-attach-blocked: PASS");
 console.log(
   "an encrypted workbook is refused on the screen itself, with the way " +
-  "out, and never claims to have read it");
+  "out, and never claims to have read it; a refusal names the workbook " +
+  "still loaded instead of disabling the way forward or dropping it");
