@@ -37,7 +37,8 @@ $nodeTests = @(
 $psA = @(
   'test-app-compile','test-design-system','test-compression','test-ole2','test-vbaproject',
   'test-extract','test-roundtrip','test-bookio','test-build','test-book-inventory',
-  'test-guide-samples','test-guide-sample-flow','test-hostservices','test-encrypted-book'
+  'test-guide-samples','test-guide-sample-flow','test-hostservices','test-encrypted-book',
+  'test-vba-signature'
 )
 
 # These open real windows or take the real clipboard.

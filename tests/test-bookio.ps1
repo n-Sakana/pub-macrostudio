@@ -95,11 +95,51 @@ $resolvedBookPath = (Resolve-Path -LiteralPath $BookPath).Path
 $content = [MacroStudio.BookIO]::ReadVbaProjectBytes($resolvedBookPath)
 Assert-True $content.IsZip 'Workbook was not marked as ZIP.'
 Assert-True ($content.Extension -eq '.xlsm') 'Workbook extension mismatch.'
-Assert-True ($content.VbaProjectBytes.Length -eq 17920) `
-    'vbaProject.bin length mismatch.'
+
+# What the reader owes is the part itself, not a particular size. This
+# used to assert 17,920 bytes, which is a property of the one workbook
+# that happened to be on one machine - and since testdata\ is not in the
+# repository, no rebuilt fixture could ever satisfy it (ENV-01). Reading
+# the entry straight out of the package says the same thing without
+# memorising anything: hand back exactly what the file holds.
+$expectedProjectBytes = $null
+$readArchive = [IO.Compression.ZipFile]::OpenRead($resolvedBookPath)
+try {
+    foreach ($entry in $readArchive.Entries) {
+        if ($entry.Name -ieq 'vbaProject.bin') {
+            $stream = $entry.Open()
+            try {
+                $buffer = New-Object System.IO.MemoryStream
+                $stream.CopyTo($buffer)
+                $expectedProjectBytes = $buffer.ToArray()
+                $buffer.Dispose()
+            } finally {
+                $stream.Dispose()
+            }
+            break
+        }
+    }
+} finally {
+    $readArchive.Dispose()
+}
+Assert-True ($null -ne $expectedProjectBytes) `
+    'The package holds no vbaProject.bin.'
+Assert-True ($content.VbaProjectBytes.Length -eq $expectedProjectBytes.Length) `
+    ('vbaProject.bin length differs from the package: reader ' +
+     $content.VbaProjectBytes.Length + ', package ' +
+     $expectedProjectBytes.Length)
+$sameBytes = $true
+for ($index = 0; $index -lt $expectedProjectBytes.Length; $index++) {
+    if ($content.VbaProjectBytes[$index] -ne $expectedProjectBytes[$index]) {
+        $sameBytes = $false
+        break
+    }
+}
+Assert-True $sameBytes 'vbaProject.bin bytes differ from the package.'
 
 $project = [MacroStudio.BookIO]::ReadProject($resolvedBookPath)
-Assert-True ($project.Modules.Count -eq 6) 'Project module count mismatch.'
+Assert-True ($project.Modules.Count -gt 0) `
+    'The project has no modules.'
 Assert-True ($project.FilePath -eq $resolvedBookPath) `
     'Project file path mismatch.'
 

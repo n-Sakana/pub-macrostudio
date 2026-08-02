@@ -168,8 +168,15 @@
     return goTo(api.nextIndex(state, state.screen), true);
   }
 
+  // Leaving the completion screen does not undo the run. The workbook,
+  // the diff report and the memo are already written to disk, so
+  // forgetting the result here would have left the reader on an earlier
+  // screen with no sign that any of it exists - and pressing [次へ]
+  // again would build a second generation without ever saying there was
+  // a first. The result is kept, and the screens say so; only work that
+  // genuinely invalidates the output clears it (invalidateRepairPackage,
+  // setPathMap, setBuildConfirmation).
   function goBack() {
-    var api = screenApi();
     var target;
 
     if (!canGoBack()) {
@@ -178,9 +185,6 @@
     target = state.history.length > 0
       ? state.history.pop()
       : Math.max(0, state.screen - 1);
-    if (api && state.screen === api.doneScreen) {
-      state.buildResult = null;
-    }
     return goTo(target, false);
   }
 

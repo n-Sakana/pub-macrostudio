@@ -392,8 +392,92 @@ assert(
   "The screen must not gate a replacement on what the new value looks " +
     "like.");
 
+// ---------------------------------------------------------------------
+// PROD-16: a rule may point INSIDE a literal.
+//
+// A connection string is one string token, but only the folder in it is a
+// place. Replacing the whole literal meant retyping Provider=, the quotes
+// inside Extended Properties and HDR=YES by hand, any of which the reader
+// could get wrong. So the editable part is what the capture group caught,
+// and the rest of the literal is rebuilt around whatever is typed.
+var connectionModule = {
+  name: "AceConn",
+  code:
+    "Option Explicit\r\n" +
+    "Private Const CONN As String = \"Provider=Microsoft.ACE.OLEDB.12.0;" +
+    "Data Source=S:\\eigyo\\shinsei\\master.accdb;" +
+    "Persist Security Info=False;\"\r\n" +
+    "Public Function ExcelSource() As String\r\n" +
+    "  ExcelSource = \"Provider=Microsoft.ACE.OLEDB.12.0;" +
+    "Data Source=S:\\eigyo\\shinsei\\rate.xlsx;" +
+    "Extended Properties=\"\"Excel 12.0 Xml;HDR=YES\"\";\"\r\n" +
+    "End Function\r\n"
+};
+var connectionRules = [
+  {
+    label: "接続文字列の中の場所",
+    pattern: "[Dd]ata\\s+[Ss]ource\\s*=\\s*((?:[A-Za-z]:|\\\\\\\\)[^;\"]*[\\\\/])",
+    selectedByDefault: true,
+    picksLocation: true
+  },
+  {label: "場所を含む文字列", pattern: "^(?=.*[^\\\\/]).*[\\\\/]"}
+];
+var connectionMapping = api.detect([connectionModule], connectionRules);
+
+equal(connectionMapping.rows.length, 1,
+  "One folder inside two different connection strings is one row: the " +
+  "point of the table is to type a place once.");
+var connectionRow = connectionMapping.rows[0];
+equal(connectionRow.groupKey, "S:\\eigyo\\shinsei\\",
+  "The row is keyed by the part the rule pointed at, not by the literal.");
+equal(connectionRow.label, "接続文字列の中の場所",
+  "The row carries the name the template gave that rule.");
+equal(connectionRow.occurrences.length, 2,
+  "Both connection strings are places the same folder is written.");
+assert(connectionRow.occurrences[0].prefix.indexOf(
+  "Provider=Microsoft.ACE.OLEDB.12.0;") >= 0,
+"Each occurrence remembers the part of its own literal that stays put.");
+assert(connectionRow.occurrences[0].suffix.indexOf("master.accdb") >= 0 &&
+  connectionRow.occurrences[1].suffix.indexOf("HDR=YES") >= 0,
+"The two occurrences keep their own tails, which are not the same text.");
+
+var connectionApplied = api.apply(
+  update(api, connectionMapping, "S:\\eigyo\\shinsei\\",
+    {to: "E:\\新しい場所\\"}),
+  [connectionModule]);
+assert(connectionApplied.ok, "The replacement must be applicable.");
+var rebuilt = connectionApplied.modules[0].code;
+assert(rebuilt.indexOf(
+  "Data Source=E:\\新しい場所\\master.accdb;Persist Security Info=False;") >= 0,
+"The folder changes and the rest of the connection string does not.");
+assert(rebuilt.indexOf(
+  "Data Source=E:\\新しい場所\\rate.xlsx;" +
+  "Extended Properties=\"\"Excel 12.0 Xml;HDR=YES\"\";") >= 0,
+"Everything the reader would have had to retype survives untouched, " +
+  "including the doubled quotes inside the literal.");
+assert(rebuilt.indexOf("S:\\eigyo\\shinsei\\") < 0,
+  "No occurrence of the old folder is left behind.");
+assert(rebuilt.indexOf("Provider=Microsoft.ACE.OLEDB.12.0;") >= 0,
+  "mustPreserve values are not at the mercy of the reader's typing.");
+
+// A row read back from an older session names the whole literal and knows
+// nothing about prefixes. It must still apply, unchanged.
+var legacyMapping = api.detect([{
+  name: "Legacy",
+  code: "Option Explicit\r\na = \"C:\\Data\\report.xlsx\"\r\n"
+}], [{label: "ドライブから始まる場所", pattern: "^[A-Za-z]:[\\\\/]",
+  selectedByDefault: true}]);
+equal(legacyMapping.rows[0].groupKey, "C:\\Data\\report.xlsx",
+  "A rule with no capture group still means the whole literal.");
+equal(legacyMapping.rows[0].occurrences[0].prefix, "",
+  "With no capture group there is nothing standing before the segment.");
+
 console.log("test-path-map: PASS");
 console.log(
   "rules come from the template, first match wins, unmatched literals " +
   "are not candidates, value-only grouping, M01-M03, exact-span rebuild, " +
   "quote escaping, private brands and all-or-nothing E-MAP-02 are fixed");
+console.log(
+  "a capture group narrows the editable part to the folder inside a " +
+  "connection string, groups both places into one row, and rebuilds each " +
+  "literal around what was typed");

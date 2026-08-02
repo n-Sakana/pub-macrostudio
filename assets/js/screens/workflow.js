@@ -1344,7 +1344,8 @@
       : "対象のブックを、ここへドラッグするか選んでください。"));
     if (global.MacroStudioApp.isBlockingAttachError(state.lastError)) {
       root.appendChild(global.MacroStudioApp.createAttachErrorCard(
-        state.lastError));
+        state.lastError,
+        state.book));
     }
     if (!state.book) {
       var zone = element("button", "drop-zone");
@@ -1388,6 +1389,7 @@
           : "headline-note",
         state.book.read.headline + state.book.read.detail));
     }
+    // A signed workbook is the one case where finishing the run costs
     moduleList = element("ul", "read-module-list");
     state.modules.forEach(function (module) {
       moduleList.appendChild(element(
@@ -1407,6 +1409,25 @@
       false,
       state.modules.length + " モジュール・" + state.book.totalLines + " 行"));
     appendOutsideCode(root, state);
+    // A signed workbook is the one case where finishing this run costs
+    // the reader something they have to arrange elsewhere: the output
+    // cannot carry the signature, because the signature signs the code
+    // this run is about to rewrite.
+    //
+    // It sits out here rather than inside "コードの外にあるもの", where
+    // the fact is also listed. That list starts closed, and a closed
+    // list is not a warning - the first version of this went in there
+    // and the real screen showed nothing at all.
+    if (state.bookInventory &&
+        state.bookInventory.hasVbaSignature === true) {
+      root.appendChild(element(
+        "p",
+        "signature-warning",
+        "このブックの VBA プロジェクトにはコード署名が付いています。" +
+          "コードを書き換えると署名は内容と一致しなくなるため、" +
+          "改修済みブックからは署名を外します。" +
+          "配布する前に署名し直してください。"));
+    }
     return root;
   }
 

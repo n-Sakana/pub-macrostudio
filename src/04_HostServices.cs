@@ -1881,6 +1881,9 @@ namespace MacroStudio
                 new Dictionary<string, object>();
             data.Add("outputPath", build.OutputPath);
             data.Add("results", results);
+            // The output no longer carries the signature the source had.
+            // Only the screen can tell the reader to sign it again.
+            data.Add("signatureRemoved", build.SignatureRemoved);
             return data;
         }
     }

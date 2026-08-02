@@ -76,10 +76,13 @@
       "ひな形の段階が分かりません。診断または改修のフォルダから読み込んでください。",
     invalidReplaceRule:
       "「## " + REPLACE_TITLE +
-      "」は「- 呼び方 | 正規表現 | 既定で選ぶ | 場所を選ぶ」の形で" +
-      "書いてください。3 つ目と 4 つ目は省けます。",
+      "」は「- 呼び方 | 正規表現 | 既定で選ぶ | 場所を選ぶ | 拾わない文脈」の形で" +
+      "書いてください。3 つ目から 5 つ目は省けます。",
     invalidReplacePattern:
       "「## " + REPLACE_TITLE + "」の正規表現が読み取れません: {title}",
+    invalidReplaceContext:
+      "「## " + REPLACE_TITLE +
+      "」の「拾わない文脈」の正規表現が読み取れません: {title}",
     repairOnlySection:
       "「## {title}」は改修ひな形だけで使えます。",
     diagnoseOnlySection:
@@ -224,9 +227,23 @@
     };
   }
 
-  // "- 呼び方 | 正規表現 | 既定で選ぶ". The pattern decides what counts
-  // as a candidate and the name decides what it is called; neither is
-  // the app's business, so both come from here.
+  // "- 呼び方 | 正規表現 | 既定で選ぶ | 場所を選ぶ | 拾わない文脈".
+  // The pattern decides what counts as a candidate and the name decides
+  // what it is called; neither is the app's business, so both come from
+  // here.
+  //
+  // Two things the pattern alone could not say, both added because the
+  // shipped rules were getting them wrong:
+  //
+  //   a capture group  - the part of the literal that may be edited. A
+  //     connection string is one literal, but only the folder inside it
+  //     is a place; without this the reader had to retype the whole
+  //     string, quotes and all, to move a folder (PROD-16).
+  //   拾わない文脈     - where NOT to look, as a pattern for the code
+  //     just before the literal. "WScript.Shell" and "Report.Backup"
+  //     are the same shape, so no rule reading the literal on its own
+  //     can separate a ProgID from a file name; what separates them is
+  //     that one sits inside CreateObject( (PROD-11).
   function readReplaceRules(lines) {
     var items = [];
     var invalid = false;
@@ -237,6 +254,7 @@
       var parts;
       var label;
       var pattern;
+      var context;
 
       if (trimSpace(line) === "" || invalid) {
         return;
@@ -266,13 +284,30 @@
         message = format(MESSAGES.invalidReplacePattern, label);
         return;
       }
+      context = parts.length > 4 ? parts[4] : "";
+      if (context !== "") {
+        try {
+          context = new RegExp(context);
+        } catch (error) {
+          invalid = true;
+          message = format(MESSAGES.invalidReplaceContext, label);
+          return;
+        }
+      }
       items.push({
         label: label,
         pattern: parts[1],
         selectedByDefault: parts.length > 2 && parts[2] !== "",
         // A candidate whose replacement is somewhere on disk. The app
         // can offer a picker for it without knowing why it is one.
-        picksLocation: parts.length > 3 && parts[3] !== ""
+        picksLocation: parts.length > 3 && parts[3] !== "",
+        // Matched against the code standing immediately before the
+        // literal. A hit means this rule does not claim it, and the
+        // rules below still get their turn. A template that writes
+        // nothing here reads exactly as it did before.
+        contextExclude: parts.length > 4 && parts[4] !== ""
+          ? parts[4]
+          : null
       });
     });
     return {items: items, invalid: invalid, message: message};
