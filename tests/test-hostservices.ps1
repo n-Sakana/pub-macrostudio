@@ -122,6 +122,9 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $testdataRoot = (Resolve-Path (
     Join-Path $PSScriptRoot '..\testdata')).Path
 $resolvedBookPath = (Resolve-Path -LiteralPath $BookPath).Path
+# Every run writes inside MacroStudio now, not beside the workbook.
+$exportsRoot = Join-Path $repoRoot 'exports'
+$handoffRoot = Join-Path $repoRoot 'temp'
 $service = New-Object MacroStudio.HostServices($null, $repoRoot)
 
 $environmentHostRoot = Join-Path $testdataRoot (
@@ -708,7 +711,7 @@ try {
     $buildTimestamp = [DateTime]::Now.ToString('yyyyMMdd_HHmmss')
     $build = $service.BuildBook($identityChanges, $buildTimestamp)
     $successOutput = $build['outputPath']
-    Assert-InsideDirectory $successOutput $testdataRoot
+    Assert-InsideDirectory $successOutput $exportsRoot
     Assert-True ([IO.File]::Exists($successOutput)) `
         'Host build output was not created.'
     Assert-True ($build['results'].Count -eq 1) `
@@ -723,8 +726,8 @@ try {
         'Host build did not use the run folder for this timestamp.'
     Assert-True (
         [IO.Path]::GetFileName(
-            [IO.Path]::GetDirectoryName($runFolder)) -ceq 'MacroStudio') `
-        'The run folder must sit under a MacroStudio folder.'
+            [IO.Path]::GetDirectoryName($runFolder)) -ceq 'exports') `
+        'The run folder must sit under exports, one level deep.'
     # Without a name from the screen the host falls back to the same
     # shape the screen would have produced.
     Assert-True (
@@ -735,7 +738,7 @@ try {
             [IO.Path]::GetFileName($successOutput))
 } finally {
     if (-not [string]::IsNullOrEmpty($successOutput)) {
-        Assert-InsideDirectory $successOutput $testdataRoot
+        Assert-InsideDirectory $successOutput $exportsRoot
         if ([IO.File]::Exists($successOutput)) {
             [IO.File]::Delete($successOutput)
         }
@@ -763,8 +766,8 @@ try {
         $diffHtml)
     $diffBuildOutput = $diffBuild['outputPath']
     $diffPath = $diffBuild['diffPath']
-    Assert-InsideDirectory $diffBuildOutput $testdataRoot
-    Assert-InsideDirectory $diffPath $testdataRoot
+    Assert-InsideDirectory $diffBuildOutput $exportsRoot
+    Assert-InsideDirectory $diffPath $exportsRoot
     Assert-True ([IO.File]::Exists($diffBuildOutput)) `
         'Diff-report build output was not created.'
     Assert-True ([IO.File]::Exists($diffPath)) `
@@ -797,7 +800,7 @@ try {
 } finally {
     foreach ($path in @($diffBuildOutput, $diffPath)) {
         if (-not [string]::IsNullOrEmpty($path)) {
-            Assert-InsideDirectory $path $testdataRoot
+            Assert-InsideDirectory $path $exportsRoot
             if ([IO.File]::Exists($path)) {
                 [IO.File]::Delete($path)
             }
@@ -810,8 +813,10 @@ $collisionPath = ''
 try {
     $collisionTimestamp = [DateTime]::Now.AddSeconds(
         4).ToString('yyyyMMdd_HHmmss')
-    $collisionFolder = Join-Path $testdataRoot (
-        'MacroStudio\test_large_' + $collisionTimestamp)
+    # The decoy has to sit where this run will actually write, which is
+    # inside MacroStudio's own exports tree.
+    $collisionFolder = Join-Path $exportsRoot (
+        'test_large_' + $collisionTimestamp)
     [IO.Directory]::CreateDirectory($collisionFolder) | Out-Null
     # A report of the same name that this run did not write is left where
     # it is, and the workbook is still produced.
@@ -833,7 +838,7 @@ try {
         $null,
         $collisionName)
     $collisionOutput = $collisionBuild['outputPath']
-    Assert-InsideDirectory $collisionOutput $testdataRoot
+    Assert-InsideDirectory $collisionOutput $exportsRoot
     Assert-True ([IO.File]::Exists($collisionOutput)) `
         'A diff-report failure cancelled the workbook build.'
     Assert-True (
@@ -851,7 +856,7 @@ try {
 } finally {
     foreach ($path in @($collisionOutput, $collisionPath)) {
         if (-not [string]::IsNullOrEmpty($path)) {
-            Assert-InsideDirectory $path $testdataRoot
+            Assert-InsideDirectory $path $exportsRoot
             if ([IO.File]::Exists($path)) {
                 [IO.File]::Delete($path)
             }
@@ -942,7 +947,8 @@ try {
             [IO.Path]::GetFileName($firstBuild['diffPath']))
     $signatureOutput = $firstBuild['outputPath']
     $signatureFolder = [IO.Path]::GetDirectoryName($signatureOutput)
-    Assert-InsideDirectory $signatureOutput $signatureBase
+    # The workbook is read from the copy; the output goes to exports.
+    Assert-InsideDirectory $signatureOutput $exportsRoot
     Assert-True ([IO.File]::Exists($signatureOutput)) `
         'The first build of the attached workbook must succeed.'
     Assert-True (
@@ -1233,11 +1239,22 @@ if ($TestExplorer) {
             'diagnose',
             $stamp,
             $requestBody,
+            $codeBody,
             $codeBody)
         $runFolder = $written['folderPath']
         $runFolders += $runFolder
-        Assert-InsideDirectory $runFolder (
-            Join-Path $testdataRoot 't2_6_outputs')
+        # Inside MacroStudio, never beside the workbook.
+        Assert-InsideDirectory $runFolder $exportsRoot
+        Assert-InsideDirectory ([string]$written['handoffFolderPath']) `
+            $handoffRoot
+        Assert-True (
+            [IO.Path]::GetFileName([string]$written['handoffFolderPath']) -ceq
+            [IO.Path]::GetFileName($runFolder)) `
+            'The deliverables and the chat copy must share the run name.'
+        Assert-True (
+            [IO.Path]::GetFileName([string]$written['aiCodePath']) -ceq
+            'source-code-for-ai.md') `
+            'The chat copy must be the file the reader is told to attach.'
         Assert-True (
             [IO.Path]::GetFileName($runFolder) -ceq
             ([IO.Path]::GetFileNameWithoutExtension($requestBookPath) +
@@ -1246,8 +1263,8 @@ if ($TestExplorer) {
         Assert-True (
             [IO.Path]::GetFileName(
                 [IO.Path]::GetDirectoryName($runFolder)) -ceq
-            'MacroStudio') `
-            'The run folder must sit under a MacroStudio folder.'
+            'exports') `
+            'The run folder must sit one level under exports.'
         Assert-True (
             [IO.Path]::GetFileName($written['requestPath']) -ceq
             'diagnose-request.md' -and
@@ -1283,6 +1300,7 @@ if ($TestExplorer) {
             'diagnose',
             $stamp,
             $diagnoseBody2,
+            "ignored replacement code`r`n",
             "ignored replacement code`r`n")
         Assert-True (
             [IO.File]::ReadAllText(
@@ -1296,16 +1314,29 @@ if ($TestExplorer) {
             'A diagnosis request rebuild must not rewrite source-code.md.'
 
         $repairBody = "repair request generation 1`r`n"
+        $aiBody = "replaced code for the chat`r`n"
         $repair = $requestService.WriteRequestFiles(
             'repair',
             $stamp,
             $repairBody,
-            [NullString]::Value)
+            [NullString]::Value,
+            $aiBody)
         Assert-True (
             [IO.Path]::GetFileName($repair['requestPath']) -ceq
-                'repair-request.md' -and
-            -not $repair.ContainsKey('codePath')) `
-            'Repair stage must write repair-request.md only.'
+                'repair-request.md') `
+            'Repair stage must write repair-request.md.'
+        # The chat's copy may be code the machine already rewrote. What
+        # the run keeps as source-code.md must not move with it.
+        Assert-True (
+            [IO.File]::ReadAllText(
+                [string]$repair['aiCodePath'],
+                [Text.Encoding]::UTF8) -ceq $aiBody) `
+            'The chat copy must be the code handed for this stage.'
+        Assert-True (
+            [IO.File]::ReadAllText(
+                [string]$repair['codePath'],
+                [Text.Encoding]::UTF8) -ceq $codeBody) `
+            'source-code.md must stay the code as it was read.'
         Assert-True (
             [IO.File]::ReadAllText(
                 $repair['requestPath'],
@@ -1316,7 +1347,8 @@ if ($TestExplorer) {
             'repair',
             $stamp,
             $repairBody2,
-            [NullString]::Value)
+            [NullString]::Value,
+            $aiBody)
         Assert-True (
             [IO.File]::ReadAllText(
                 $repair['requestPath'],

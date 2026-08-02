@@ -1,0 +1,30 @@
+﻿{
+    "id":  "D02",
+    "file":  "D02_fixed_drive_T.xlsm",
+    "format":  "xlsm",
+    "entryMacro":  "RunPath",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "パス済み"
+                    }
+                ],
+    "mustFix":  [
+                    "T:\\eigyo\\shinsei\\"
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "path"
+              ],
+    "expect":  "normal",
+    "why":  "別ドライブ文字。置換の汎用性",
+    "modules":  [
+                    {
+                        "name":  "PathT",
+                        "type":  1
+                    }
+                ]
+}

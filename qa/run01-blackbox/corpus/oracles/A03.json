@@ -1,0 +1,50 @@
+﻿{
+    "id":  "A03",
+    "file":  "A03_medium.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "標準6モジュール・520行級",
+    "entryMacro":  "RunMedium",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "中規模済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "A03M01",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A03M02",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A03M03",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A03M04",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A03M05",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A03M06",
+                        "type":  1
+                    }
+                ]
+}

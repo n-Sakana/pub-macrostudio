@@ -1,0 +1,31 @@
+﻿{
+    "id":  "C08",
+    "file":  "C08_format_not_path.xlsm",
+    "format":  "xlsm",
+    "entryMacro":  "RunFormat",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "書式済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+                         "yyyy/mm/dd hh:mm:ss",
+                         "0.00"
+                     ],
+    "route":  [
+                  "path"
+              ],
+    "expect":  "normal",
+    "why":  "PROD-03 回帰: 日付/数値書式をパス候補に出してはいけない",
+    "modules":  [
+                    {
+                        "name":  "Fmt",
+                        "type":  1
+                    }
+                ]
+}

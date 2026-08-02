@@ -1,0 +1,31 @@
+﻿{
+    "id":  "D01",
+    "file":  "D01_fixed_drive.xlsm",
+    "format":  "xlsm",
+    "entryMacro":  "RunPath",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "パス済み"
+                    }
+                ],
+    "mustFix":  [
+                    "S:\\eigyo\\shinsei\\"
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "path",
+                  "both"
+              ],
+    "expect":  "normal",
+    "why":  "固定ドライブ1種。DefaultExportFolder で実行結果を観測できる",
+    "modules":  [
+                    {
+                        "name":  "PathOne",
+                        "type":  1
+                    }
+                ]
+}

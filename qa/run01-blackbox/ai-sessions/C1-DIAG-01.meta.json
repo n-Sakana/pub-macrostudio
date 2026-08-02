@@ -1,0 +1,52 @@
+{
+  "blind_request_id": "C1-DIAG-01",
+  "requested_by": "participant:opus-qa-supervisor",
+  "room_message_id": 12,
+  "subagent_type": "blind-ai-responder",
+  "subagent_run_id": "adc2d61e469decf6c",
+  "fresh_instance": true,
+  "instance_reused": false,
+  "followup_questions_asked": 0,
+  "started_utc": "2026-08-02T06:50:44Z",
+  "ended_utc": "2026-08-02T07:00:55Z",
+  "duration_ms": 456760,
+  "subagent_tokens": 60739,
+  "tool_uses_observed_by_harness": 0,
+  "inputs_embedded_verbatim": [
+    {
+      "role": "request_body",
+      "source_file": "C1_diagnose_request.txt",
+      "bytes": 15251,
+      "sha256_stated_by_supervisor": "D7FBF6F5B4933E73278A52724C77F82464B7A1BBACDCFF8D536E2E31968A8D30",
+      "sha256_verified_by_orchestrator": "D7FBF6F5B4933E73278A52724C77F82464B7A1BBACDCFF8D536E2E31968A8D30",
+      "match": true
+    },
+    {
+      "role": "attachment_body",
+      "source_file": "C1_attachment_source-code-for-ai.md",
+      "bytes": 23177,
+      "sha256_stated_by_supervisor": "B7BA15A25794CA43ACEE57BD786E979210E66B4551D6CD82810A3E9BA5BA36E2",
+      "sha256_verified_by_orchestrator": "B7BA15A25794CA43ACEE57BD786E979210E66B4551D6CD82810A3E9BA5BA36E2",
+      "match": true
+    }
+  ],
+  "prompt_composition": "Request body verbatim in full, then the single separator line '添付ファイル source-code-for-ai.md の内容:', then the attachment body verbatim in full. No summarization, excerpting, omission, or line reduction.",
+  "only_added_text": "添付ファイル source-code-for-ai.md の内容:",
+  "only_added_text_authorized_by": "Room message #12, section 「渡し方の指定」",
+  "withheld_from_responder": [
+    "product repo / source tree",
+    "SPEC and any design documents",
+    "tests and expected answers",
+    "prior attempts and their results",
+    "supervisor's analysis, findings, and DOC-01 observations",
+    "product name explanation beyond what the request text itself contains",
+    "target workbook provenance beyond the request text"
+  ],
+  "response_file": "C1-DIAG-01.response.raw.txt",
+  "response_handling": "Stored byte-for-byte as returned. No correction, reformatting, completion, summarization, or contract-conformance repair was applied by the orchestrator.",
+  "orchestrator_did_not": [
+    "judge correctness of the reply",
+    "read or modify the product repo",
+    "reuse or re-question the responder instance"
+  ]
+}

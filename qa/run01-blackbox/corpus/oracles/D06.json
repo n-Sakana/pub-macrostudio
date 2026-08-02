@@ -1,0 +1,30 @@
+﻿{
+    "id":  "D06",
+    "file":  "D06_wildcard.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "ワイルドカード付きパス（制限対象）。ドライブ部だけを置換できるか",
+    "entryMacro":  "RunWild",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "ワイルド済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "path"
+              ],
+    "modules":  [
+                    {
+                        "name":  "Wild",
+                        "type":  1
+                    }
+                ]
+}

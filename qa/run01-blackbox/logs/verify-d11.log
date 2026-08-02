@@ -1,0 +1,11 @@
+[open-1] components      : ThisWorkbook, Sheet1, PathA, PathB, PathC
+[open-1] new path in     : PathA, PathB, PathC   (expect PathA, PathB, PathC)
+[open-1] OLD path still  :    (expect empty)
+[open-1] reflect mark in : PathA  (expect PathA)
+[open-1] compile command unavailable: You cannot call a method on a null-valued expression.
+[open-1] RunThree ran, 作業!B2 = '三箇所済み'  (expect 三箇所済み)
+[reopen] components      : ThisWorkbook, Sheet1, PathA, PathB, PathC
+[reopen] new path in     : PathA, PathB, PathC   (expect PathA, PathB, PathC)
+[reopen] OLD path still  :    (expect empty)
+[reopen] reflect mark in : PathA  (expect PathA)
+[reopen] 作業!B2 = '三箇所済み'

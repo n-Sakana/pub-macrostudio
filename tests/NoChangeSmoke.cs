@@ -336,49 +336,32 @@ namespace MacroStudio.Tests
                     ".verdict === 'IMPOSSIBLE'");
                 phase.Add("second", await ReadJson(ScreenShape()));
 
-                string oldRepairId = await ReadJson(
-                    "MacroStudioState.getState().repairRequestId");
+                // A reply that asks the reader something is the third
+                // shape the contract does not have. It is refused, and
+                // the state is left exactly as it was.
+                string beforeQuestion = await ReadJson(
+                    "JSON.stringify({" +
+                    "verdict:MacroStudioState.getState()" +
+                    ".noChangeResult.verdict," +
+                    "repairId:MacroStudioState.getState().repairRequestId})");
+                phase.Add("questionRefused", await ReadJson(
+                    "JSON.stringify({" +
+                    "accepted:MacroStudioWorkflow.applyRepairText(" +
+                    AskingQuestion() + ")," +
+                    "verdict:MacroStudioState.getState()" +
+                    ".noChangeResult.verdict," +
+                    "repairId:MacroStudioState.getState().repairRequestId," +
+                    "before:" + serializer.Serialize(beforeQuestion) + "})"));
+
+                // "I cannot settle this from what I was given" is a
+                // refusal like the other two, not a conversation.
                 await Execute(
                     "MacroStudioWorkflow.applyRepairText(" +
-                    NeedDecision() + ");");
+                    Declared("UNCLEAR") + ");");
                 await WaitFor(
-                    "MacroStudioState.getState().needDecision !== null");
-                phase.Add("needDecision", await ReadJson(
-                    "JSON.stringify({" +
-                    "screen:MacroStudioState.getState().screen," +
-                    "decisions:MacroStudioState.getState()" +
-                    ".needDecision.decisions.length," +
-                    "nextReady:!document.querySelector(" +
-                    "'[data-action=\"go-next\"]').disabled," +
-                    "returnAction:document.querySelectorAll(" +
-                    "'[data-action=\"return-repair-input\"]').length," +
-                    "text:document.getElementById(" +
-                    "'main-content').textContent})"));
-                await Execute(
-                    "document.querySelector(" +
-                    "'[data-action=\"return-repair-input\"]')" +
-                    ".click();");
-                await WaitForScreen("repairInputScreen");
-                phase.Add("decisionReturn", await ReadJson(
-                    "JSON.stringify({" +
-                    "screen:MacroStudioState.getState().screen," +
-                    "quotes:document.querySelectorAll(" +
-                    "'.decision-quote').length," +
-                    "extra:document.querySelector(" +
-                    "'[data-workflow-input=\"extra-request\"]')" +
-                    ".value})"));
-                await ClickNext();
-                await WaitFor(
-                    "MacroStudioState.getState().screen === " +
-                    "MacroStudioScreens.repairScreen && " +
-                    "MacroStudioState.getState().repairRequestId !== " +
-                    serializer.Serialize(oldRepairId) + " && " +
-                    "MacroStudioState.getState().busyAction === null");
-                await Execute(
-                    "MacroStudioState.setRepairHandoffProgress(" +
-                    "true,true);");
-                // Asking and importing share one screen: no [次へ] here.
-                await WaitForScreen("repairScreen");
+                    "MacroStudioState.getState().noChangeResult" +
+                    ".verdict === 'UNCLEAR'");
+                phase.Add("third", await ReadJson(ScreenShape()));
 
                 // ---- taking a real answer instead still works ----
                 if (perModule)
@@ -461,7 +444,7 @@ namespace MacroStudio.Tests
                     ".diagnosisRequestId;" +
                     "var marker=String.fromCharCode(39)+" +
                     "'@MACROSTUDIO '+id+' ';" +
-                    "var lines=[marker+'DIAG BEGIN 1'];" +
+                    "var lines=[marker+'DIAG BEGIN 0'];" +
                     "['PURPOSE','FLOW','DEPENDENCY','ENVIRONMENT']" +
                     ".forEach(function(name){" +
                     "lines.push(marker+'SECTION BEGIN '+name);" +
@@ -473,7 +456,7 @@ namespace MacroStudio.Tests
                     "return lines.join('\\r\\n');}())";
             }
 
-            private static string NeedDecision()
+            private static string AskingQuestion()
             {
                 return Wrap(
                     "[api.summaryBeginLine(id)," +
@@ -488,7 +471,7 @@ namespace MacroStudio.Tests
                     "'Shared folder / personal folder'," +
                     "api.marker+' '+id+' TEXT END OPTIONS'," +
                     "api.marker+' '+id+' DECISION END 1'," +
-                    "api.noChangeLine(id, 'NEEDDECISION')," +
+                    "api.noChangeLine(id, 'UNCLEAR')," +
                     "api.completeLine(id, 0)].join('\\r\\n')");
             }
 

@@ -9,3 +9,7 @@ docs/*/analysis/
 docs/*/validation/
 docs/*/backup/
 docs/*/live_preview/
+
+# One run = one case. Both trees are produced by running the app.
+exports/
+temp/

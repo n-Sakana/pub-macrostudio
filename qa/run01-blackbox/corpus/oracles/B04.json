@@ -1,0 +1,31 @@
+﻿{
+    "id":  "B04",
+    "file":  "B04_japanese_sheets.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "日本語シート名・日本語定義名をコードから参照",
+    "entryMacro":  "RunJpSheet",
+    "postRun":  [
+                    {
+                        "sheet":  "売上台帳",
+                        "cell":  "B2",
+                        "equals":  "日本語シート済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+                         "売上台帳",
+                         "消費税率"
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "JpSheet",
+                        "type":  1
+                    }
+                ]
+}

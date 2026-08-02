@@ -1,0 +1,31 @@
+﻿{
+    "id":  "H02",
+    "file":  "H02_contradictory.xlsm",
+    "format":  "xlsm",
+    "expect":  "ambiguous",
+    "why":  "「動作を変えずに」と「Win32 を使わない」が両立しない。250ms 刻みは Application.Wait で再現できない",
+    "entryMacro":  "RunContra",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "矛盾済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "Contra",
+                        "type":  1
+                    }
+                ],
+    "expectedJudgement":  "NOCHANGE 改修できない"
+}

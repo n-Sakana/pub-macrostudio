@@ -1,0 +1,38 @@
+﻿{
+    "id":  "A07",
+    "file":  "A07_class_only.xlsm",
+    "format":  "xlsm",
+    "entryMacro":  "RunCls",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "Cls 済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "expect":  "normal",
+    "why":  "クラス主体",
+    "modules":  [
+                    {
+                        "name":  "ClsA",
+                        "type":  2
+                    },
+                    {
+                        "name":  "ClsB",
+                        "type":  2
+                    },
+                    {
+                        "name":  "Boot",
+                        "type":  1
+                    }
+                ]
+}

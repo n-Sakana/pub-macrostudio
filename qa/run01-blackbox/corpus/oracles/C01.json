@@ -1,0 +1,30 @@
+﻿{
+    "id":  "C01",
+    "file":  "C01_line_continuation.xlsm",
+    "format":  "xlsm",
+    "entryMacro":  "RunCont",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "継続済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "expect":  "normal",
+    "why":  "行継続 _ を含む",
+    "modules":  [
+                    {
+                        "name":  "Cont",
+                        "type":  1
+                    }
+                ]
+}

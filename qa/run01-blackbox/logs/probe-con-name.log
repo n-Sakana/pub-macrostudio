@@ -1,0 +1,27 @@
+== directory entry ==
+
+
+Name   : CON.xlsm
+Length : 24589
+Mode   : -a----
+
+
+
+
+== Test-Path ==
+plain      : False
+extended   : False
+== .NET read by plain path ==
+plain read OK, 24589 bytes, first2=PK
+== .NET read by extended path ==
+extended read OK, 24589 bytes, first2=PK
+== is it the same bytes as the normally named build? ==
+CON.xlsm  sha256 = 
+Modified  sha256 = 760CC36E74C366A8372C2E3C750CF4CA5A8167B555F3A77A3DF8DEBF5AD857A9
+identical = False
+== Excel Workbooks.Open by plain path ==
+Excel open FAILED: ファイル 'C:\repos\pub\macrostudio\exports\A05P_xlarge_with_path_20260802_225935\CON.xlsm' にアクセスできません。次のいずれかの理由が考えられます。
+
+• ファイル名またはパスが存在しません。
+• ファイルが他のプログラムによって使用されています。
+• 保存しようとしているブックと同じ名前のブックが現在開かれています。

@@ -1,0 +1,34 @@
+﻿{
+    "id":  "B01",
+    "file":  "B01_japanese_names.xlsm",
+    "format":  "xlsm",
+    "entryMacro":  "RunJp",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "Jp 済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "expect":  "normal",
+    "why":  "日本語モジュール名",
+    "modules":  [
+                    {
+                        "name":  "集計処理",
+                        "type":  1
+                    },
+                    {
+                        "name":  "帳票出力",
+                        "type":  1
+                    }
+                ]
+}

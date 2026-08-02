@@ -1,0 +1,30 @@
+﻿{
+    "id":  "C07",
+    "file":  "C07_attributes.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "Attribute VB_Description を持つプロシージャ。VBE 上は不可視なので往復で消えやすい",
+    "entryMacro":  "RunAttr",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "属性済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+                         "VB_Description"
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "AttrMod",
+                        "type":  1
+                    }
+                ]
+}

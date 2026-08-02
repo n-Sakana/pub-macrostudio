@@ -25,9 +25,10 @@
   // The parts are collected here and merged back into one package, so
   // everything after the intake sees a single answer either way.
   //
-  // An answer can also conclude that nothing should be changed. That is
-  // a result, not a failure, so it has to be said outright - which of
-  // the two conclusions it is, and why:
+  // There are exactly two answers. The other one is a refusal, which is
+  // a result rather than a failure, so it has to say which refusal it is
+  // and why. It never asks anything back: a request that cannot be
+  // settled from what was given comes back as UNCLEAR with the reason.
   //
   //   '@MACROSTUDIO <request id> SUMMARY BEGIN
   //   ...why, and what was looked at...
@@ -42,7 +43,11 @@
   var KINDS = ["standard", "class", "form", "document"];
   // UNNECESSARY: the macro already does what was asked.
   // IMPOSSIBLE: it could be done, but not by rewriting these modules.
-  var VERDICTS = ["UNNECESSARY", "IMPOSSIBLE", "NEEDDECISION"];
+  // A repair answer has exactly two shapes: the changed code, or a
+  // refusal with a reason. These are the reasons a refusal may give.
+  // None of them starts a conversation - "I would need to ask you
+  // something" is UNCLEAR, written as a reason, not as a question.
+  var VERDICTS = ["UNNECESSARY", "IMPOSSIBLE", "UNCLEAR"];
   var NAME_PATTERN = /^[A-Za-zÀ-￿][\wÀ-￿]{0,30}$/;
   var PRODUCT_RESULTS = new WeakSet();
 
@@ -120,15 +125,11 @@
       "新しく増やせるのは標準モジュールだけです。" +
       "AIへ、追加する補助モジュールは標準モジュールにするよう" +
       "伝えて、もう一度お試しください。",
-    decisionShape:
-      "決める必要があることの区切りを読み取れませんでした。" +
-      "コードブロック全体をコピーし直してください。",
-    decisionContent:
-      "決める必要があることに、質問または選択肢がありませんでした。" +
-      "AIへ、両方を書いて返すよう伝えてください。",
-    decisionContext:
-      "決める必要があることが、現在の診断またはブックと一致しません。" +
-      "いまの依頼文をもう一度AIへ送ってください。"
+    questionNotAllowed:
+      "AIが質問や選択肢を返してきました。改修の返答は、直したコードを" +
+      "返すか、直せない理由を返すかのどちらかです。" +
+      "AIへ、決められないなら NOCHANGE UNCLEAR と理由で返すよう" +
+      "伝えてください。"
   };
 
   function createRequestIdentity() {
@@ -287,10 +288,6 @@
     var inSummary = false;
     var part = null;
     var noChange = null;
-    var decisions = [];
-    var seenDecisions = {};
-    var openDecision = null;
-    var openDecisionText = null;
     var index;
     var sentinel;
     var kind;
@@ -313,9 +310,7 @@
       if (sentinel === null) {
         // Fence lines outside a module are chrome; inside a module the
         // code is taken verbatim.
-        if (openDecisionText !== null) {
-          openDecision.texts[openDecisionText].push(lines[index]);
-        } else if (open !== null) {
+        if (open !== null) {
           body.push(lines[index]);
         } else if (inSummary) {
           summary.push(lines[index]);
@@ -326,112 +321,18 @@
       if (sentinel.requestId !== requestId) {
         return failure("otherRequest");
       }
-      if (openDecision !== null &&
-          sentinel.directive !== "DECISION" &&
-          sentinel.directive !== "META" &&
-          sentinel.directive !== "TEXT") {
-        return failure("decisionShape", "R3");
+      // The reply may not ask the reader anything. A request that
+      // cannot be answered comes back as a refusal with a reason,
+      // not as a question, so any decision sentinel is refused
+      // here rather than turned into a dialogue.
+      if (sentinel.directive === "DECISION" ||
+          (sentinel.directive === "TEXT" &&
+           (String(sentinel.parts[3] || "").toUpperCase() ===
+              "QUESTION" ||
+            String(sentinel.parts[3] || "").toUpperCase() ===
+              "OPTIONS"))) {
+        return failure("questionNotAllowed", "R3");
       }
-      if (sentinel.directive === "DECISION") {
-        var decisionAction;
-        var decisionNumber;
-
-        if (open !== null || inSummary || sentinel.parts.length !== 4) {
-          return failure("decisionShape", "R3");
-        }
-        decisionAction = sentinel.parts[2].toUpperCase();
-        decisionNumber = sentinel.parts[3];
-        if (!/^[1-9][0-9]*$/.test(decisionNumber)) {
-          return failure("decisionShape", "R3");
-        }
-        if (decisionAction === "BEGIN") {
-          if (openDecision !== null || seenDecisions[decisionNumber]) {
-            return failure("decisionShape", "R3");
-          }
-          openDecision = {
-            number: decisionNumber,
-            meta: null,
-            texts: {},
-            textOrder: []
-          };
-          continue;
-        }
-        if (decisionAction !== "END" || openDecision === null ||
-            openDecisionText !== null ||
-            openDecision.number !== decisionNumber ||
-            !openDecision.meta ||
-            openDecision.textOrder.join(",") !== "QUESTION,OPTIONS") {
-          return failure("decisionShape", "R3");
-        }
-        ["QUESTION", "OPTIONS"].forEach(function (key) {
-          openDecision.texts[key] = trimBlankEdges(
-            openDecision.texts[key]).join("\r\n");
-        });
-        if (!openDecision.texts.QUESTION.trim() ||
-            !openDecision.texts.OPTIONS.trim()) {
-          return failure("decisionContent", "R3");
-        }
-        seenDecisions[decisionNumber] = true;
-        decisions.push(openDecision);
-        openDecision = null;
-        continue;
-      }
-      if (sentinel.directive === "META") {
-        var findingValue;
-        var moduleValue;
-
-        if (openDecision === null || openDecisionText !== null ||
-            openDecision.meta !== null || sentinel.parts.length !== 4 ||
-            sentinel.parts[2].indexOf("FINDING=") !== 0 ||
-            sentinel.parts[3].indexOf("MODULE=") !== 0) {
-          return failure("decisionShape", "R3");
-        }
-        findingValue = sentinel.parts[2].slice("FINDING=".length);
-        moduleValue = sentinel.parts[3].slice("MODULE=".length);
-        if ((findingValue !== "-" &&
-             !/^[1-9][0-9]*$/.test(findingValue)) ||
-            (moduleValue !== "-" && !NAME_PATTERN.test(moduleValue))) {
-          return failure("decisionShape", "R3");
-        }
-        openDecision.meta = {
-          finding: findingValue,
-          module: moduleValue
-        };
-        continue;
-      }
-      if (sentinel.directive === "TEXT") {
-        var textAction;
-        var textName;
-
-        if (openDecision === null || sentinel.parts.length !== 4) {
-          return failure("decisionShape", "R3");
-        }
-        textAction = sentinel.parts[2].toUpperCase();
-        textName = sentinel.parts[3].toUpperCase();
-        if ((textName !== "QUESTION" && textName !== "OPTIONS") ||
-            (textAction !== "BEGIN" && textAction !== "END")) {
-          return failure("decisionShape", "R3");
-        }
-        if (textAction === "BEGIN") {
-          if (openDecisionText !== null ||
-              Object.prototype.hasOwnProperty.call(
-                openDecision.texts,
-                textName)) {
-            return failure("decisionShape", "R3");
-          }
-          openDecisionText = textName;
-          openDecision.texts[textName] = [];
-          openDecision.textOrder.push(textName);
-        } else {
-          if (openDecisionText !== textName) {
-            return failure("decisionShape", "R3");
-          }
-          openDecisionText = null;
-        }
-        continue;
-      }
-      // The summary is prose, not code: it is read for display only
-      // and never reaches a module.
       if (sentinel.directive === "SUMMARY") {
         if (open !== null) {
           return failure("mismatch");
@@ -555,25 +456,13 @@
       return failure("mismatch");
     }
 
-    if (open !== null || inSummary || openDecision !== null ||
-        openDecisionText !== null) {
+    if (open !== null || inSummary) {
       return failure("truncated");
     }
     if (!sawMarker) {
       return failure("noSentinel");
     }
     summary = trimBlankEdges(summary);
-    if ((noChange === "NEEDDECISION" && decisions.length === 0) ||
-        (decisions.length > 0 && noChange !== "NEEDDECISION")) {
-      return failure("decisionShape", "R3");
-    }
-    // A decision answer is one indivisible contract variant. Diagnose it as
-    // R3 before the older NOCHANGE checks so a module or a missing/non-zero
-    // COMPLETE cannot be mistaken for a generic contradiction/truncation.
-    if (decisions.length > 0 &&
-        (modules.length !== 0 || completed !== "0" || part !== null)) {
-      return failure("decisionShape", "R3");
-    }
     if (noChange !== null) {
       // Saying "nothing to change" and then sending modules is a
       // contradiction, and a verdict with no reason behind it is not
@@ -607,7 +496,6 @@
       summary: summary.join("\r\n"),
       part: part,
       noChange: noChange,
-      decisions: decisions,
       modules: modules
     });
   }
@@ -797,7 +685,6 @@
       added: 0,
       summary: "",
       noChange: null,
-      decisions: [],
       modules: [],
       warnings: []
     };
@@ -818,29 +705,6 @@
       diagnosis.findings.forEach(function (finding) {
         knownFindings[String(finding.number)] = true;
       });
-    }
-
-    (parsed.decisions || []).some(function (decision) {
-      var meta = decision.meta || {};
-      var moduleKey = String(meta.module || "").toLowerCase();
-      var findingKey = String(meta.finding || "");
-
-      if ((moduleKey !== "-" && !known[moduleKey]) ||
-          (findingKey !== "-" && !knownFindings[findingKey])) {
-        summary = failure("decisionContext", "R3");
-        return true;
-      }
-      summary.decisions.push({
-        number: decision.number,
-        finding: findingKey,
-        module: meta.module,
-        question: decision.texts.QUESTION,
-        options: decision.texts.OPTIONS
-      });
-      return false;
-    });
-    if (!summary.ok) {
-      return summary;
     }
 
     parsed.modules.some(function (item) {
@@ -881,6 +745,10 @@
       return summary;
     }
     summary.total = summary.modules.length;
+    // The sentence travels with the result, so every screen that shows
+    // the intake shows the same correction. Computing it here and never
+    // reading it is how it went missing.
+    summary.kindWarning = describeKindWarning(summary.warnings);
     return brand(summary);
   }
 

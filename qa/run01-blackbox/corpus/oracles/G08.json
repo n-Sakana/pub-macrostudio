@@ -1,0 +1,15 @@
+﻿{
+    "id":  "G08",
+    "file":  "G08_zero_bytes.xlsm",
+    "format":  "xlsm",
+    "expect":  "boundary",
+    "why":  "0 バイト。受理してはいけない",
+    "entryMacro":  null,
+    "postRun":  {
+
+                },
+    "mustReject":  "ファイルを読み取れませんでした",
+    "route":  [
+                  "ai"
+              ]
+}

@@ -154,7 +154,7 @@ try {
         'The written request does not ask for numbered parts.'
     Assert-True ($result.promptHasOneBlockRule -eq $true) `
         'The written request does not ask for one module per answer.'
-    Assert-InsideDirectory $runFolder $testdataRoot
+    Assert-InsideDirectory $runFolder (Join-Path $repoRoot 'exports')
     Assert-True (
         [IO.File]::Exists((Join-Path $runFolder 'diagnose-request.md')) -and
         [IO.File]::Exists((Join-Path $runFolder 'diagnosis.md')) -and
@@ -212,7 +212,7 @@ try {
         'The split intake flow modified the source workbook.'
 } finally {
     if (-not [string]::IsNullOrEmpty($runFolder)) {
-        Assert-InsideDirectory $runFolder $testdataRoot
+        Assert-InsideDirectory $runFolder (Join-Path $repoRoot 'exports')
         if ([IO.Directory]::Exists($runFolder)) {
             [IO.Directory]::Delete($runFolder, $true)
         }

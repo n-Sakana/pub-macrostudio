@@ -1,0 +1,38 @@
+﻿{
+    "id":  "A08",
+    "file":  "A08_empty_modules.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "標準3モジュールのうち2つが空。空モジュールが消えないこと",
+    "entryMacro":  "RunEmptyMix",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "空混在済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "Live",
+                        "type":  1
+                    },
+                    {
+                        "name":  "EmptyOne",
+                        "type":  1
+                    },
+                    {
+                        "name":  "EmptyTwo",
+                        "type":  1
+                    }
+                ]
+}

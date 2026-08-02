@@ -17,6 +17,11 @@
   // only content was a single button.
   // Reading the diagnosis and choosing the work are two different
   // decisions, so they get one page each.
+  // The one file the chat is handed. It lives here because both the screen
+  // body and the status line under it name this file, and a second copy of
+  // the name is how they came to disagree.
+  var AI_CODE_FILE = "source-code-for-ai.md";
+
   var BOOK_SCREEN = 0;
   var DIAGNOSE_SCREEN = 1;
   var FINDINGS_SCREEN = 2;
@@ -146,11 +151,18 @@
       snapshot.split === state.diagnosisSplit);
   }
 
+  // An answer counts as current only while it still answers the input on
+  // screen 4. The request it belongs to is not enough: the reader can
+  // change the input after the answer came back, and that answer then
+  // belongs to a question nobody is asking any more. Nothing is thrown
+  // away here - the next written request does that (SPEC 2.6.1) - but
+  // the flow stops treating it as an answer to the current work.
   function isRepairIntakeCurrent(state) {
     return Boolean(state && state.repairRequestId &&
       state.repairIntakeRequestId === state.repairRequestId &&
       state.repairResultSnapshot &&
-      state.repairResultSnapshot === state.repairRequestSnapshot);
+      state.repairResultSnapshot === state.repairRequestSnapshot &&
+      state.repairRequestSnapshot === state.repairInputSnapshot);
   }
 
   function isDeterministicResultCurrent(state) {
@@ -174,6 +186,13 @@
     return result.requestId === state.repairRequestId ? result : null;
   }
 
+  // Why a repair answer refused, in the words the screen uses.
+  var NO_CHANGE_META = {
+    UNNECESSARY: "改修は不要",
+    IMPOSSIBLE: "この方法では改修できません",
+    UNCLEAR: "依頼の内容を決められません"
+  };
+
   function isNoChange(state) {
     return getNoChangeResult(state) !== null;
   }
@@ -194,6 +213,39 @@
     return parts && parts.total ? parts.total : 0;
   }
 
+  // Windows resolves these names to devices instead of files. A book built
+  // under one of them is created and announced as a success, but the result
+  // cannot be opened, renamed or deleted - not even by the rollback steps
+  // result.md prints. The set is what
+  // qa\run01-blackbox\lib\probe-reserved-names.ps1 measured, which is wider
+  // than the usual documentation: COM0, LPT0 and CLOCK$ behave exactly like
+  // COM1..COM9 and LPT1..LPT9.
+  var RESERVED_DEVICE_NAME = /^(?:CON|PRN|AUX|NUL|CLOCK\$|COM[0-9]|LPT[0-9])$/i;
+
+  function isReservedDeviceName(name) {
+    // Windows looks at the component up to the first period and ignores any
+    // trailing spaces and periods on it, so "CON.xlsm", "CON .xlsm" and
+    // "CON.backup.xlsm" all reach the device. "backup.CON.xlsm" does not.
+    return RESERVED_DEVICE_NAME.test(
+      name.split(".")[0].replace(/[ .]+$/, "")
+    );
+  }
+
+  // Control characters cannot appear in a Windows file name at all - the
+  // write is refused outright - and they arrive by paste, not by typing.
+  // Tested by code point rather than by a character class so that no control
+  // character ever has to appear in this source file.
+  function hasControlCharacter(name) {
+    var i;
+
+    for (i = 0; i < name.length; i += 1) {
+      if (name.charCodeAt(i) < 32) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   function isOutputNameValid(state) {
     var name = state && state.outputName
       ? String(state.outputName).trim()
@@ -203,11 +255,56 @@
       : "";
 
     if (name.length === 0 || name.length > 120 ||
-        /[\\/:*?"<>|]/.test(name) || name.indexOf(".") <= 0) {
+        /[\\/:*?"<>|]/.test(name) || name.indexOf(".") <= 0 ||
+        hasControlCharacter(name) || isReservedDeviceName(name)) {
       return false;
     }
     return !extension || name.toLowerCase().slice(-extension.length) ===
       extension.toLowerCase();
+  }
+
+  // Why the name was refused, in one sentence, or "" when it is fine.
+  //
+  // Screen 7 used to turn the box red and leave the same line underneath
+  // either way: "the extension will stay .xlsm". For a path separator that
+  // was merely unhelpful; for a reserved device name it was wrong, because
+  // the extension was never the problem. The reader was left to guess.
+  // Order matters - report the first thing that actually stops the build.
+  function getOutputNameProblem(state) {
+    var name = state && state.outputName
+      ? String(state.outputName).trim()
+      : "";
+    var extension = state && state.book && state.book.ext
+      ? String(state.book.ext)
+      : "";
+    var stem = name.split(".")[0].replace(/[ .]+$/, "");
+
+    if (name.length === 0) {
+      return "作成するファイル名を入力してください。";
+    }
+    if (name.length > 120) {
+      return "ファイル名が長すぎます。120文字までにしてください。";
+    }
+    if (/[\\/:*?"<>|]/.test(name)) {
+      return "ファイル名だけを入れてください。" +
+        "フォルダの区切りや \\ / : * ? \" < > | は使えません。";
+    }
+    if (hasControlCharacter(name)) {
+      return "ファイル名に使えない文字が混ざっています。" +
+        "貼り付けた場合は、もう一度入力し直してください。";
+    }
+    if (isReservedDeviceName(name)) {
+      return "「" + stem + "」は Windows が装置の名前として扱うため、" +
+        "この名前ではファイルを作っても開けません。別の名前にしてください。";
+    }
+    if (name.indexOf(".") <= 0) {
+      return "拡張子 " + extension + " を付けた名前にしてください。";
+    }
+    if (extension && name.toLowerCase().slice(-extension.length) !==
+        extension.toLowerCase()) {
+      return "拡張子は " + extension + " のままにしてください。";
+    }
+    return "";
   }
 
   // A selected finding is the whole instruction: it already says what is
@@ -226,10 +323,36 @@
       global.MacroStudioPathMap.canApply(state.pathMap));
   }
 
+  // Three routes, one screen graph.
+  //
+  //   AI only        4 conditions -> 5 hand over -> 6 diff -> build
+  //   table only     4 table+replace          -> 6 diff -> build
+  //   both           4 table+replace, then 4 conditions -> 5 -> 6 -> build
+  //
+  // In the third, the machine replacement runs first and the chat is
+  // then given the code it produced: asking a chat to repair lines the
+  // table is about to rewrite would put the old paths back. Screen 4
+  // holds both stages, so the order of screens never changes.
+  function hasReplacementStage(state) {
+    return Boolean(state && state.presetReplaceRules);
+  }
+
+  // Carried out once, and it stays carried out. A chat answer arriving
+  // afterwards edits the replaced code; it does not undo the stage.
+  function isReplacementDone(state) {
+    return Boolean(state && state.appliedMapping);
+  }
+
+  function isReplacementPending(state) {
+    return hasReplacementStage(state) && !isReplacementDone(state);
+  }
+
   function isRepairInputReady(state) {
-    return getEngine(state) === "対応表による置換"
-      ? isPathMapReady(state)
-      : isAiRepairInputReady(state);
+    if (getEngine(state) === "対応表による置換" ||
+        isReplacementPending(state)) {
+      return isPathMapReady(state);
+    }
+    return isAiRepairInputReady(state);
   }
 
   function bookName(state) {
@@ -265,6 +388,11 @@
         if (isDiagnosisCurrent(state)) {
           return findingCount(state) + "件の指摘を取り込み済み";
         }
+        // A skipped diagnosis has no request to hand over, so the header
+        // must not keep announcing one.
+        if (isDiagnosisSkipped(state)) {
+          return "診断は行いません";
+        }
         return state.diagnosisRequestId
           ? "診断依頼を用意しました"
           : "診断依頼を準備中";
@@ -273,11 +401,14 @@
         if (isDiagnosisCurrent(state)) {
           return "右下の「次へ」で診断結果を確認します";
         }
+        if (isDiagnosisSkipped(state)) {
+          return "右下の「次へ」で、次にすることを選びます";
+        }
         if (!state.diagnosisPromptCopied) {
           return "依頼文をコピーして、AIへ貼り付けます";
         }
         if (!state.diagnosisFolderOpened) {
-          return "source-code.md をAIへ添付します";
+          return AI_CODE_FILE + " をAIへ添付します";
         }
         return "AIの返答をコピーして、この画面へ取り込みます";
       },
@@ -318,9 +449,11 @@
       title: function () { return "改修する内容を決めます"; },
       meta: function (state) { return state.presetName || "改修の入力"; },
       context: function (state) {
-        return getEngine(state) === "対応表による置換"
-          ? "置き換える内容を確認します"
-          : "改修する指摘にチェックが入っていることを確かめます";
+        if (getEngine(state) === "対応表による置換" ||
+            isReplacementPending(state)) {
+          return "置き換える内容を確認します";
+        }
+        return "改修する指摘にチェックが入っていることを確かめます";
       },
       ready: isRepairInputReady
     },
@@ -328,21 +461,14 @@
       major: 3,
       sub: "4/5",
       title: function (state) {
-        if (state && state.needDecision) {
-          return "決める必要があることが返ってきました";
-        }
         return isNoChange(state)
-          ? "AIから変更なしの判断が返ってきました"
+          ? "AIから「改修できません」が返ってきました"
           : "AIに改修してもらいます";
       },
       meta: function (state) {
-        if (state && state.needDecision) {
-          return "改修の入力へ戻ります";
-        }
         if (isNoChange(state)) {
-          return getNoChangeResult(state).verdict === "UNNECESSARY"
-            ? "改修は不要"
-            : "この方法では改修できません";
+          return NO_CHANGE_META[getNoChangeResult(state).verdict] ||
+            "改修できません";
         }
         if (countImported(state) > 0) {
           return countImported(state) + "個のモジュールを取り込み済み";
@@ -350,11 +476,8 @@
         return state.repairRequestId ? "改修依頼を用意しました" : "準備中";
       },
       context: function (state) {
-        if (state && state.needDecision) {
-          return "質問を確認して、希望動作や追加の要望へ答えを入力します";
-        }
         if (isNoChange(state)) {
-          return "理由を確認し、別の返答があれば取り込み直せます";
+          return "理由を確認し、依頼を書き直すか、別の返答を取り込み直します";
         }
         if (countImported(state) > 0) {
           return "右下の「次へ」で取り込んだ変更を確認します";
@@ -363,14 +486,13 @@
           return "依頼文をコピーして、AIへ貼り付けます";
         }
         if (!state.repairFolderOpened) {
-          return "source-code.md をAIへ添付します";
+          return AI_CODE_FILE + " をAIへ添付します";
         }
         return "AIの返答をコピーして、この画面へ取り込みます";
       },
       ready: function (state) {
         return countImported(state) > 0 &&
-          isRepairIntakeCurrent(state) && !isNoChange(state) &&
-          !state.needDecision;
+          isRepairIntakeCurrent(state) && !isNoChange(state);
       }
     },
     {
@@ -492,6 +614,7 @@
   }
 
   global.MacroStudioScreens = {
+    AI_CODE_FILE: AI_CODE_FILE,
     count: SCREENS.length,
     majors: MAJORS,
     getMajors: function () { return MAJORS.slice(); },
@@ -537,7 +660,11 @@
     countAcceptedLines: countAcceptedLines,
     countUnchangedImports: countUnchangedImports,
     isOutputNameValid: isOutputNameValid,
+    getOutputNameProblem: getOutputNameProblem,
     isRepairInputReady: isRepairInputReady,
+    hasReplacementStage: hasReplacementStage,
+    isReplacementDone: isReplacementDone,
+    isReplacementPending: isReplacementPending,
     getEngine: getEngine
   };
 }(window));

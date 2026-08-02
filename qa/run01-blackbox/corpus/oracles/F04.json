@@ -1,0 +1,35 @@
+﻿{
+    "id":  "F04",
+    "file":  "F04_shell_launch.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "Shell / WScript.Shell / Shell.Application。入口マクロは何も起動しない",
+    "entryMacro":  "RunShellSafe",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "シェル済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "ShellMod",
+                        "type":  1
+                    }
+                ],
+    "doNotRun":  [
+                     "LaunchNotepad",
+                     "LaunchViaWScript",
+                     "OpenFolder"
+                 ]
+}

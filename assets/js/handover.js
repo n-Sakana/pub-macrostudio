@@ -18,6 +18,14 @@
     "": "対象環境の指定がない指摘"
   };
 
+  // How a constraint came to be believed. The words match what the
+  // environment file itself documents.
+  var BASIS_LABELS = {
+    observed: "実測",
+    declared: "宣言",
+    inferred: "推定"
+  };
+
   function inventoryOf(state) {
     return state && state.bookInventory ? state.bookInventory : null;
   }
@@ -72,6 +80,65 @@
       "リンク " + inventory.externalLinkCount + " 件。" +
         "リンク先はブックの設定で、コードではありません。");
     return tasks;
+  }
+
+  // The same reading as humanTasks, but written for the moment the
+  // workbook has just been read.
+  //
+  // A row here has to earn its place. Naming a thing is not enough: the
+  // reader is one press from the diagnosis and will ask "so what do I
+  // do?". So each row says what was found, why it matters on another
+  // terminal, and what this run does with it. What the reader has to do
+  // about it is answered once, for all of them: nothing, here.
+  function outsideCodeFacts(state) {
+    var inventory = inventoryOf(state);
+    var facts = [];
+
+    function add(key, label, value, why) {
+      if (!value) {
+        return;
+      }
+      facts.push({
+        key: key,
+        label: label,
+        value: text(value),
+        why: text(why)
+      });
+    }
+
+    if (!inventory) {
+      return facts;
+    }
+    add("references", "参照設定", list(inventory.references).join("、"),
+      "この名前のライブラリが無い端末では、実行前のコンパイルで止まります。");
+    add("powerQuery", "Power Query",
+      inventory.hasPowerQuery === true ? "定義あり" : "",
+      "接続先と資格情報はブックの外にあります。VBA には現れないので、" +
+        "コードだけを読む診断では見つかりません。");
+    add("connections", "外部接続", list(inventory.connections).join("、"),
+      "接続先の設定はブックの持ち物で、コードの書き換えでは移せません。");
+    add("externalLinks", "外部リンク",
+      Number(inventory.externalLinkCount || 0) > 0
+        ? inventory.externalLinkCount + " 件"
+        : "",
+      "リンク先のブックが同じ場所に無いと、値が更新できません。");
+    add("activeX", "ActiveX コントロール",
+      Number(inventory.activeXCount || 0) > 0
+        ? inventory.activeXCount + " 件"
+        : "",
+      "ActiveX を無効にした端末では、シート上のコントロールが読み込まれません。");
+    add("barcodeFonts", "バーコードに使われるフォント",
+      list(inventory.barcodeFonts).join("、"),
+      "このフォントが無い端末では、ただの文字として表示され読み取れません。");
+    add("signature", "VBAプロジェクトのコード署名",
+      inventory.hasVbaSignature === true ? "あり" : "",
+      "署名は書き戻すと外れます。配布先の信頼設定によっては実行できません。");
+    add("incomplete", "読み取れなかった範囲",
+      inventory.complete === false
+        ? "ブックの一部を読み取れませんでした"
+        : "",
+      "この一覧に出ていない設定が、ほかにもある可能性があります。");
+    return facts;
   }
 
   function text(value) {
@@ -206,18 +273,26 @@
     return groups;
   }
 
-  // What this run verified by itself. Everything else is someone's job.
+  // What this run verified by itself, and by what means. This tool reads
+  // back the workbook it wrote; it never opens it in Excel. Writing a bare
+  // "confirmed" let that read as an Excel check, and a reader who believes
+  // the workbook was opened has no reason to open it. So each line names
+  // the evidence behind it, and the section below says plainly that the
+  // Excel side is still unseen.
   function verifiedByTool(state) {
     var done = [];
     var result = state.buildResult;
 
     if (result && result.success !== false) {
-      done.push("改修済みブックを書き出し、書き戻したモジュールを読み直して" +
-        "一致することを確認した");
+      done.push("改修済みブックを書き出し、書き戻したモジュールを" +
+        "このツールで読み直して、依頼したコードと一致することを確認した");
+      done.push("コンパイル済みの古いコードがブックに残っていないことを" +
+        "確認した");
       done.push("元のブックを変更していないことを確認した");
     }
-    if (state.repairResultEngine === "対応表による置換") {
-      done.push("置き換えた文字列が、確認した対応表のとおりであることを確認した");
+    if (state.appliedMapping) {
+      done.push("置き換えた文字列が、確認した対応表のとおりであることを" +
+        "このツールで確認した");
     }
     return done;
   }
@@ -238,6 +313,10 @@
         title: constraint ? constraint.title : problem.title,
         axis: problem.category,
         effect: constraint && constraint.effect ? constraint.effect : "",
+        // SPEC 4.4.2: whether we measured this on the target machine or
+        // only assumed it. The screen says the same thing on the finding
+        // that rests on it, so the memo and the screen agree.
+        basis: constraint && constraint.basis ? constraint.basis : "",
         modules: problem.modules
       });
     });
@@ -281,15 +360,20 @@
     if (rows.length === 0) {
       lines.push("（この診断が名指しした環境の制約はありません）");
     } else {
-      lines.push("| 環境キー | 制約 | 区分 | 触れているモジュール |");
-      lines.push("|---|---|---|---|");
+      lines.push("| 環境キー | 制約 | 区分 | 根拠 | 触れているモジュール |");
+      lines.push("|---|---|---|---|---|");
       rows.forEach(function (row) {
         lines.push(
           "| `" + cell(row.key) +
           "` | " + cell(row.title) +
           " | " + cell(row.axis) +
+          " | " + cell(BASIS_LABELS[row.basis] || "不明") +
           " | " + cell(row.modules.join("、")) + " |");
       });
+      if (rows.some(function (row) { return row.basis !== "observed"; })) {
+        lines.push("");
+        lines.push("`実測` 以外の根拠は、対象の端末で確かめた値ではありません。");
+      }
     }
     lines.push("");
 
@@ -306,6 +390,12 @@
     }
     lines.push("");
     lines.push("### 人が確認すること（未実施）");
+    lines.push("");
+    lines.push("上の確認は、このツールが書き出したブックを" +
+      "このツール自身で読み直した範囲までです。" +
+      "Excel で開いた結果は見ていません。" +
+      "まず改修済みブックを Excel で開き、コードと動きが" +
+      "依頼どおりかを確かめてください。");
     lines.push("");
     lines.push("このツールはマクロを実行しません。次の観点は未実施です。");
     lines.push("");
@@ -355,6 +445,7 @@
     testViewpoints: testViewpoints,
     verifiedByTool: verifiedByTool,
     humanTasks: humanTasks,
+    outsideCodeFacts: outsideCodeFacts,
     sections: sections
   };
 }(window));

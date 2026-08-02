@@ -1,0 +1,15 @@
+﻿{
+    "id":  "G05",
+    "file":  "G05_encrypted.xlsm",
+    "format":  "xlsm",
+    "expect":  "boundary",
+    "why":  "ブック全体が暗号化。受理してはいけない",
+    "entryMacro":  null,
+    "postRun":  {
+
+                },
+    "mustReject":  "パスワードで保護されています",
+    "route":  [
+                  "ai"
+              ]
+}

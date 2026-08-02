@@ -361,7 +361,7 @@ function stuck() {
     entry[0] + ": taking another answer instead must stay available.");
   assert(
     screens.get(screens.repairIntakeScreen).title(state.getState())
-      .indexOf("変更なし") >= 0,
+      .indexOf("改修できません") >= 0,
     entry[0] + ": the screen title must say what happened.");
 });
 

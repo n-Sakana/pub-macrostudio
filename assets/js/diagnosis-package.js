@@ -473,15 +473,23 @@
     })) {
       return failure("D22", "sentinelOutside");
     }
-    if (begin.parts[3] !== VERSION) {
-      return failure("D03", "version");
+    // The number on the opening line is the count of findings in this
+    // reply, the same value COMPLETE carries. It used to be a format
+    // version that nothing told the answerer about, next to three other
+    // trailing numbers that are all counts - so a correct diagnosis of
+    // four findings opened with "DIAG BEGIN 4" and the whole reply was
+    // refused. The version is not on the wire at all now: a reply is
+    // bound to the request id MacroStudio issued, so it cannot be a
+    // reply to another format.
+    if (!CANONICAL_NUMBER.test(begin.parts[3])) {
+      return failure("D03", "beginShape");
     }
     return {
       ok: true,
       tokens: tokens,
       begin: begin,
       end: end,
-      version: begin.parts[3]
+      declaredCount: begin.parts[3]
     };
   }
 
@@ -715,6 +723,11 @@
     if (complete !== String(validated.length)) {
       return failure("D19", "completeCount");
     }
+    // The reply says how many findings it carries twice, at the top and
+    // at the bottom. Both have to be the number actually written.
+    if (envelope.declaredCount !== String(validated.length)) {
+      return failure("D29", "beginCount");
+    }
     if (part && part.total > 1 && noFindings.length > 0) {
       return failure("D20", "prematureNoFinding");
     }
@@ -723,7 +736,7 @@
       ok: true,
       fragment: {
         requestId: context.requestId,
-        version: envelope.version,
+        version: VERSION,
         sections: {
           PURPOSE: sectionBodies.PURPOSE
             ? bodyText(sectionBodies.PURPOSE)
@@ -929,7 +942,7 @@
     });
     diagnosis = {
       requestId: first.requestId,
-      version: first.version,
+      version: VERSION,
       sections: first.sections,
       findings: findings,
       noFindings: reasons
@@ -1010,6 +1023,84 @@
     return result;
   }
 
+  // A diagnosis read back from the run folder. JSON cannot carry the
+  // brand, so the shape is checked again before it is trusted: anything
+  // that is not exactly what parse() produces is refused rather than
+  // adopted. This is a re-check of our own record, not a second parser.
+  function restore(value) {
+    var source = value;
+    var findings;
+    var copy;
+
+    function isText(candidate) {
+      return typeof candidate === "string";
+    }
+
+    if (!source || typeof source !== "object" ||
+        !global.MacroStudioResponse.isRequestId(source.requestId) ||
+        String(source.version) !== VERSION ||
+        !source.sections || typeof source.sections !== "object" ||
+        !Array.isArray(source.findings)) {
+      return null;
+    }
+    if (SECTION_NAMES.some(function (name) {
+      return !isText(source.sections[name]);
+    })) {
+      return null;
+    }
+    findings = source.findings.map(function (finding) {
+      if (!finding || typeof finding !== "object" ||
+          !CANONICAL_NUMBER.test(String(finding.number)) ||
+          CLASSES.indexOf(finding["class"]) < 0 ||
+          CONFIDENCES.indexOf(finding.confidence) < 0 ||
+          !isText(finding.module) || !isText(finding.procedure) ||
+          !isText(finding.lines) || !isText(finding.environmentKey) ||
+          !finding.texts || typeof finding.texts !== "object" ||
+          !isText(finding.texts.title) ||
+          !isText(finding.texts.condition) ||
+          !isText(finding.texts.impact) ||
+          !isText(finding.texts.evidence)) {
+        return null;
+      }
+      return {
+        number: String(finding.number),
+        "class": finding["class"],
+        confidence: finding.confidence,
+        module: finding.module,
+        procedure: finding.procedure,
+        lines: finding.lines,
+        environmentKey: finding.environmentKey,
+        texts: {
+          title: finding.texts.title,
+          condition: finding.texts.condition,
+          impact: finding.texts.impact,
+          evidence: finding.texts.evidence
+        }
+      };
+    });
+    if (findings.some(function (finding) { return finding === null; })) {
+      return null;
+    }
+    if (findings.length === 0) {
+      if (NO_FINDING_REASONS.indexOf(source.noFinding) < 0) {
+        return null;
+      }
+    } else if (source.noFinding !== null && source.noFinding !== undefined) {
+      return null;
+    }
+    copy = {
+      requestId: source.requestId,
+      version: VERSION,
+      sections: {},
+      findings: findings,
+      noFinding: findings.length === 0 ? source.noFinding : null
+    };
+    SECTION_NAMES.forEach(function (name) {
+      copy.sections[name] = source.sections[name];
+    });
+    return brand(copy);
+  }
+
   function formatForRecord(diagnosis) {
     var lines = ["# 診断結果", ""];
 
@@ -1062,6 +1153,7 @@
     isPartCollectionComplete: isPartCollectionComplete,
     addPart: addPart,
     mergeParts: mergeParts,
-    formatForRecord: formatForRecord
+    formatForRecord: formatForRecord,
+    restore: restore
   };
 }(window));

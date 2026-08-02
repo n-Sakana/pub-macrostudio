@@ -1,0 +1,70 @@
+﻿[
+    {
+        "id":  "A01",
+        "file":  "A01_minimal.xlsm",
+        "attached":  true,
+        "runFolder":  "A01_minimal_20260803_000341",
+        "modules":  [
+                        "Sheet1",
+                        "ThisWorkbook",
+                        "Mod1"
+                    ],
+        "totalLines":  6,
+        "verdict":  "OK",
+        "note":  ""
+    },
+    {
+        "id":  "G01",
+        "file":  "G01_addin.xlam",
+        "attached":  true,
+        "runFolder":  "G01_addin_20260803_000357",
+        "modules":  [
+                        "Sheet1",
+                        "ThisWorkbook",
+                        "FmtMod"
+                    ],
+        "totalLines":  11,
+        "verdict":  "ERROR",
+        "note":  "The property \u0027modules\u0027 cannot be found on this object. Verify that the property exists."
+    },
+    {
+        "id":  "G02",
+        "file":  "G02_binary.xlsb",
+        "attached":  true,
+        "runFolder":  "G02_binary_20260803_000412",
+        "modules":  [
+                        "Sheet1",
+                        "ThisWorkbook",
+                        "FmtMod"
+                    ],
+        "totalLines":  11,
+        "verdict":  "ERROR",
+        "note":  "The property \u0027modules\u0027 cannot be found on this object. Verify that the property exists."
+    },
+    {
+        "id":  "G03",
+        "file":  "G03_legacy.xls",
+        "attached":  true,
+        "runFolder":  "G03_legacy_20260803_000427",
+        "modules":  [
+                        "Sheet1",
+                        "ThisWorkbook",
+                        "FmtMod"
+                    ],
+        "totalLines":  11,
+        "verdict":  "ERROR",
+        "note":  "The property \u0027modules\u0027 cannot be found on this object. Verify that the property exists."
+    },
+    {
+        "id":  "G07",
+        "file":  "G07_spoofed_extension.xlsm",
+        "attached":  true,
+        "runFolder":  "",
+        "modules":  [
+
+                    ],
+        "totalLines":  0,
+        "verdict":  "NO-RUN-FOLDER",
+        "note":  ""
+    }
+]

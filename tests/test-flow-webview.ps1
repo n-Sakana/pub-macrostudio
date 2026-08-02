@@ -53,6 +53,11 @@ $repoRoot = (Resolve-Path -LiteralPath $ProductRoot).Path
 $testdataRoot = (Resolve-Path (
     Join-Path $PSScriptRoot '..\testdata')).Path
 $resolvedBookPath = (Resolve-Path -LiteralPath $BookPath).Path
+# Whatever the run writes, the folder holding the workbook must look the
+# same afterwards. Recorded before the flow so the check is an
+# observation, not a guess about where the product writes.
+$bookFolder = [IO.Path]::GetDirectoryName($resolvedBookPath)
+$bookFolderFilesBefore = @([IO.Directory]::GetFiles($bookFolder))
 $libDir = Join-Path $repoRoot 'lib'
 $cacheDir = Join-Path $testdataRoot (
     'flow-cache-' + [Guid]::NewGuid().ToString('N'))
@@ -317,8 +322,8 @@ try {
         $review.screen -eq 6 -and
         $review.accepted -eq 2 -and
         $review.nextReady -and
-        $review.closed -ceq 'false'
-    ) 'The review must begin with a summary and a collapsed diff.'
+        $review.closed -ceq 'true'
+    ) 'The review must begin with the change already on screen.'
     Assert-True (
         $diff.tree -eq 2 -and
         $diff.groups -ge 1 -and
@@ -344,16 +349,27 @@ try {
     }
 
     Assert-True (-not [string]::IsNullOrEmpty($runFolder)) 'The first request did not create a run folder.'
-    Assert-InsideDirectory $runFolder $testdataRoot
+    # One run = one case, inside MacroStudio, one level deep, and never
+    # beside the workbook it read.
+    Assert-InsideDirectory $runFolder (Join-Path $repoRoot 'exports')
     Assert-True (
         [IO.Path]::GetFileName(
-            [IO.Path]::GetDirectoryName($runFolder)) -ceq 'MacroStudio'
-    ) 'The run folder must live in the MacroStudio directory beside the book.'
-    Assert-True (
-        [IO.Path]::GetDirectoryName(
-            [IO.Path]::GetDirectoryName($runFolder)) -ceq
-        [IO.Path]::GetDirectoryName($resolvedBookPath)
-    ) 'The MacroStudio directory must sit beside the source workbook.'
+            [IO.Path]::GetDirectoryName($runFolder)) -ceq 'exports'
+    ) 'The run folder must sit one level under exports.'
+    $bookFolderFilesAfter = @([IO.Directory]::GetFiles($bookFolder))
+    # The screenshots this test takes land in testdata, which is also
+    # where the fixture workbook lives. They are the test's own, not the
+    # product's.
+    $ownFiles = @($lightScreenshot, $darkScreenshot)
+    $bookFolderAdded = @(Compare-Object `
+        -ReferenceObject $bookFolderFilesBefore `
+        -DifferenceObject $bookFolderFilesAfter |
+        Where-Object { $_.SideIndicator -eq '=>' } |
+        ForEach-Object { $_.InputObject } |
+        Where-Object { $ownFiles -notcontains $_ })
+    Assert-True ($bookFolderAdded.Count -eq 0) (
+        'Nothing may be written beside the source workbook: ' +
+        ($bookFolderAdded -join ', '))
 
     Assert-True (
         $done.screen -eq 9 -and
@@ -422,7 +438,7 @@ try {
 } finally {
     if (-not [string]::IsNullOrEmpty($runFolder) -and
         [IO.Directory]::Exists($runFolder)) {
-        Assert-InsideDirectory $runFolder $testdataRoot
+        Assert-InsideDirectory $runFolder (Join-Path $repoRoot 'exports')
         [IO.Directory]::Delete($runFolder, $true)
         $macroRoot = [IO.Path]::GetDirectoryName($runFolder)
         if ([IO.Directory]::Exists($macroRoot) -and

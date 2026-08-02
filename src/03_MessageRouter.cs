@@ -166,11 +166,16 @@ namespace MacroStudio
                         GetString(parameters, "stage"),
                         GetString(parameters, "outputTimestamp"),
                         GetString(parameters, "request"),
-                        GetString(parameters, "code"));
+                        GetString(parameters, "code"),
+                        GetString(parameters, "aiCode"));
                 case "writeDiagnosisFile":
                     return services.WriteDiagnosisFile(
                         GetString(parameters, "outputTimestamp"),
                         GetString(parameters, "markdown"));
+                case "writeRunManifest":
+                    return services.WriteRunManifest(
+                        GetString(parameters, "outputTimestamp"),
+                        GetString(parameters, "manifest"));
                 case "writeClipboard":
                     return services.WriteClipboard(
                         GetString(parameters, "text"));

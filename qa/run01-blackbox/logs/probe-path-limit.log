@@ -1,0 +1,15 @@
+150 chars : OPEN  
+180 chars : OPEN  
+200 chars : OPEN  
+210 chars : OPEN  
+215 chars : OPEN  
+218 chars : OPEN  
+219 chars : OPEN  
+220 chars : OPEN  
+225 chars : OPEN  
+230 chars : OPEN  
+240 chars : OPEN  
+256 chars : FAIL  Workbooks クラスの Open プロパティを取得できません。
+
+最長で開けた: 240 文字
+最短で開けなかった: 256 文字

@@ -1,0 +1,31 @@
+﻿{
+    "id":  "D08",
+    "file":  "D08_same_value_40.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "同一値が40か所。集約表示・大量行スクロール・一括置換",
+    "entryMacro":  "RunMany",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "多数済み"
+                    }
+                ],
+    "mustFix":  [
+                    "S:\\eigyo\\shinsei\\"
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "path"
+              ],
+    "modules":  [
+                    {
+                        "name":  "Many",
+                        "type":  1
+                    }
+                ],
+    "occurrences":  40
+}

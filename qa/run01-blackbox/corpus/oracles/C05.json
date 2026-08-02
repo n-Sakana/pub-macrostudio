@@ -1,0 +1,44 @@
+﻿{
+    "id":  "C05",
+    "file":  "C05_events.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "ThisWorkbook/シート/UserForm のイベントハンドラ。容器付きモジュールが消えないこと",
+    "entryMacro":  "RunEvents",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "イベント済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+                         "Workbook_Open",
+                         "Worksheet_Change",
+                         "UserForm_Initialize"
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "EvBoot",
+                        "type":  1
+                    },
+                    {
+                        "name":  "FrmBoot",
+                        "type":  3
+                    },
+                    {
+                        "name":  "ThisWorkbook",
+                        "type":  100
+                    },
+                    {
+                        "name":  "Sheet1",
+                        "type":  100
+                    }
+                ]
+}

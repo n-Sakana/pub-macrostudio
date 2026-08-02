@@ -1,0 +1,30 @@
+﻿{
+    "id":  "C03",
+    "file":  "C03_long_line.xlsm",
+    "format":  "xlsm",
+    "entryMacro":  "RunLong",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "長行済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "expect":  "boundary",
+    "why":  "1行3,800文字級",
+    "modules":  [
+                    {
+                        "name":  "LongL",
+                        "type":  1
+                    }
+                ]
+}

@@ -1,0 +1,24 @@
+﻿{
+    "id":  "H03",
+    "file":  "H03_already_clean.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "既に対策済み。改修不要が妥当",
+    "entryMacro":  "RunClean",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "健全済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ]
+}

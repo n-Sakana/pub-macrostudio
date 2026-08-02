@@ -38,6 +38,42 @@ function Assert-True {
     if (-not $Condition) { throw $Message }
 }
 
+function Get-NormalizedCode {
+    param([string]$Text)
+    $value = $Text -replace "`r`n", "`n"
+    $value = $value -replace "`r", "`n"
+    return ($value -replace "\n+$", '')
+}
+
+# What ends up in the workbook has to be the .bas that was handed in.
+#
+# The editor does not always store what it was given: a Declare written
+# across a line continuation makes it append a fragment of its own after
+# the last line (an empty line and "()" for S04\WindowUtils). That is the
+# editor's doing, not the sample's, so it is removed and the result is
+# compared again. If the two still differ the build fails rather than
+# shipping a workbook whose code is not the source.
+function Set-ModuleToSource {
+    param($Component, [string]$Source, [string]$Label)
+
+    $expected = Get-NormalizedCode $Source
+    $expectedCount = @($expected -split "`n").Count
+    $count = [int]$Component.CodeModule.CountOfLines
+    $actual = ''
+
+    if ($count -gt $expectedCount) {
+        $Component.CodeModule.DeleteLines(
+            $expectedCount + 1, $count - $expectedCount)
+        $count = [int]$Component.CodeModule.CountOfLines
+    }
+    if ($count -gt 0) {
+        $actual = Get-NormalizedCode $Component.CodeModule.Lines(1, $count)
+    }
+    Assert-True ($actual -eq $expected) `
+        ($Label + ': the module stored in the workbook is not the ' +
+         'fixture source.')
+}
+
 function Read-Json {
     param([string]$Path)
     Assert-True ([IO.File]::Exists($Path)) ('Missing data file: ' + $Path)
@@ -243,6 +279,8 @@ try {
                 $component = $vbProject.VBComponents.Add([int]$module.kind)
                 $component.Name = [string]$module.name
                 $component.CodeModule.AddFromString($code)
+                Set-ModuleToSource $component $code `
+                    ($id + '/' + [string]$module.name)
             }
             $documents = Get-Property $sheetData.documentModules $id
             if ($null -ne $documents) {

@@ -184,6 +184,19 @@ namespace MacroStudio
     {
         private static readonly object LogLock = new object();
 
+        // The record of what a run confirmed. It is written for the log
+        // and for anyone reading the folder afterwards; nothing reads it
+        // back into a running session.
+        private const string RunManifestName = "run-manifest.json";
+
+        // Everything one run produces lives inside MacroStudio itself,
+        // never beside the workbook it read. The deliverables and the one
+        // file handed to the chat are separate trees under the same run
+        // name, one level deep each.
+        private const string ExportsRoot = "exports";
+        private const string TempRoot = "temp";
+        private const string AiCodeFileName = "source-code-for-ai.md";
+
         private readonly Window owner;
         private readonly string baseDir;
         private readonly HashSet<string> runArtifacts;
@@ -192,6 +205,7 @@ namespace MacroStudio
         // refuses to write an answer that was based on older code.
         private string attachedSourceSignature;
         private string runFolderPath;
+        private string handoffFolderPath;
 
         public HostServices(Window owner, string baseDir)
         {
@@ -209,6 +223,7 @@ namespace MacroStudio
             attachedBookPath = string.Empty;
             attachedSourceSignature = null;
             runFolderPath = string.Empty;
+            handoffFolderPath = string.Empty;
         }
 
         // The order of the cards is the order of the file names, with a
@@ -508,6 +523,7 @@ namespace MacroStudio
             attachedSourceSignature =
                 BookIO.CreateSourceSignature(project);
             runFolderPath = string.Empty;
+            handoffFolderPath = string.Empty;
             runArtifacts.Clear();
             return result;
         }
@@ -706,7 +722,8 @@ namespace MacroStudio
             string stage,
             string outputTimestamp,
             string request,
-            string code)
+            string code,
+            string aiCode)
         {
             bool diagnose = string.Equals(
                 stage,
@@ -727,8 +744,11 @@ namespace MacroStudio
 
             string sourcePath = RequireAttachedBook("E-GEN-01");
             string folder;
+            string handoffFolder;
             string requestPath;
             string codePath = null;
+            string aiCodePath = null;
+            string attachText = aiCode == null ? code : aiCode;
             try
             {
                 if (diagnose && string.IsNullOrEmpty(runFolderPath))
@@ -759,17 +779,36 @@ namespace MacroStudio
                         requestPath,
                         request,
                         runArtifacts.Contains(requestPath));
-                    if (diagnose)
+                    codePath = Path.Combine(folder, "source-code.md");
+                    if (!runArtifacts.Contains(codePath) ||
+                        !File.Exists(codePath))
                     {
-                        codePath = Path.Combine(folder, "source-code.md");
-                        if (!runArtifacts.Contains(codePath) ||
-                            !File.Exists(codePath))
-                        {
-                            throw new HostActionException(
-                                "E-GEN-01",
-                                "The source code file for this run is missing.");
-                        }
+                        throw new HostActionException(
+                            "E-GEN-01",
+                            "The source code file for this run is missing.");
                     }
+                }
+
+                // The one file the chat is actually given. It is written
+                // every time a request is made, because the fixed-path
+                // route hands over code the machine already rewrote while
+                // source-code.md above stays the workbook as it was read.
+                handoffFolder = CreateHandoffFolder(
+                    sourcePath,
+                    outputTimestamp);
+                aiCodePath = Path.Combine(handoffFolder, AiCodeFileName);
+                if (attachText != null)
+                {
+                    WriteRunFileAtomically(
+                        aiCodePath,
+                        attachText,
+                        runArtifacts.Contains(aiCodePath));
+                }
+                else if (!File.Exists(aiCodePath))
+                {
+                    throw new HostActionException(
+                        "E-GEN-01",
+                        "The code file for the chat is missing.");
                 }
             }
             catch (HostActionException)
@@ -786,7 +825,9 @@ namespace MacroStudio
             }
 
             runFolderPath = folder;
+            handoffFolderPath = handoffFolder;
             runArtifacts.Add(requestPath);
+            runArtifacts.Add(aiCodePath);
             if (codePath != null)
             {
                 runArtifacts.Add(codePath);
@@ -795,6 +836,9 @@ namespace MacroStudio
                 new Dictionary<string, object>();
             result.Add("folderPath", folder);
             result.Add("requestPath", requestPath);
+            result.Add("handoffFolderPath", handoffFolder);
+            result.Add("aiCodePath", aiCodePath);
+            result.Add("aiCodeName", AiCodeFileName);
             if (codePath != null)
             {
                 result.Add("codePath", codePath);
@@ -833,6 +877,53 @@ namespace MacroStudio
                 throw new HostActionException(
                     "E-GEN-01",
                     "The diagnosis file could not be created.",
+                    null,
+                    ex);
+            }
+
+            runArtifacts.Add(path);
+            Dictionary<string, object> result =
+                new Dictionary<string, object>();
+            result.Add("path", path);
+            return result;
+        }
+
+        // One record of what this run has confirmed, written beside the
+        // artifacts it describes. The screen, the log, result.md and a
+        // resumed session all read the same values from here, so they
+        // cannot drift apart. The host stores and returns the text; the
+        // shape of it belongs to assets/js/state.js.
+        public Dictionary<string, object> WriteRunManifest(
+            string outputTimestamp,
+            string manifest)
+        {
+            if (manifest == null)
+            {
+                throw new HostActionException(
+                    "E-GEN-01",
+                    "The run manifest is missing.");
+            }
+            ValidateOutputTimestamp(outputTimestamp);
+            RequireAttachedBook("E-GEN-01");
+
+            string folder = RequireRunFolder();
+            string path = Path.Combine(folder, RunManifestName);
+            try
+            {
+                WriteRunFileAtomically(
+                    path,
+                    manifest,
+                    runArtifacts.Contains(path));
+            }
+            catch (HostActionException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new HostActionException(
+                    "E-GEN-01",
+                    "The run manifest could not be written.",
                     null,
                     ex);
             }
@@ -1289,21 +1380,35 @@ namespace MacroStudio
             return attachedBookPath;
         }
 
-        // One folder per run, created next to the workbook and reused
-        // for every artifact of that run.
+        // The name one run answers to. Both trees use it, so the
+        // deliverables and the file handed to the chat can be told apart
+        // and still be recognised as the same piece of work.
+        private static string RunName(string sourcePath, string timestamp)
+        {
+            return Path.GetFileNameWithoutExtension(sourcePath) +
+                "_" + timestamp;
+        }
+
+        // Everything a run produces lives inside MacroStudio, not beside
+        // the workbook it read. `exports` holds what the reader keeps;
+        // `temp` holds the one file the chat is given. One level each:
+        // the run folder is both the case and the run, so there is
+        // nothing to nest inside it.
+        private string RunTree(string treeName)
+        {
+            return Path.Combine(baseDir, treeName);
+        }
+
+        // The folder is fixed when the first request is written, so every
+        // later output of the same run joins it.
         private string CreateRunFolder(
             string sourcePath,
             string timestamp)
         {
-            string directory = Path.GetDirectoryName(sourcePath);
-            string name = Path.GetFileNameWithoutExtension(sourcePath);
-            string root = Path.Combine(directory, "MacroStudio");
             string folder = Path.Combine(
-                root,
-                name + "_" + timestamp);
+                RunTree(ExportsRoot),
+                RunName(sourcePath, timestamp));
 
-            // The folder is fixed when the request is written, so
-            // every later output of the same run joins it.
             if (!string.IsNullOrEmpty(runFolderPath) &&
                 Directory.Exists(runFolderPath))
             {
@@ -1317,12 +1422,9 @@ namespace MacroStudio
             string sourcePath,
             string timestamp)
         {
-            string directory = Path.GetDirectoryName(sourcePath);
-            string name = Path.GetFileNameWithoutExtension(sourcePath);
-            string root = Path.Combine(directory, "MacroStudio");
             string folder = Path.Combine(
-                root,
-                name + "_" + timestamp);
+                RunTree(ExportsRoot),
+                RunName(sourcePath, timestamp));
 
             if (Directory.Exists(folder))
             {
@@ -1330,6 +1432,21 @@ namespace MacroStudio
                     "E-GEN-01",
                     "The run folder already exists.");
             }
+            Directory.CreateDirectory(folder);
+            return folder;
+        }
+
+        // The chat's copy. Only what is actually attached goes here, and
+        // it never mixes with the deliverables: the request text itself
+        // goes to the clipboard, as it always has.
+        private string CreateHandoffFolder(
+            string sourcePath,
+            string timestamp)
+        {
+            string folder = Path.Combine(
+                RunTree(TempRoot),
+                RunName(sourcePath, timestamp));
+
             Directory.CreateDirectory(folder);
             return folder;
         }

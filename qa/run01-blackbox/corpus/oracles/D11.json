@@ -1,0 +1,40 @@
+﻿{
+    "id":  "D11",
+    "file":  "D11_path_in_3_modules.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "同一の固定パスが3モジュールに散る。画面6のモジュール一覧切替と［修正を反映］を実操作するための試料",
+    "entryMacro":  "RunThree",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "三箇所済み"
+                    }
+                ],
+    "mustFix":  [
+                    "S:\\eigyo\\shinsei\\"
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "path"
+              ],
+    "modules":  [
+                    {
+                        "name":  "PathA",
+                        "type":  1
+                    },
+                    {
+                        "name":  "PathB",
+                        "type":  1
+                    },
+                    {
+                        "name":  "PathC",
+                        "type":  1
+                    }
+                ],
+    "occurrences":  3,
+    "modulesChanged":  3
+}

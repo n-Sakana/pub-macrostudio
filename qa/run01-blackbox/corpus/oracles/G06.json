@@ -1,0 +1,32 @@
+﻿{
+    "id":  "G06",
+    "file":  "G06_vba_project_password.xlsm",
+    "format":  "xlsm",
+    "expect":  "boundary",
+    "why":  "VBA プロジェクトの閲覧保護。VBIDE では設定できないため PROJECT ストリームの DPB を同じ長さで書き換えて作った。実測: Excel で開ける=True / VBProject.Protection=1 / VBComponents=0",
+    "entryMacro":  null,
+    "postRun":  [
+
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "mustReject":  null,
+    "route":  [
+                  "ai"
+              ],
+    "howMade":  {
+                    "method":  "PROJECT ストリームの DPB 値を同じ長さの別 hex へ置換（CFB 構造は無改変）",
+                    "source":  "A01_minimal.xlsm"
+                },
+    "measured":  {
+                     "excelOpened":  true,
+                     "error":  "",
+                     "vbProjectProtection":  "1",
+                     "vbComponents":  "0"
+                 },
+    "expectation":  "容器は読める。SPEC §13.4 は「保護は VBE の閲覧ゲートでありモジュールストリーム自体は暗号化されない」としているので、MacroStudio は抽出・書き戻しとも成功するはず（§15.2 の未検証項目）"
+}

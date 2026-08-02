@@ -1,0 +1,32 @@
+﻿{
+    "id":  "H04",
+    "file":  "H04_insufficient_info.xlsm",
+    "format":  "xlsm",
+    "expect":  "ambiguous",
+    "why":  "外部仕様が無いと桁を決められない。質問を返したら製品が拒否すべき",
+    "entryMacro":  "RunLack",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "情報不足済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "Lacking",
+                        "type":  1
+                    }
+                ],
+    "questionsMustBeRejected":  true,
+    "expectedJudgement":  "NOCHANGE 判断できない"
+}

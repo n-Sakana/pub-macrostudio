@@ -135,13 +135,24 @@ refactorEntries.forEach(function (entry) {
       entry.preserveItems.length === 3,
     "Each AI repair preset must carry behavior choices and three " +
       "visible preserve items: " + entry.file);
+  // Two answers, and only two. The contract has to teach the refusal
+  // side as concretely as the success side, and it has to forbid the
+  // third thing a chat reaches for: asking the reader a question.
   [entry.output, entry.splitOutput].forEach(function (rules) {
-    assert(rules && rules.body.indexOf("NOCHANGE NEEDDECISION") >= 0 &&
-      rules.body.indexOf("DECISION BEGIN 1") >= 0 &&
-      rules.body.indexOf("META FINDING=") >= 0 &&
+    assert(rules && rules.body.indexOf("NOCHANGE <判断>") >= 0 &&
+      rules.body.indexOf("UNNECESSARY") >= 0 &&
+      rules.body.indexOf("IMPOSSIBLE") >= 0 &&
+      rules.body.indexOf("UNCLEAR") >= 0 &&
       rules.body.indexOf("COMPLETE 0") >= 0,
-    "Every whole and split AI output contract must teach NEEDDECISION: " +
-      entry.file);
+    "Every whole and split AI output contract must teach the refusal " +
+      "shape: " + entry.file);
+    assert(rules.body.indexOf("質問を返したり") >= 0,
+      "Every output contract must forbid asking the reader anything: " +
+        entry.file);
+    assert(rules.body.indexOf("DECISION BEGIN") < 0 &&
+      rules.body.indexOf("TEXT BEGIN QUESTION") < 0,
+    "No output contract may still describe a question-and-answer " +
+      "exchange: " + entry.file);
   });
 });
 

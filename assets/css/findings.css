@@ -358,6 +358,14 @@
   grid-column: 1 / -1;
 }
 
+/* SPEC 4.4.2: an assumption nobody measured on the target machine says
+   so, where the finding that rests on it is read. */
+.finding-unmeasured {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--caution-text);
+}
+
 .finding-detail-block {
   display: grid;
   min-width: 0;
@@ -658,17 +666,24 @@
   overflow-wrap: break-word;
 }
 
-.outside-code-list .outside-code-found {
+/* A fact that was read is a fact. Existing is not a fault, so the list
+   keeps the ordinary reading colour and nothing in it is coloured as a
+   caution.
+
+   Two sentences per row: what was found, then why it matters somewhere
+   else. They are separate lines because run together they read as one
+   run-on sentence, and the second one is the part the reader is
+   deciding on. */
+.outside-code-item {
   color: var(--text-sub);
-  font-weight: var(--weight-semibold);
 }
 
-.outside-code-hash {
-  margin: 0;
+.outside-code-why {
+  display: block;
+  margin-top: var(--space-1);
   color: var(--text-muted);
-  font-family: var(--font-code);
   font-size: var(--type-micro-size);
-  overflow-wrap: break-word;
+  line-height: var(--type-micro-line);
 }
 
 /* Text the app did not write, shown the way it was written: the target

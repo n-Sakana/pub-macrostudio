@@ -124,6 +124,8 @@ $brokenDirectoryPath = Join-Path $testdataPath (
 $blindDirectoryPath = Join-Path $testdataPath (
     "bookio-blind-dir-$suffix.xlsm")
 $olePath = Join-Path $testdataPath ("bookio-ole-$suffix.xls")
+$zeroBytePath = Join-Path $testdataPath ("bookio-zero-$suffix.xlsm")
+$spoofedPath = Join-Path $testdataPath ("bookio-spoofed-$suffix.xlsm")
 
 foreach ($path in @(
     $nestedPath,
@@ -162,6 +164,23 @@ try {
     Assert-ErrorCode {
         [MacroStudio.BookIO]::ReadVbaProjectBytes($emptyPath)
     } 'E-ATTACH-03'
+
+    # The case above is a container that WAS read and holds no VBA, which is
+    # what SPEC 13.4 reserves E-ATTACH-03 for. A file that never read as a
+    # container must not borrow that code: a zero-byte file and a renamed
+    # text file are not workbooks we opened and found empty, and calling
+    # them "a workbook with no macros" asserts something never established.
+    [IO.File]::WriteAllBytes($zeroBytePath, (New-Object 'byte[]' 0))
+    Assert-ErrorCode {
+        [MacroStudio.BookIO]::ReadVbaProjectBytes($zeroBytePath)
+    } 'E-ATTACH-02'
+
+    [IO.File]::WriteAllText(
+        $spoofedPath,
+        'This is plain text pretending to be a workbook.')
+    Assert-ErrorCode {
+        [MacroStudio.BookIO]::ReadVbaProjectBytes($spoofedPath)
+    } 'E-ATTACH-02'
 
     # Unreadable VBA data is a warning, not a blocked attach.
     New-ZipWithEntry `
@@ -272,7 +291,9 @@ try {
         $unknownExtPath,
         $brokenDirectoryPath,
         $blindDirectoryPath,
-        $olePath)) {
+        $olePath,
+        $zeroBytePath,
+        $spoofedPath)) {
         if ([IO.File]::Exists($path)) {
             [IO.File]::Delete($path)
         }

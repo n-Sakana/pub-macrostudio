@@ -1,0 +1,15 @@
+﻿{
+    "id":  "G04",
+    "file":  "G04_no_macro.xlsx",
+    "format":  "xlsx",
+    "expect":  "boundary",
+    "why":  "マクロ無し。受理してはいけない",
+    "entryMacro":  null,
+    "postRun":  {
+
+                },
+    "mustReject":  "マクロがありません",
+    "route":  [
+                  "ai"
+              ]
+}

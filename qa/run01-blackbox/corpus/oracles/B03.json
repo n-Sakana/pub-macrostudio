@@ -1,0 +1,30 @@
+﻿{
+    "id":  "B03",
+    "file":  "B03_name31.xlsm",
+    "format":  "xlsm",
+    "entryMacro":  "RunLong31",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "Long31 済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "expect":  "normal",
+    "why":  "VBA識別子上限31文字",
+    "modules":  [
+                    {
+                        "name":  "Mod31CharacterNameExactlyHere",
+                        "type":  1
+                    }
+                ]
+}

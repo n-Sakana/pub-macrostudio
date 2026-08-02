@@ -1,0 +1,98 @@
+﻿{
+    "id":  "A04",
+    "file":  "A04_large.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "標準18モジュール・5,200行級。分割返答へ誘導",
+    "entryMacro":  "RunLarge",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "大規模済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "A04M01",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M02",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M03",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M04",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M05",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M06",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M07",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M08",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M09",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M10",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M11",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M12",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M13",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M14",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M15",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M16",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M17",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A04M18",
+                        "type":  1
+                    }
+                ]
+}

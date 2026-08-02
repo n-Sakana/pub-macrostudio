@@ -1,0 +1,58 @@
+PASS (45):
+  A01  entry=RunMin  components=3
+  A02  entry=RunSmall  components=4
+  A03  entry=RunMedium  components=8
+  A04  entry=RunLarge  components=20
+  A05  entry=RunXLarge  components=32
+  A06  entry=RunMix  components=5
+  A07  entry=RunCls  components=5
+  A08  entry=RunEmptyMix  components=5
+  B01  entry=RunJp  components=4
+  B02  entry=売上集計実行  components=3
+  B03  entry=RunLong31  components=3
+  B04  entry=RunJpSheet  components=4
+  B06  entry=RunUni  components=3
+  C01  entry=RunCont  components=3
+  C02  entry=RunCond  components=3
+  C03  entry=RunLong  components=3
+  C04  entry=RunImplicit  components=3
+  C05  entry=RunEvents  components=4
+  C06  entry=RunErr  components=3
+  C07  entry=RunAttr  components=3
+  C08  entry=RunFormat  components=3
+  D01  entry=RunPath  components=3
+  D02  entry=RunPath  components=3
+  D03  entry=RunUnc  components=3
+  D04  entry=RunRel  components=3
+  D05  entry=RunUrl  components=3
+  D06  entry=RunWild  components=3
+  D07  entry=RunMixed  components=3
+  D08  entry=RunMany  components=3
+  D09  entry=RunConcat  components=3
+  D10  entry=RunDeep  components=3
+  E02  entry=RunPtr  components=3
+  E03  entry=RunBit  components=3
+  F01  entry=RunBind  components=3
+  F02  entry=RunConn  components=3
+  F03  entry=RunLink  components=3
+  F04  entry=RunShellSafe  components=3
+  F05  entry=RunAx  components=3
+  G01  entry=RunFmt  components=3
+  G02  entry=RunFmt  components=3
+  G03  entry=RunFmt  components=3
+  H01  entry=RunAmbig  components=3
+  H02  entry=RunContra  components=3
+  H03  entry=RunClean  components=3
+  H04  entry=RunLack  components=3
+
+SKIP (5):
+  G04 (入口マクロ無し・受理拒否試料)
+  G05 (入口マクロ無し・受理拒否試料)
+  G07 (入口マクロ無し・受理拒否試料)
+  G08 (入口マクロ無し・受理拒否試料)
+  G09 (入口マクロ無し・受理拒否試料)
+
+FAIL (3):
+  B05: Workbooks クラスの Open プロパティを取得できません。
+  E01: Exception calling "Run" with "1" argument(s): "マクロ ''E01_no_ptrsafe.xlsm'!RunNoPtr' を実行できません。このブックでマクロが使用できないか、またはすべてのマクロが無効になっている可能性があります。"
+  E04: Exception calling "Run" with "1" argument(s): "マクロ ''E04_win32_and_path.xlsm'!RunMixWin' を実行できません。このブックでマクロが使用できないか、またはすべてのマクロが無効になっている可能性があります。"

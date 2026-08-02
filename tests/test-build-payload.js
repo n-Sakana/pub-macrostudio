@@ -310,7 +310,7 @@ var mappingMemo = app.createResultMarkdown({
   repairResultEngine: "対応表による置換",
   diagnosisFilePath: "C:\\run\\diagnosis.md",
   repairRequestFilePath: null,
-  intakeResult: {
+  appliedMapping: {
     mapping: {
       rows: [{
         "class": "driveAbsolute",
@@ -340,5 +340,51 @@ assert(
 assert(
   mappingMemo.indexOf("repair-request.md") < 0,
   "The deterministic route must not claim an AI repair request artifact.");
+
+// A run that did both keeps both in the record: the table the tool
+// carried out itself, and what the chat said afterwards. The chat's
+// answer takes over intakeResult, so the note cannot be built from
+// that alone.
+var bothMemo = app.createResultMarkdown({
+  book: {name: "SalesTool.xlsm", ext: ".xlsm"},
+  outputName: "SalesTool-Modified-20260730.xlsm",
+  outputDateStamp: "20260730",
+  presetName: "Win32 API を使わない形へ直す・固定パスを新環境へ置き換える",
+  repairRequestId: "11111111-1111-4111-8111-111111111111",
+  repairResultEngine: "AI",
+  diagnosisFilePath: "C:\\run\\diagnosis.md",
+  repairRequestFilePath: "C:\\run\\repair-request.md",
+  appliedMapping: {
+    mapping: {
+      rows: [{
+        "class": "driveAbsolute",
+        label: "ドライブから始まる場所",
+        from: "C:\\old\\report.xlsx",
+        to: "D:\\new\\report.xlsx",
+        count: 1,
+        occurrences: [{module: "Module1", procedure: "Run", line: 4}]
+      }]
+    }
+  },
+  intakeResult: {
+    summary: "待ち時間を Application.Wait へ直しました。"
+  },
+  modules: [{
+    name: "Module1",
+    type: "standard",
+    typeLabel: "標準モジュール",
+    status: "changed",
+    accepted: true,
+    code: "x = \"C:\\old\\report.xlsx\"\r\n",
+    pastedCode: "x = \"D:\\new\\report.xlsx\"\r\n"
+  }]
+}, "20260730_010203");
+assert(
+  bothMemo.indexOf("## 置換の対応表") >= 0 &&
+    bothMemo.indexOf("D:\\new\\report.xlsx") >= 0,
+  "A run that replaced strings itself says so even after a chat answer.");
+assert(
+  bothMemo.indexOf("待ち時間を Application.Wait へ直しました。") >= 0,
+  "And what the chat reported is in the same note.");
 
 console.log("test-build-payload: PASS");

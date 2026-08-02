@@ -1,0 +1,33 @@
+﻿{
+    "id":  "F06",
+    "file":  "F06_ace_connection_path.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "ACE/Jet 接続文字列の Data Source= に固定パスが埋まる。長いリテラルの内側にある固定パスを拾えるかの検査（HANDOFF-2 4.4 の提案）",
+    "entryMacro":  "RunAce",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "接続文字列済み"
+                    }
+                ],
+    "mustFix":  [
+                    "S:\\eigyo\\shinsei\\"
+                ],
+    "mustPreserve":  [
+                         "Provider=Microsoft.ACE.OLEDB.12.0",
+                         "Persist Security Info=False",
+                         "HDR=YES"
+                     ],
+    "route":  [
+                  "path"
+              ],
+    "modules":  [
+                    {
+                        "name":  "AceConn",
+                        "type":  1
+                    }
+                ],
+    "note":  "候補として S:\\eigyo\\shinsei\\ が2か所出るのが期待。接続文字列全体を1リテラルとして扱って取りこぼすなら所見"
+}

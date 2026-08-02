@@ -1,0 +1,15 @@
+﻿{
+    "id":  "G09",
+    "file":  "G09_truncated.xlsm",
+    "format":  "xlsm",
+    "expect":  "boundary",
+    "why":  "途中で切れたファイル。受理してはいけない",
+    "entryMacro":  null,
+    "postRun":  {
+
+                },
+    "mustReject":  "ファイルを読み取れませんでした",
+    "route":  [
+                  "ai"
+              ]
+}

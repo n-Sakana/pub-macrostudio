@@ -1,0 +1,30 @@
+﻿{
+    "id":  "F03",
+    "file":  "F03_external_link.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "外部ブックリンク（数式）を持つ。書き戻しでリンクが失われないこと",
+    "entryMacro":  "RunLink",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "リンク済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+                         "A01_minimal.xlsm"
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "LinkMod",
+                        "type":  1
+                    }
+                ]
+}

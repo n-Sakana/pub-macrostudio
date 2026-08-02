@@ -1,0 +1,31 @@
+﻿{
+    "id":  "H01",
+    "file":  "H01_design_dependent.xlsm",
+    "format":  "xlsm",
+    "expect":  "ambiguous",
+    "why":  "移行先が同期フォルダ/URL/API のどれかコードから決まらない。NOCHANGE 判断が妥当",
+    "entryMacro":  "RunAmbig",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "設計判断済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "Ambig",
+                        "type":  1
+                    }
+                ],
+    "expectedJudgement":  "NOCHANGE 判断できない"
+}

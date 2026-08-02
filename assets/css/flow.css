@@ -91,9 +91,20 @@
   max-height: none;
 }
 
+/* The column is pinned to the width of the workspace. Without an explicit
+   track the implicit column is auto-sized, which means max-content, and
+   max-content is not reduced by overflow-wrap: a long file name still
+   reports the width it would take on a single unwrapped line. A workbook
+   whose name ran to a couple of hundred characters stretched the track to
+   several times the window width, and justify-items then centred the
+   content column inside that track and pushed it off the right-hand side,
+   leaving the left half of the screen empty and the card clipped.
+   minmax(0, 1fr) keeps the track at the container's width, so an oversized
+   descendant overflows inside .task instead of displacing the column. */
 .workspace--centered {
   display: grid;
   align-items: start;
+  grid-template-columns: minmax(0, 1fr);
   justify-items: center;
 }
 
@@ -378,6 +389,13 @@
 
 .loaded-zone .drop-icon {
   margin: 0;
+}
+
+/* The path shortens with an ellipsis; the button beside it does not
+   shorten at all. Letting it shrink broke a two-character label
+   across two lines as soon as a workbook sat in a deep folder. */
+.loaded-zone .button {
+  flex: 0 0 auto;
 }
 
 .loaded-zone-details {
@@ -1267,6 +1285,13 @@
   font-size: var(--type-meta-size);
 }
 
+/* The same line carries the standing note and, when the field is refused,
+   the reason. Muted grey reads as "for your information", which is the
+   wrong voice for the thing blocking the next step. */
+.field-help--problem {
+  color: var(--danger-text);
+}
+
 /* An optional choice on the request screen. It sits beside the main
    path, never in it: leaving it alone is the normal way through. */
 
@@ -1716,6 +1741,30 @@
   border-radius: var(--radius-md);
   color: var(--text-muted);
   font-size: var(--type-meta-size);
+}
+
+/* Taking the answer in and deciding to keep it are separate, so the
+   decision sits apart from the notice that the answer arrived. */
+.rejection {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  gap: var(--space-2);
+}
+
+.rejection .form-label {
+  display: block;
+}
+
+.rejection .step-actions {
+  margin-top: 0;
+}
+
+.rejection .task-note {
+  margin: 0;
 }
 
 /* ---- what the answer says it did ---- */

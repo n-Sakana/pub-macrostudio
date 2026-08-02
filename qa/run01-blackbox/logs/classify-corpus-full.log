@@ -1,0 +1,146 @@
+rules loaded: 7
+  ドライブから始まる場所  default=True
+  ネットワーク上の場所  default=True
+  URL  default=False
+  環境変数を含む場所  default=True
+  既知のフォルダー名  default=False
+  連結された場所の一部  default=False
+  ファイル名  default=False
+
+A01 A01_minimal.xlsm
+   candidates(0): 
+   OK
+A02 A02_small.xlsm
+   candidates(0): 
+   OK
+A03 A03_medium.xlsm
+   candidates(0): 
+   OK
+A04 A04_large.xlsm
+   candidates(0): 
+   OK
+A05 A05_xlarge.xlsm
+   candidates(0): 
+   OK
+A06 A06_mixed_types.xlsm
+   candidates(0): 
+   OK
+A07 A07_class_only.xlsm
+   candidates(0): 
+   OK
+A08 A08_empty_modules.xlsm
+   candidates(0): 
+   OK
+B01 B01_japanese_names.xlsm
+   candidates(0): 
+   OK
+B02 B02_japanese_idents.xlsm
+   candidates(0): 
+   OK
+B03 B03_name31.xlsm
+   candidates(0): 
+   OK
+B04 B04_japanese_sheets.xlsm
+   candidates(0): 
+   OK
+B06 B06_unicode_literals.xlsm
+   candidates(1): S:\eigyo\shinsei\[ドライブから始まる場所*]
+   OK
+C01 C01_line_continuation.xlsm
+   candidates(0): 
+   OK
+C02 C02_cond_compile.xlsm
+   candidates(0): 
+   OK
+C04 C04_no_option_explicit.xlsm
+   candidates(0): 
+   OK
+C05 C05_events.xlsm
+   candidates(0): 
+   OK
+C06 C06_error_handling.xlsm
+   candidates(0): 
+   OK
+C07 C07_attributes.xlsm
+   candidates(0): 
+   OK
+C08 C08_format_not_path.xlsm
+   candidates(0): 
+   OK
+D01 D01_fixed_drive.xlsm
+   candidates(2): log.csv[ファイル名] | S:\eigyo\shinsei\[ドライブから始まる場所*]
+   OK
+D02 D02_fixed_drive_T.xlsm
+   candidates(2): log.csv[ファイル名] | T:\eigyo\shinsei\[ドライブから始まる場所*]
+   OK
+D03 D03_unc.xlsm
+   candidates(2): \\fileserver\share\[ネットワーク上の場所*] | \\srv2\keiri\[ネットワーク上の場所*]
+   OK
+D04 D04_relative.xlsm
+   candidates(2): ..\data\[連結された場所の一部] | .\config\[連結された場所の一部]
+   OK
+D05 D05_url.xlsm
+   candidates(2): /Shared Documents/[連結された場所の一部] | https://contoso.sharepoint.com/sites/eigyo/[URL]
+   OK
+D06 D06_wildcard.xlsm
+   candidates(2): \\fileserver\kyoyu\*.xlsx[ネットワーク上の場所*] | S:\eigyo\torikomi\*.csv[ドライブから始まる場所*]
+   OK
+D07 D07_all_mixed.xlsm
+   candidates(4): ..\out\[連結された場所の一部] | \\srv\share\[ネットワーク上の場所*] | https://contoso.sharepoint.com/sites/x/[URL] | S:\eigyo\[ドライブから始まる場所*]
+   OK
+D08 D08_same_value_40.xlsm
+   candidates(1): S:\eigyo\shinsei\[ドライブから始まる場所*]
+   OK
+D09 D09_concat.xlsm
+   candidates(2): \out.csv[連結された場所の一部] | S:\[ドライブから始まる場所*]
+   OK
+E01 E01_no_ptrsafe.xlsm
+   candidates(0): 
+   OK
+E02 E02_ptrsafe_long_handle.xlsm
+   candidates(0): 
+   OK
+E03 E03_both_bitness.xlsm
+   candidates(0): 
+   OK
+E04 E04_win32_and_path.xlsm
+   candidates(1): S:\eigyo\shinsei\[ドライブから始まる場所*]
+   OK
+F01 F01_early_binding.xlsm
+   candidates(0): 
+   OK
+F02 F02_connection_string.xlsm
+   candidates(0): 
+   OK
+F03 F03_external_link.xlsm
+   candidates(0): 
+   OK
+F04 F04_shell_launch.xlsm
+   candidates(4): cmd.exe /c echo hello[連結された場所の一部] | notepad.exe[ファイル名] | S:\eigyo\shinsei\[ドライブから始まる場所*] | WScript.Shell[ファイル名]
+   OK
+F05 F05_activex.xlsm
+   candidates(1): Forms.CommandButton.1[ファイル名]
+   OK
+G01 G01_addin.xlam
+   candidates(1): S:\eigyo\shinsei\[ドライブから始まる場所*]
+   OK
+G02 G02_binary.xlsb
+   candidates(1): S:\eigyo\shinsei\[ドライブから始まる場所*]
+   OK
+G03 G03_legacy.xls
+   candidates(1): S:\eigyo\shinsei\[ドライブから始まる場所*]
+   OK
+H01 H01_design_dependent.xlsm
+   candidates(2): *.xlsx[ファイル名] | \\kyu-fileserver\eigyo\teishutsu\[ネットワーク上の場所*]
+   OK
+H02 H02_contradictory.xlsm
+   candidates(0): 
+   OK
+H03 H03_already_clean.xlsm
+   candidates(0): 
+   OK
+H04 H04_insufficient_info.xlsm
+   candidates(0): 
+   OK
+
+PROBLEMS: 0

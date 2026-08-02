@@ -222,19 +222,32 @@ try {
 
     Assert-True (-not [string]::IsNullOrEmpty($runFolder)) `
         'The first request did not create a run folder.'
-    Assert-InsideDirectory $runFolder $testdataRoot
+    Assert-InsideDirectory $runFolder (Join-Path $repoRoot 'exports')
+    # run-manifest.json is the run's own record of what it has confirmed.
+    # The screen, the log, result.md and a resumed session all read it.
     $expectedArtifacts = @(
         'diagnose-request.md',
         'source-code.md',
         'diagnosis.md',
-        'repair-request.md')
+        'repair-request.md',
+        'run-manifest.json')
     foreach ($name in $expectedArtifacts) {
         Assert-True ([IO.File]::Exists((Join-Path $runFolder $name))) `
             "The diagnosis flow is missing: $name"
     }
     Assert-True (
-        @([IO.Directory]::GetFiles($runFolder)).Count -eq 4
-    ) 'The diagnosis handoff must create exactly four artifacts.'
+        @([IO.Directory]::GetFiles($runFolder)).Count -eq 5
+    ) 'The diagnosis handoff must create exactly five artifacts.'
+
+    $manifest = [IO.File]::ReadAllText(
+        (Join-Path $runFolder 'run-manifest.json'),
+        (New-Object Text.UTF8Encoding($false, $true))) | ConvertFrom-Json
+    Assert-True (
+        $manifest.schemaVersion -eq 1 -and
+        $manifest.runFolder -ceq $runFolder -and
+        ([string]$manifest.repair.requestId) -ceq $repairId -and
+        $null -ne $manifest.diagnosis.accepted
+    ) 'The run record must name this run and both stage identities.'
 
     foreach ($path in @($lightScreenshot, $darkScreenshot)) {
         Assert-True ([IO.File]::Exists($path)) `
@@ -257,13 +270,13 @@ try {
 
     Write-Output 'test-diagnose-webview: PASS'
     Write-Output (
-        'screens=0-5, diagnosis=1, selected=1, artifacts=4, ' +
+        'screens=0-5, diagnosis=1, selected=1, artifacts=5, ' +
         'source=unchanged, clipboardRetries=' +
         $result.clipboardRetries)
 } finally {
     if (-not [string]::IsNullOrEmpty($runFolder) -and
         [IO.Directory]::Exists($runFolder)) {
-        Assert-InsideDirectory $runFolder $testdataRoot
+        Assert-InsideDirectory $runFolder (Join-Path $repoRoot 'exports')
         [IO.Directory]::Delete($runFolder, $true)
         $macroRoot = [IO.Path]::GetDirectoryName($runFolder)
         if ([IO.Directory]::Exists($macroRoot) -and

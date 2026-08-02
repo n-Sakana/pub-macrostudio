@@ -1,0 +1,27 @@
+﻿{
+    "id":  "E01",
+    "file":  "E01_no_ptrsafe.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "entryMacro":  "RunNoPtr",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "宣言済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "oracleNote":  "ORACLE訂正: Declare は AI 経路（Win32ひな形）で直す対象であり、固定パス置換の候補ではない。パス分類器に mustFix として掛けていたのは私の誤り。",
+    "entryRunsOnlyAfterRepair":  true,
+    "preRepairCompiles":  false,
+    "why":  "PtrSafe 無し Declare / 実測: PtrSafe 無し Declare のため 64bit Excel ではモジュールごとコンパイル不能。入口マクロは改修後にのみ実行できる（PtrSafe 付与実験で確認: compile/run error -\u003e ran）"
+}

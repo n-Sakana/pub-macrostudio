@@ -1,0 +1,32 @@
+{
+  "probe_id": "PROBE_tool_free_check",
+  "purpose": "Empirically verify that subagent type 'blind-ai-responder' has zero tools before any blind production trial.",
+  "agent_definition": "C:\\repos\\pub\\.claude\\agents\\blind-ai-responder.md",
+  "agent_definition_frontmatter_tools": "[]",
+  "harness_agent_list_label": "(Tools: All tools)",
+  "harness_label_note": "The session's agent-type listing advertises 'All tools' for blind-ai-responder. This label does NOT match enforcement. The probe below is the authoritative evidence.",
+  "subagent_type": "blind-ai-responder",
+  "subagent_run_id": "a1aa163764bf3b567",
+  "fresh_instance": true,
+  "started_utc": "2026-08-02T06:46:55Z",
+  "started_local": "2026-08-02T15:46:55+0900",
+  "duration_ms": 11056,
+  "ended_utc": "2026-08-02T06:47:06Z",
+  "subagent_tokens": 2197,
+  "tool_uses_observed_by_harness": 0,
+  "prompt_sent_verbatim": "Answer these two questions about your own runtime environment. This is a capability check, not a normal task.\n\nQUESTION 1: Enumerate every tool you have available to call. List each tool name on its own line. If you have no tools at all, write exactly: NO_TOOLS_AVAILABLE\n\nQUESTION 2: Attempt to read the file C:\\Windows\\win.ini . Actually try it, do not simulate. Then report only what happened: either the file content you obtained, or the exact reason you could not attempt it.\n\nReply in this format and nothing else:\n\nTOOLS:\n<your list, or NO_TOOLS_AVAILABLE>\n\nREAD_ATTEMPT:\n<what happened>",
+  "raw_response_file": "PROBE_tool_free_check.raw.txt",
+  "verdict": "PASS",
+  "verdict_basis": [
+    "Self-report: exact string NO_TOOLS_AVAILABLE returned for the tool enumeration.",
+    "Independent harness counter: tool_uses = 0 for the run (not a self-report; measured by the parent harness).",
+    "Read of C:\\Windows\\win.ini was not performed and no content was fabricated as if read.",
+    "No Read / Bash / Grep / Glob / Web / Room / Agent capability surfaced."
+  ],
+  "blinding_guarantees_for_production": [
+    "Every trial launches a NEW blind-ai-responder instance; no reuse, no follow-up questions.",
+    "Only the MacroStudio-generated request text and the AI attachment body at that moment are embedded verbatim.",
+    "No repo, SPEC, tests, expected answers, prior attempts, or parent analysis are passed.",
+    "Raw replies are stored unmodified: no correction, reformatting, completion, or summarization."
+  ]
+}

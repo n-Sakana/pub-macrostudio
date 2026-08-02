@@ -1,0 +1,146 @@
+﻿{
+    "id":  "A05",
+    "file":  "A05_xlarge.xlsm",
+    "format":  "xlsm",
+    "expect":  "normal",
+    "why":  "標準30モジュール・12,000行級。負荷・長時間ビルド",
+    "entryMacro":  "RunXLarge",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "超大規模済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "modules":  [
+                    {
+                        "name":  "A05M01",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M02",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M03",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M04",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M05",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M06",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M07",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M08",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M09",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M10",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M11",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M12",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M13",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M14",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M15",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M16",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M17",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M18",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M19",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M20",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M21",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M22",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M23",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M24",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M25",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M26",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M27",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M28",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M29",
+                        "type":  1
+                    },
+                    {
+                        "name":  "A05M30",
+                        "type":  1
+                    }
+                ]
+}

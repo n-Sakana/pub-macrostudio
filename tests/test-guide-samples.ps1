@@ -38,6 +38,13 @@ function Get-Property {
     return $member.Value
 }
 
+function Get-NormalizedCode {
+    param([string]$Text)
+    $value = $Text -replace "`r`n", "`n"
+    $value = $value -replace "`r", "`n"
+    return ($value -replace "\n+$", '')
+}
+
 if ([string]::IsNullOrEmpty($ProductRoot)) {
     $ProductRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 }
@@ -140,6 +147,28 @@ foreach ($sample in @($manifest.samples)) {
             ($id + ': the sample must carry the module ' +
              [string]$expected.name + ', found ' + ($moduleNames -join '/'))
     }
+    # The shipped workbook has to carry the fixture, character for
+    # character. A sample whose code drifted from its .bas is a sample
+    # nobody can reason about: the map, the markers and the expected keys
+    # all describe the .bas.
+    foreach ($expected in @($sample.modules)) {
+        $name = [string]$expected.name
+        $fixturePath = Join-Path $fixtureDir ($id + '\' + $name + '.bas')
+        Assert-True ([IO.File]::Exists($fixturePath)) `
+            ($id + ': the fixture source is missing: ' + $fixturePath)
+        $wanted = Get-NormalizedCode ([IO.File]::ReadAllText(
+            $fixturePath, [Text.Encoding]::UTF8))
+        $stored = ''
+        foreach ($module in $project.Modules) {
+            if ([string]$module.Name -eq $name) {
+                $stored = Get-NormalizedCode ([string]$module.Code)
+            }
+        }
+        Assert-True ($stored -eq $wanted) `
+            ($id + '/' + $name + ': the code in the workbook is not the ' +
+             'fixture source. Rebuild with tests\make-guide-samples.ps1.')
+        $checked++
+    }
     foreach ($marker in @($sample.codeMarkers)) {
         Assert-True ($code.IndexOf([string]$marker) -ge 0) `
             ($id + ': a static search must find ' + [string]$marker)
@@ -188,6 +217,17 @@ foreach ($sample in @($manifest.samples)) {
         } else {
             $missed += 'activeX'
         }
+    }
+    # A count the sample states exactly, because the sample is what it
+    # is: an expectation of "at least one" that the terminal cannot build
+    # would be a standing failure, and recording the real number is the
+    # only honest way to notice if it ever changes.
+    $wanted = Get-Property $expectations 'activeXExactly'
+    if ($null -ne $wanted) {
+        Assert-True ($inventory.ActiveXCount -eq [int]$wanted) `
+            ($id + ': the ActiveX count must be ' + [int]$wanted +
+             ', found ' + $inventory.ActiveXCount)
+        $checked++
     }
     $wanted = Get-Property $expectations 'barcodeFontsAtLeast'
     if ($null -ne $wanted) {

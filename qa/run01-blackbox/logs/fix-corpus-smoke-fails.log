@@ -1,0 +1,5 @@
+RESULT:
+  E01: PtrSafe無しのまま=compile/run error / PtrSafe を 1 箇所へ付与後=ran (B2='宣言済み')
+  E04: PtrSafe無しのまま=compile/run error / PtrSafe を 1 箇所へ付与後=ran (B2='複合済み')
+  B05: 260未満(257文字) -> failed: Workbooks クラスの Open プロパティを取得できません。
+  B05: 260超過(269文字) -> Excel の Workbooks.Open が受け付けない（\\?\ 前置でも同じ）

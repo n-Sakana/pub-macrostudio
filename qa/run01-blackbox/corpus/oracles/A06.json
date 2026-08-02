@@ -1,0 +1,34 @@
+﻿{
+    "id":  "A06",
+    "file":  "A06_mixed_types.xlsm",
+    "format":  "xlsm",
+    "entryMacro":  "RunMix",
+    "postRun":  [
+                    {
+                        "sheet":  "作業",
+                        "cell":  "B2",
+                        "equals":  "Mix 済み"
+                    }
+                ],
+    "mustFix":  [
+
+                ],
+    "mustPreserve":  [
+
+                     ],
+    "route":  [
+                  "ai"
+              ],
+    "expect":  "normal",
+    "why":  "標準+クラス+シート+ThisWorkbook の混在",
+    "modules":  [
+                    {
+                        "name":  "StdOne",
+                        "type":  1
+                    },
+                    {
+                        "name":  "ClsOne",
+                        "type":  2
+                    }
+                ]
+}

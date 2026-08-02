@@ -1,0 +1,115 @@
+```vba
+'@MACROSTUDIO bcbc0483-343e-4ae8-bdf2-d5dbceb33b77 SUMMARY BEGIN
+' 直したのは標準モジュール ExportSummary の 1 つだけです。保存先のパス、シート名、
+' 公開プロシージャ名、出力する値やファイルの内容は一切変えていません。
+' 1) 集計 (RunSummary) が D 列・E 列をセル 1 つずつ読んでいたのを、対象範囲をまとめて
+'    メモリへ取り込んでから計算する方式に変えました。行数が増えても遅くなりにくくなります。
+'    値の読み方 (.Value) はそのままなので、合計の結果は従来と同じです。
+' 2) 合計する部分を SumRequestCounts という名前の小さな処理へ切り出し、入口の RunSummary は
+'    「行数を調べる → 合計する → シートへ書く」だけが読み取れる形にしました。使われていない
+'    変数 r は削除しました。
+' 3) 書き出し (ExportToShare) は、途中で失敗した場合にファイルが開いたままになる恐れが
+'    ありました。閉じる経路を 1 か所にまとめ、閉じてから同じエラーを出し直すようにしました。
+' 4) 画面更新の停止などの高速化設定、Dictionary への置き換え、Copy/Paste の見直しは、
+'    この処理には当てはまらないため行っていません。
+'@MACROSTUDIO bcbc0483-343e-4ae8-bdf2-d5dbceb33b77 SUMMARY END
+'@MACROSTUDIO bcbc0483-343e-4ae8-bdf2-d5dbceb33b77 BEGIN standard ExportSummary
+Option Explicit
+
+'============================================================
+' 申請件数の集計と共有フォルダへの書き出し
+'
+' 2018/05  初版
+' 2021/03  月次の書き出しを追加
+' 2024/09  保存先を年度別に分けた
+'
+' ガイド 3.1「パス、ファイル、フォルダー操作」の見本。
+' 保存先がコードに直書きされています。
+'============================================================
+
+' 営業部の共有ドライブ。端末に S: が割り当てられている前提です。
+Private Const EXPORT_ROOT As String = "E:\eigyo\shinsei\"
+Private Const SHEET_WORK As String = "作業"
+Private Const SHEET_CONF As String = "設定"
+
+' 入口。シートの中だけで完結します。
+Public Sub RunSummary()
+    Dim ws As Worksheet
+    Dim conf As Worksheet
+    Dim last As Long
+    Dim total As Long
+
+    Set ws = ThisWorkbook.Worksheets(SHEET_WORK)
+    Set conf = ThisWorkbook.Worksheets(SHEET_CONF)
+
+    last = ws.Cells(ws.Rows.Count, 4).End(xlUp).Row
+    total = SumRequestCounts(ws, 5, last)
+
+    ws.Range("B3").Value = total
+    ws.Range("B4").Value = conf.Range("B2").Value
+    ws.Range("B2").Value = "集計済み"
+End Sub
+
+' D 列に記入のある行だけ、E 列の件数を合計します。
+' セルを 1 つずつ読むと行数だけシートと往復するため、範囲をまとめて配列へ取り込みます。
+' 値の取り出しは元の .Value のままにして、日付や通貨の扱いが変わらないようにしています。
+Private Function SumRequestCounts(ByVal ws As Worksheet, ByVal firstRow As Long, ByVal lastRow As Long) As Long
+    Dim values As Variant
+    Dim i As Long
+    Dim total As Long
+
+    If lastRow < firstRow Then Exit Function
+
+    values = ws.Range(ws.Cells(firstRow, 4), ws.Cells(lastRow, 5)).Value
+
+    For i = 1 To UBound(values, 1)
+        If Len(Trim$(CStr(values(i, 1)))) > 0 Then
+            total = total + CLng(values(i, 2))
+        End If
+    Next i
+
+    SumRequestCounts = total
+End Function
+
+' 書き出し。入口からは呼びません。担当者が月末に手で実行していました。
+Public Sub ExportToShare()
+    Dim folder As String
+    Dim path As String
+    Dim fileNo As Integer
+    Dim ws As Worksheet
+    Dim errNumber As Long
+    Dim errDescription As String
+
+    Set ws = ThisWorkbook.Worksheets(SHEET_WORK)
+
+    ' 年度フォルダを文字列連結で組み立てています。
+    folder = EXPORT_ROOT & Format$(Date, "yyyy") & "\"
+    If Dir(folder, vbDirectory) = "" Then
+        MkDir folder
+    End If
+
+    path = folder & "shinsei_" & Format$(Date, "yyyymmdd") & ".csv"
+    fileNo = FreeFile
+    Open path For Output As #fileNo
+
+    ' 書き出しに失敗してもファイルを開いたままにしないよう、閉じる経路を 1 つにまとめます。
+    On Error GoTo CloseFile
+    Print #fileNo, "件数," & CStr(ws.Range("B3").Value)
+
+CloseFile:
+    errNumber = Err.Number
+    errDescription = Err.Description
+    On Error GoTo 0
+    Close #fileNo
+    If errNumber <> 0 Then Err.Raise errNumber, , errDescription
+
+    ws.Range("B5").Value = path
+End Sub
+
+' 既定の保存先を返します。ここも同じ前提です。
+Public Function DefaultExportFolder() As String
+    DefaultExportFolder = EXPORT_ROOT
+End Function
+'@MACROSTUDIO bcbc0483-343e-4ae8-bdf2-d5dbceb33b77 END standard ExportSummary
+'@MACROSTUDIO bcbc0483-343e-4ae8-bdf2-d5dbceb33b77 COMPLETE 1
+```

@@ -125,14 +125,18 @@ try {
 
     $result = $rawResult | ConvertFrom-Json
     # The words the screen must use: "no change", and each verdict.
+    # "cannot repair" - the screen says a refusal is a refusal
     $noChangeWord = -join @(
-        [char]0x5909, [char]0x66F4, [char]0x306A, [char]0x3057)
+        [char]0x6539, [char]0x4FEE, [char]0x3067, [char]0x304D, [char]0x307E, [char]0x305B, [char]0x3093)
     $unnecessaryWord = -join @(
         [char]0x6539, [char]0x4FEE, [char]0x306F, [char]0x4E0D,
         [char]0x8981)
     $impossibleWord = -join @(
         [char]0x6539, [char]0x4FEE, [char]0x3067, [char]0x304D,
         [char]0x306A, [char]0x3044)
+    # "cannot be settled" - the third verdict
+    $uncertainWord = -join @(
+        [char]0x6C7A, [char]0x3081, [char]0x3089, [char]0x308C)
     $reasonWord = -join @(
         [char]0x76F4, [char]0x3059, [char]0x884C)
 
@@ -142,8 +146,8 @@ try {
         $declared = $phase.declared | ConvertFrom-Json
         $second = $phase.second | ConvertFrom-Json
         $diagnosis = $phase.diagnosis | ConvertFrom-Json
-        $needDecision = $phase.needDecision | ConvertFrom-Json
-        $decisionReturn = $phase.decisionReturn | ConvertFrom-Json
+        $questionRefused = $phase.questionRefused | ConvertFrom-Json
+        $third = $phase.third | ConvertFrom-Json
         $recovered = $phase.recovered | ConvertFrom-Json
         $built = $phase.built | ConvertFrom-Json
 
@@ -222,19 +226,24 @@ try {
         Assert-True (-not $second.nextReady) `
             "$name : the second verdict must shut the way as well."
 
-        # ---- NEEDDECISION returns to input without inventing an answer ----
+        # ---- a reply that asks the reader something is refused ----
+        # There are two answers, not three. A question is the third
+        # thing, and taking it in would start an exchange this app
+        # cannot hold.
+        Assert-True (-not [bool]$questionRefused.accepted) `
+            "$name : a reply that asks a question must be refused."
+        $before = $questionRefused.before | ConvertFrom-Json
         Assert-True (
-            $needDecision.screen -eq 5 -and
-            $needDecision.decisions -eq 1 -and
-            -not $needDecision.nextReady -and
-            $needDecision.returnAction -eq 1
-        ) "$name : NEEDDECISION did not stop on the intake screen."
+            $questionRefused.verdict -ceq $before.verdict -and
+            $questionRefused.repairId -ceq $before.repairId
+        ) "$name : a refused question must leave the state untouched."
+
+        # ---- and "I cannot settle this" is a refusal like the others ----
         Assert-True (
-            $decisionReturn.screen -eq 4 -and
-            $decisionReturn.quotes -eq 1 -and
-            $decisionReturn.extra -ceq
-                'Apply the requested safe test change.'
-        ) "$name : the decision did not return as an unanswered quote."
+            ([string]$third.text).IndexOf($uncertainWord) -ge 0
+        ) "$name : the screen must name the third verdict too."
+        Assert-True (-not $third.nextReady) `
+            "$name : the third verdict must shut the way as well."
 
         # ---- and a real answer afterwards still finishes the job ----
         Assert-True ([bool]$recovered.verdictGone) `
@@ -258,14 +267,15 @@ try {
     Write-Output 'test-no-change-webview: PASS'
     Write-Output (
         'zero=SCOPE_CLEAR/INSUFFICIENT; verdicts=' +
-        'UNNECESSARY/IMPOSSIBLE/NEEDDECISION; recovery builds')
+        'UNNECESSARY/IMPOSSIBLE/UNCLEAR; questions refused; recovery builds')
 } finally {
     [GC]::Collect()
     [GC]::WaitForPendingFinalizers()
     [GC]::Collect()
     foreach ($folder in $runFolders) {
         if ($folder -and [IO.Directory]::Exists($folder)) {
-            Assert-InsideDirectory $folder $testdataRoot
+            Assert-InsideDirectory $folder (
+                Join-Path $repoRoot 'exports')
             [IO.Directory]::Delete($folder, $true)
         }
     }

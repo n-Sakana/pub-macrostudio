@@ -265,7 +265,8 @@ try {
     [GC]::Collect()
     foreach ($folder in $runFolders) {
         if ($folder -and [IO.Directory]::Exists($folder)) {
-            Assert-InsideDirectory $folder $testdataRoot
+            Assert-InsideDirectory $folder (
+                Join-Path $repoRoot 'exports')
             [IO.Directory]::Delete($folder, $true)
         }
     }
