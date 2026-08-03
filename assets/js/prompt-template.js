@@ -15,6 +15,7 @@
     "CODE_FILE_NAME",
     "TARGET_ENVIRONMENT",
     "OUTSIDE_CODE",
+    "GRADING_BASIS",
     "DIAGNOSIS",
     "SELECTED_FINDINGS"
   ];
@@ -349,6 +350,14 @@
       OUTSIDE_CODE:
         Object.prototype.hasOwnProperty.call(options, "outsideCode")
           ? requireString(options.outsideCode, "Outside code facts")
+          : "",
+      // The criteria a scoring diagnosis grades against, taken from the
+      // repair template of the same entrance. Empty when the entrance
+      // has no single repair template to name, which is also when its
+      // diagnosis template does not ask for one.
+      GRADING_BASIS:
+        Object.prototype.hasOwnProperty.call(options, "gradingBasis")
+          ? requireString(options.gradingBasis, "Grading basis")
           : "",
       DIAGNOSIS:
         Object.prototype.hasOwnProperty.call(options, "diagnosis")

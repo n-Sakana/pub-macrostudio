@@ -139,7 +139,11 @@ var structure = STRUCTURE_FILES.map(function (name) {
   return readUtf8(path.join(jsRoot, name));
 }).join("\n");
 
-["阻害", "不具合", "条件付き", "前提", "補助"].forEach(function (label) {
+// A-D is the app's own reading of a diagnosis, so both meanings of the
+// letters - "does it run" and "is there anything to gain" - must still
+// be spelled out in the app rather than left to a template.
+["支障なし", "要改修", "不明", "改修不可",
+  "直すところは見当たらない", "確認済み", "未確認"].forEach(function (label) {
   assert(structure.indexOf(label) >= 0,
     "The app's own classification must stay in the app: " + label);
 });
@@ -154,7 +158,7 @@ assert(pathMap.indexOf("compileRules") >= 0,
 
 // The shipped template that uses it must be the one carrying them.
 var preset = readUtf8(path.join(
-  root, "presets", "02_改修", "02_固定パスを新環境へ置き換える.md"));
+  root, "presets", "01_マクロ改修", "02_改修", "02_固定パスを新環境へ置き換える.md"));
 
 assert(preset.indexOf("## 置換の候補") >= 0 &&
   preset.indexOf("^[A-Za-z]:[\\\\/]") >= 0,

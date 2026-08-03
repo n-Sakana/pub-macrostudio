@@ -291,17 +291,48 @@ namespace MacroStudio.Tests
 
                     await WaitFor(
                         "MacroStudioState.getState().appInfo !== null");
+                    // Screen 0: what this run is for. Nothing has been
+                    // read yet and nothing may be, so [次へ] is shut
+                    // until one of the entrances is chosen.
                     result.Add("initial", await ReadJson(
                         "({" +
                         "screen:MacroStudioState.getState().screen," +
                         "book:MacroStudioState.getState().book !== null," +
                         "nextReady:!document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled," +
+                        "entrances:document.querySelectorAll(" +
+                        "'[data-action=\"select-entrance\"]').length," +
+                        "diagnosisNotes:document.querySelectorAll(" +
+                        "'.entrance-card .choice-note').length," +
+                        "firstEntrance:document.querySelector(" +
+                        "'[data-action=\"select-entrance\"]')" +
+                        ".getAttribute('data-entrance-folder')," +
                         "visibleEntries:document.querySelectorAll(" +
                         "'[data-action=\"select-mode\"]," +
                         "[data-action=\"select-purpose\"]').length" +
                         "})"));
                     result.Add("startShell", await ReadShell());
+
+                    // This walk is the macro repair: it diagnoses whether
+                    // the workbook runs, and it offers a choice of repair
+                    // template afterwards.
+                    await Execute(
+                        "document.querySelector('[data-entrance-folder=\"" +
+                        "01_マクロ改修\"]').click();");
+                    await WaitFor(
+                        "MacroStudioState.getState().entrance !== null");
+                    result.Add("entranceChosen", await ReadJson(
+                        "({" +
+                        "folder:MacroStudioState.getState().entrance.folder," +
+                        "hasDiagnosis:MacroStudioState.getState()" +
+                        ".entrance.hasDiagnosis," +
+                        "choosesTemplate:MacroStudioState.getState()" +
+                        ".entrance.choosesTemplate," +
+                        "nextReady:!document.querySelector(" +
+                        "'[data-action=\"go-next\"]').disabled" +
+                        "})"));
+                    await Next();
+                    await WaitForScreen(1);
 
                     eventData.Add("path", bookPath);
                     router.PushEvent("bookDropped", eventData);
@@ -321,7 +352,7 @@ namespace MacroStudio.Tests
 
                     await Next();
                     await WaitFor(
-                        "MacroStudioState.getState().screen === 1 && " +
+                        "MacroStudioState.getState().screen === 2 && " +
                         "MacroStudioState.getState().diagnosisRequestId !== null && " +
                         "MacroStudioState.getState().targetEnvironment !== null && " +
                         "MacroStudioState.getState().busyAction === null");
@@ -372,7 +403,7 @@ namespace MacroStudio.Tests
                     await WaitFor(
                         "document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled");
-                    await WaitForScreen(1);
+                    await WaitForScreen(2);
 
                     string marker = "'@MACROSTUDIO " + diagnosisId + " ";
                     string diagnosisResponse;
@@ -425,7 +456,7 @@ namespace MacroStudio.Tests
                         "The finding is based on the attached source.\r\n" +
                         marker + "SECTION END ENVIRONMENT\r\n" +
                         marker + "FINDING BEGIN 1\r\n" +
-                        marker + "META CLASS=DEFECT CONFIDENCE=CONFIRMED " +
+                        marker + "META GRADE=B CONFIDENCE=CONFIRMED " +
                         "MODULE=" + firstModule + " PROC=- LINES=1 " +
                         "ENVKEY=" + envKey + "\r\n" +
                         marker + "TEXT BEGIN TITLE\r\n" +
@@ -465,7 +496,7 @@ namespace MacroStudio.Tests
                         "})"));
 
                     await Next();
-                    await WaitForScreen(2);
+                    await WaitForScreen(3);
                     result.Add("findings", await ReadJson(
                         "({" +
                         "screen:MacroStudioState.getState().screen," +
@@ -484,7 +515,7 @@ namespace MacroStudio.Tests
                     // Reading the diagnosis and choosing the work are two
                     // pages now.
                     await Next();
-                    await WaitForScreen(3);
+                    await WaitForScreen(4);
                     await WaitFor(
                         "document.querySelector(" +
                         "'[data-action=\"select-repair-preset\"]') !== null");
@@ -524,8 +555,8 @@ namespace MacroStudio.Tests
                     await Execute(
                         "(function(){" +
                         "var state=MacroStudioState.getState();" +
-                        "var entries=MacroStudioPreset.describeAll(" +
-                        "state.appInfo.presets.repair,'repair');" +
+                        // The templates on offer are the entrance's own.
+                        "var entries=state.entrance.repair;" +
                         // With the table, the one that asks for it;
                         // without, the first that asks the chat instead.
                         "var wanted=entries.filter(function(entry){" +
@@ -551,7 +582,7 @@ namespace MacroStudio.Tests
                         "})"));
 
                     await Next();
-                    await WaitForScreen(4);
+                    await WaitForScreen(5);
                     if (pathMap)
                     {
                         result.Add("pathMapInitial", await ReadJson(
@@ -613,7 +644,7 @@ namespace MacroStudio.Tests
                             "'[data-action=\"go-next\"]').disabled};}())"));
                         await Next();
                         await WaitFor(
-                            "MacroStudioState.getState().screen === 6 && " +
+                            "MacroStudioState.getState().screen === 7 && " +
                             "MacroStudioState.getState().intakeResult && " +
                             "MacroStudioState.getState().intakeResult" +
                             ".mapping.rows.length === 1");
@@ -661,7 +692,7 @@ namespace MacroStudio.Tests
 
                     await Next();
                     await WaitFor(
-                        "MacroStudioState.getState().screen === 5 && " +
+                        "MacroStudioState.getState().screen === 6 && " +
                         "MacroStudioState.getState().repairRequestId !== null && " +
                         "MacroStudioState.getState().busyAction === null");
                     repairId = serializer.Deserialize<string>(
@@ -719,7 +750,7 @@ namespace MacroStudio.Tests
                     await WaitFor(
                         "document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled");
-                    await WaitForScreen(5);
+                    await WaitForScreen(6);
                     await SetClipboardAfterHandoff(
                         "not a MacroStudio answer");
                     await Execute(
@@ -778,7 +809,7 @@ namespace MacroStudio.Tests
                         "})"));
 
                     await Next();
-                    await WaitForScreen(6);
+                    await WaitForScreen(7);
                     }
                     result.Add("review", await ReadJson(
                         "({" +
@@ -829,7 +860,7 @@ namespace MacroStudio.Tests
                     await Capture(darkScreenshot, true);
 
                     await Next();
-                    await WaitForScreen(7);
+                    await WaitForScreen(8);
                     result.Add("output", await ReadJson(
                         "({" +
                         "screen:MacroStudioState.getState().screen," +
@@ -847,7 +878,7 @@ namespace MacroStudio.Tests
 
                     await Next();
                     await WaitFor(
-                        "MacroStudioState.getState().screen === 9 && " +
+                        "MacroStudioState.getState().screen === 10 && " +
                         "MacroStudioState.getState().busyAction === null");
                     result.Add("done", await ReadJson(
                         "({" +
@@ -1235,8 +1266,19 @@ namespace MacroStudio.Tests
                     }
                     await Task.Delay(50);
                 }
+                // A condition that never came true is nearly always a
+                // screen that did not arrive or an error that was shown
+                // and not read, so say which screen and which error.
                 throw new TimeoutException(
-                    "The flow condition timed out: " + expression);
+                    "The flow condition timed out: " + expression +
+                    " | state=" + await ReadJson(
+                        "JSON.stringify({" +
+                        "screen:MacroStudioState.getState().screen," +
+                        "busy:MacroStudioState.getState().busyAction," +
+                        "actions:Array.prototype.map.call(" +
+                        "document.querySelectorAll('[data-action]')," +
+                        "function(n){return n.getAttribute('data-action');})," +
+                        "error:MacroStudioState.getState().lastError})"));
             }
 
             private void OnTimeout(object sender, EventArgs e)

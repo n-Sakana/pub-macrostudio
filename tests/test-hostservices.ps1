@@ -419,19 +419,36 @@ Assert-True ($lockErrorCode -eq 'E-ATTACH-02') `
 
 $tempBase = Join-Path $testdataRoot (
     'p3-host-' + [Guid]::NewGuid().ToString('N'))
+# Every folder directly under presets is one entrance, holding its own
+# name file and its own two stages. The host reports what is on disk and
+# reads none of it, so this builds the shape and checks the report.
 $presetRoot = Join-Path $tempBase 'presets'
+$entranceFolderName = '01_' + [char]0x5165 + [char]0x53E3 + 'A'
+$secondEntranceFolderName = '02_' + [char]0x5165 + [char]0x53E3 + 'B'
+$entranceFileName = [string][char]0x5165 + [char]0x53E3 + '.md'
 $diagnoseFolderName = '01_' + [char]0x8A3A + [char]0x65AD
 $repairFolderName = '02_' + [char]0x6539 + [char]0x4FEE
-$diagnosePresetRoot = Join-Path $presetRoot $diagnoseFolderName
-$repairPresetRoot = Join-Path $presetRoot $repairFolderName
+$entranceRoot = Join-Path $presetRoot $entranceFolderName
+$secondEntranceRoot = Join-Path $presetRoot $secondEntranceFolderName
+$diagnosePresetRoot = Join-Path $entranceRoot $diagnoseFolderName
+$repairPresetRoot = Join-Path $entranceRoot $repairFolderName
+# Paths as the host reports them: relative to presets, entrance first.
+$diagnoseRelative = Join-Path $entranceFolderName $diagnoseFolderName
+$repairRelative = Join-Path $entranceFolderName $repairFolderName
 $templateRoot = Join-Path $tempBase 'templates'
 $messageRoot = Join-Path $tempBase 'assets\messages'
 Assert-InsideDirectory $tempBase $testdataRoot
 [IO.Directory]::CreateDirectory($presetRoot) | Out-Null
+[IO.Directory]::CreateDirectory($entranceRoot) | Out-Null
+[IO.Directory]::CreateDirectory($secondEntranceRoot) | Out-Null
 [IO.Directory]::CreateDirectory($diagnosePresetRoot) | Out-Null
 [IO.Directory]::CreateDirectory($repairPresetRoot) | Out-Null
 [IO.Directory]::CreateDirectory($templateRoot) | Out-Null
 [IO.Directory]::CreateDirectory($messageRoot) | Out-Null
+[IO.File]::WriteAllText(
+    (Join-Path $entranceRoot $entranceFileName),
+    'entrance A',
+    (New-Object Text.UTF8Encoding($true)))
 [IO.File]::Copy(
     (Join-Path $repoRoot 'assets\messages\build-file-label.txt'),
     (Join-Path $messageRoot 'build-file-label.txt'))
@@ -464,19 +481,45 @@ $diagnoseTemplatePath = Join-Path $templateRoot 'diagnose-template.txt'
 try {
     $presetService = New-Object MacroStudio.HostServices($null, $tempBase)
     $presetInfo = $presetService.GetAppInfo()
-    $diagnosePresets = @($presetInfo['presets']['diagnose'])
-    $repairPresets = @($presetInfo['presets']['repair'])
+    $entrances = @($presetInfo['presets']['entrances'])
+    # Every folder under presets is reported, in folder order, whatever
+    # it happens to hold.
+    Assert-True ($entrances.Count -eq 2) `
+        ('Entrance count mismatch: ' + $entrances.Count)
+    Assert-True (
+        $entrances[0]['folder'] -ceq $entranceFolderName -and
+        $entrances[1]['folder'] -ceq $secondEntranceFolderName) `
+        'Entrance order mismatch.'
+    Assert-True (
+        $entrances[0]['entrance']['content'] -ceq 'entrance A' -and
+        $entrances[0]['entrance']['file'] -eq
+            (Join-Path $entranceFolderName $entranceFileName)) `
+        'The entrance file must be carried with its folder.'
+    # A folder with nothing in it is still an entrance. What that means
+    # for a run is the UI's reading of what the folder holds; the host
+    # only reports what is there.
+    Assert-True (
+        $null -eq $entrances[1]['entrance'] -and
+        $entrances[1]['hasDiagnoseFolder'] -eq $false -and
+        @($entrances[1]['diagnose']).Count -eq 0 -and
+        @($entrances[1]['repair']).Count -eq 0) `
+        'An empty entrance folder must be reported as empty, not dropped.'
+    Assert-True ($entrances[0]['hasDiagnoseFolder'] -eq $true) `
+        'A present diagnosis folder must be reported as present.'
+
+    $diagnosePresets = @($entrances[0]['diagnose'])
+    $repairPresets = @($entrances[0]['repair'])
     Assert-True (
         $diagnosePresets.Count -eq 1 -and
         $repairPresets.Count -eq 2) `
         'Grouped preset count mismatch.'
     Assert-True (
         $diagnosePresets[0]['file'] -eq
-            (Join-Path $diagnoseFolderName '01_D.md')) `
+            (Join-Path $diagnoseRelative '01_D.md')) `
         'Diagnosis preset path mismatch.'
     Assert-True (
         $repairPresets[0]['file'] -eq
-            (Join-Path $repairFolderName 'A.md')) `
+            (Join-Path $repairRelative 'A.md')) `
         'Preset sort order mismatch.'
     # The host carries the markdown text; the UI parses it. No preset
     # name is computed here.
@@ -490,7 +533,7 @@ try {
         'GetAppInfo must return the markdown of every preset.'
     Assert-True (
         $presetService.ReadPreset(
-            (Join-Path $repairFolderName 'A.md'))['content'] -eq 'first') `
+            (Join-Path $repairRelative 'A.md'))['content'] -eq 'first') `
         'Preset content mismatch.'
 
     # The card order is the file name order, with a leading number read as
@@ -503,14 +546,14 @@ try {
             (New-Object Text.UTF8Encoding($false)))
     }
     $numberedFiles = @(
-        $presetService.GetAppInfo()['presets']['repair'] |
+        @($presetService.GetAppInfo()['presets']['entrances'])[0]['repair'] |
         ForEach-Object { $_['file'] })
     Assert-True (
         ($numberedFiles -join '|') -ceq (
-            (Join-Path $repairFolderName '2_two.md') + '|' +
-            (Join-Path $repairFolderName '10_ten.md') + '|' +
-            (Join-Path $repairFolderName 'A.md') + '|' +
-            (Join-Path $repairFolderName 'b.md'))) `
+            (Join-Path $repairRelative '2_two.md') + '|' +
+            (Join-Path $repairRelative '10_ten.md') + '|' +
+            (Join-Path $repairRelative 'A.md') + '|' +
+            (Join-Path $repairRelative 'b.md'))) `
         ('Preset order mismatch: ' + ($numberedFiles -join '|'))
     [IO.File]::Delete((Join-Path $repairPresetRoot '2_two.md'))
     [IO.File]::Delete((Join-Path $repairPresetRoot '10_ten.md'))
@@ -526,17 +569,17 @@ try {
         'not a preset',
         (New-Object Text.UTF8Encoding($true)))
     $addedInfo = $presetService.GetAppInfo()
-    Assert-True ($addedInfo['presets']['repair'].Count -eq 3) `
+    Assert-True (@($addedInfo['presets']['entrances'])[0]['repair'].Count -eq 3) `
         'An added preset file was not discovered.'
     Assert-True (
-        @($addedInfo['presets']['repair'] |
+        @(@($addedInfo['presets']['entrances'])[0]['repair'] |
             ForEach-Object { $_['file'] }) -contains
-                (Join-Path $repairFolderName 'c.md')) `
+                (Join-Path $repairRelative 'c.md')) `
         'The added preset is missing from the list.'
     Assert-True (
-        -not (@($addedInfo['presets']['repair'] |
+        -not (@(@($addedInfo['presets']['entrances'])[0]['repair'] |
             ForEach-Object { $_['file'] }) -contains
-                (Join-Path $repairFolderName 'notes.txt'))) `
+                (Join-Path $repairRelative 'notes.txt'))) `
         'A non-markdown file must not become a preset.'
 
     [IO.File]::Move(
@@ -547,18 +590,18 @@ try {
         'edited',
         (New-Object Text.UTF8Encoding($true)))
     $renamedInfo = $presetService.GetAppInfo()
-    $renamedFiles = @($renamedInfo['presets']['repair'] |
+    $renamedFiles = @(@($renamedInfo['presets']['entrances'])[0]['repair'] |
         ForEach-Object { $_['file'] })
     Assert-True (
         ($renamedFiles -contains
-            (Join-Path $repairFolderName 'renamed.md')) -and
+            (Join-Path $repairRelative 'renamed.md')) -and
         -not ($renamedFiles -contains
-            (Join-Path $repairFolderName 'c.md'))) `
+            (Join-Path $repairRelative 'c.md'))) `
         'A renamed preset file was not rediscovered.'
     Assert-True (
-        @($renamedInfo['presets']['repair'] |
+        @(@($renamedInfo['presets']['entrances'])[0]['repair'] |
             Where-Object {
-                $_['file'] -eq (Join-Path $repairFolderName 'b.md')
+                $_['file'] -eq (Join-Path $repairRelative 'b.md')
             })[0]['content'] -ceq
         'edited') `
         'An edited preset was not read again.'
@@ -566,7 +609,7 @@ try {
     [IO.File]::Delete((Join-Path $repairPresetRoot 'renamed.md'))
     [IO.File]::Delete((Join-Path $repairPresetRoot 'notes.txt'))
     Assert-True (
-        $presetService.GetAppInfo()['presets']['repair'].Count -eq 2) `
+        @($presetService.GetAppInfo()['presets']['entrances'])[0]['repair'].Count -eq 2) `
         'A deleted preset file is still listed.'
     Assert-True (
         $presetService.ReadRequestTemplate(
@@ -637,7 +680,7 @@ try {
     $presetEncodingUserMessage = ''
     try {
         $presetService.ReadPreset(
-            (Join-Path $repairFolderName 'invalid-encoding.md'))
+            (Join-Path $repairRelative 'invalid-encoding.md'))
     } catch [MacroStudio.HostActionException] {
         $presetEncodingErrorCode = $_.Exception.ErrorCode
         $presetEncodingMessage = $_.Exception.Message
@@ -658,10 +701,10 @@ try {
     # A file the host cannot decode stays visible in the list, marked
     # as unreadable, so the mistake is not silently hidden.
     $encodingEntry = @(
-        $presetService.GetAppInfo()['presets']['repair'] |
+        @($presetService.GetAppInfo()['presets']['entrances'])[0]['repair'] |
         Where-Object {
             $_['file'] -eq
-                (Join-Path $repairFolderName 'invalid-encoding.md')
+                (Join-Path $repairRelative 'invalid-encoding.md')
         })
     Assert-True ($encodingEntry.Count -eq 1) `
         'An unreadable preset disappeared from the list.'

@@ -285,11 +285,28 @@ namespace MacroStudio.Tests
             private async Task StartOver()
             {
                 await Execute("MacroStudioState.reset();");
-                await Execute(
-                    "window.hostBridge.request('getAppInfo').then(" +
-                    "function(info){MacroStudioState.setAppInfo(info);});");
+                // The app's own rediscovery: the raw folder listing is
+                // described before it is stored, which is what puts the
+                // entrances on the first screen.
+                await Execute("MacroStudioApp.loadAppInfo();");
+                await ChooseMacroRepair();
+            }
+
+            // The run says what it is for before it reads anything. This
+            // walk is about the repair input, so it takes the entrance
+            // that diagnoses and then offers a choice of template.
+            private async Task ChooseMacroRepair()
+            {
                 await WaitFor(
                     "MacroStudioState.getState().appInfo !== null && " +
+                    "document.querySelector('[data-entrance-folder=" +
+                    "\"01_マクロ改修\"]') !== null");
+                await Execute(
+                    "document.querySelector('[data-entrance-folder=" +
+                    "\"01_マクロ改修\"]').click();");
+                await ClickNext();
+                await WaitFor(
+                    "MacroStudioState.getState().entrance !== null && " +
                     "MacroStudioState.getState().screen === " +
                     "MacroStudioScreens.bookScreen");
             }
@@ -337,8 +354,8 @@ namespace MacroStudio.Tests
                 await Execute(
                     "(function(){" +
                     "var state=MacroStudioState.getState();" +
-                    "var entries=MacroStudioPreset.describeAll(" +
-                    "state.appInfo.presets.repair,'repair');" +
+                    // The templates on offer are the entrance's own.
+                    "var entries=state.entrance.repair;" +
                     "var target=entries.filter(function(entry){" +
                     "return entry.valid&&" +
                     (fixedPath
@@ -376,7 +393,7 @@ namespace MacroStudio.Tests
                         : "var module=state.modules.filter(function(item){" +
                           "return Number(item.lineCount)>0;})[0];" +
                           "lines.push(marker+'FINDING BEGIN 1');" +
-                          "lines.push(marker+'META CLASS=DEFECT ' +" +
+                          "lines.push(marker+'META GRADE=B ' +" +
                           "'CONFIDENCE=CONFIRMED MODULE='+module.name+" +
                           "' PROC=- LINES=1 ENVKEY=-');" +
                           "['TITLE','CONDITION','IMPACT','EVIDENCE']" +

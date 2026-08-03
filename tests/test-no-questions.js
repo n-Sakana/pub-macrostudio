@@ -155,14 +155,38 @@ expectQuestionRefused([].concat(
 
 // ---- the request says so, in every template that sends one ----
 
-["01_Win32 API を使わない形へ直す.md",
-  "03_OSや外部プログラムへの依存を減らす.md",
-  "04_新しい保存先で成り立つファイル操作へ直す.md",
-  "05_VBAリファクター（動きを変えずに整理・改善する）.md",
-  "06_自分で改修内容を書く.md"].forEach(function (name) {
-  var parsed = presets.parse(
-    readUtf8(path.join(root, "presets", "02_改修", name)),
-    "repair");
+// Every repair template of every entrance, wherever it lives. The rule
+// is about what goes out to a chat, so a new entrance cannot quietly
+// escape it by having its own folder.
+var repairTemplates = fs.readdirSync(path.join(root, "presets"))
+  .filter(function (entrance) {
+    return fs.statSync(
+      path.join(root, "presets", entrance)).isDirectory();
+  }).reduce(function (all, entrance) {
+    var dir = path.join(root, "presets", entrance, "02_改修");
+
+    if (!fs.existsSync(dir)) {
+      return all;
+    }
+    return all.concat(fs.readdirSync(dir).filter(function (name) {
+      return /\.md$/.test(name);
+    }).map(function (name) {
+      return {label: entrance + "\\" + name, path: path.join(dir, name)};
+    }));
+  }, []);
+
+assert(repairTemplates.length >= 5,
+  "The scan found almost no repair templates: " + repairTemplates.length);
+
+repairTemplates.forEach(function (template) {
+  var name = template.label;
+  var parsed = presets.parse(readUtf8(template.path), "repair");
+
+  if (parsed.replaceRules) {
+    // A template that only asks for the replacement table sends nothing
+    // to a chat, so it has no output contract to check.
+    return;
+  }
 
   assert(parsed.valid, name + " must parse.");
   [parsed.output, parsed.splitOutput].forEach(function (rules) {

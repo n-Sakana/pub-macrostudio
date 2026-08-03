@@ -600,11 +600,23 @@ namespace MacroStudio.Tests
             private async Task StartOver()
             {
                 await Execute("MacroStudioState.reset();");
-                await Execute(
-                    "window.hostBridge.request('getAppInfo').then(" +
-                    "function(info){MacroStudioState.setAppInfo(info);});");
+                // The app's own rediscovery: the raw folder listing is
+                // described before it is stored, which is what puts the
+                // entrances on the first screen.
+                await Execute("MacroStudioApp.loadAppInfo();");
+                // The run says what it is for before it reads anything.
+                // A declared "no change" answer is a macro repair that
+                // turned out to need none, so this is that entrance.
                 await WaitFor(
                     "MacroStudioState.getState().appInfo !== null && " +
+                    "document.querySelector('[data-entrance-folder=" +
+                    "\"01_マクロ改修\"]') !== null");
+                await Execute(
+                    "document.querySelector('[data-entrance-folder=" +
+                    "\"01_マクロ改修\"]').click();");
+                await ClickNext();
+                await WaitFor(
+                    "MacroStudioState.getState().entrance !== null && " +
                     "MacroStudioState.getState().screen === " +
                     "MacroStudioScreens.bookScreen");
             }

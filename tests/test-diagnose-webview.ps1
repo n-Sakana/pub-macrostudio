@@ -148,7 +148,7 @@ try {
         Assert-True ($shell.buttons -eq 2 -and $shell.sameWidth) `
             'The footer must keep two same-width navigation buttons.'
         Assert-True ($shell.progressSlots -eq 4) `
-            'The one entrance must keep four major progress columns.'
+            'Every entrance must keep four major progress columns.'
     }
 
     Assert-True (
@@ -156,15 +156,15 @@ try {
         -not $initial.book -and
         -not $initial.nextReady -and
         $initial.visibleEntries -eq 0
-    ) 'The product must open on the single workbook entrance.'
+    ) 'The product must open on the choice of work.'
     Assert-True (
-        $book.screen -eq 0 -and
+        $book.screen -eq 1 -and
         $book.modules -gt 0 -and
         $book.nextReady -and
         $book.readDisclosure -eq 1
-    ) 'Attaching a workbook must expose only observed read facts.'
+    ) 'Attaching a workbook must stay on the workbook screen and expose only observed read facts.'
     Assert-True (
-        $diagnoseRequest.screen -eq 1 -and
+        $diagnoseRequest.screen -eq 2 -and
         $diagnoseRequest.environment -eq 1 -and
         $diagnoseRequest.copy -eq 1 -and
         $diagnoseRequest.open -eq 1 -and
@@ -174,14 +174,14 @@ try {
     Assert-True ($result.diagnosisPromptReady) `
         'The first prompt must carry its id and source-code.md.'
     Assert-True (
-        $diagnosis.screen -eq 1 -and
+        $diagnosis.screen -eq 2 -and
         $diagnosis.findings -eq 1 -and
         $diagnosis.version -eq 1 -and
         $diagnosis.recorded -and
         $diagnosis.nextReady
     ) 'The product parser must accept and record a factual diagnosis.'
     Assert-True (
-        $findings.screen -eq 2 -and
+        $findings.screen -eq 3 -and
         $findings.findingRows -eq 1 -and
         $findings.occurrenceRows -eq 1 -and
         $findings.presetCards -eq 0 -and
@@ -189,8 +189,8 @@ try {
         $findings.nextReady
     ) 'The diagnosis page must show the facts and no template at all.'
     Assert-True (
-        $nextStep.screen -eq 3 -and
-        $nextStep.presetCards -eq 6 -and
+        $nextStep.screen -eq 4 -and
+        $nextStep.presetCards -eq 5 -and
         ([string]$nextStep.firstCard).Contains('01_Win32') -and
         -not $nextStep.nextReady
     ) 'The choice page must offer the templates in the fixed order.'
@@ -200,7 +200,7 @@ try {
         $preset.nextReady
     ) 'A visible repair template must select the AI dispatch.'
     Assert-True (
-        $repairInputEmpty.screen -eq 4 -and
+        $repairInputEmpty.screen -eq 5 -and
         $repairInputEmpty.findingChecks -eq 1 -and
         $repairInputEmpty.preselected -eq 1 -and
         $repairInputEmpty.removedForms -eq 0 -and
@@ -212,7 +212,7 @@ try {
     Assert-True (
         $diagnosisId -match '^[0-9a-f-]{36}$' -and
         $repairId -match '^[0-9a-f-]{36}$' -and
-        $repairRequest.screen -eq 5 -and
+        $repairRequest.screen -eq 6 -and
         $repairRequest.copy -eq 1 -and
         $repairRequest.requestFile -and
         -not $repairRequest.nextReady

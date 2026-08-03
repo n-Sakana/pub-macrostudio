@@ -160,8 +160,9 @@ var flowContext = vm.createContext({
   Uint8Array: Uint8Array
 });
 flowWindow.window = flowWindow;
-["response-package.js", "diagnosis-package.js", "vba-lexer.js",
-  "path-map.js", "screens.js", "state.js"].forEach(function (name) {
+["preset-document.js", "response-package.js", "diagnosis-package.js",
+  "vba-lexer.js", "path-map.js", "screens.js",
+  "state.js"].forEach(function (name) {
   vm.runInContext(readUtf8(path.join(root, "assets", "js", name)),
     flowContext, {filename: name});
 });
@@ -170,6 +171,13 @@ var store = flowWindow.MacroStudioState;
 var screens = flowWindow.MacroStudioScreens;
 
 var WORK = "C:" + String.fromCharCode(92) + "work" + String.fromCharCode(92);
+
+// The run has to say what it is for before it reads anything: this is a
+// macro repair, so it diagnoses whether the workbook runs.
+store.setEntrance(require("./helpers/contracts").entrance(
+  flowWindow.MacroStudioPreset, "01_マクロ改修"));
+assert(store.goNext() && store.getState().screen === screens.bookScreen,
+  "Choosing the work leads to the workbook.");
 
 store.setBook({
   name: "S01_fixed_drive.xlsm",

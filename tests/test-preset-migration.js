@@ -45,33 +45,41 @@ function flatten(text) {
 
 // Both lists are discovered from their folders. Folder membership is the
 // stage; preset content is not allowed to declare a purpose of its own.
+// The stage folders sit under an entrance folder, so the walk
+// is one level deeper - and every entrance is included, because these
+// rules are about what goes out to a chat and none of them is excused
+// by living behind a different entrance.
 var presetDir = path.join(root, "presets");
-var diagnosisDir = path.join(presetDir, "01_診断");
-var repairDir = path.join(presetDir, "02_改修");
 
-function readGroup(directory, folderName) {
-  if (!fs.existsSync(directory)) {
-    return [];
-  }
-  return fs.readdirSync(directory).filter(function (name) {
-    return path.extname(name).toLowerCase() === ".md";
-  }).sort().map(function (name) {
-    return {
-      file: path.join(folderName, name),
-      content: readUtf8(path.join(directory, name))
-    };
-  });
+function readGroup(stageFolder) {
+  return fs.readdirSync(presetDir).filter(function (entrance) {
+    return fs.statSync(path.join(presetDir, entrance)).isDirectory();
+  }).sort().reduce(function (all, entrance) {
+    var directory = path.join(presetDir, entrance, stageFolder);
+
+    if (!fs.existsSync(directory)) {
+      return all;
+    }
+    return all.concat(fs.readdirSync(directory).filter(function (name) {
+      return path.extname(name).toLowerCase() === ".md";
+    }).sort().map(function (name) {
+      return {
+        file: path.join(entrance, stageFolder, name),
+        content: readUtf8(path.join(directory, name))
+      };
+    }));
+  }, []);
 }
 
-var diagnosisPresets = readGroup(diagnosisDir, "01_診断");
-var repairPresets = readGroup(repairDir, "02_改修");
+var diagnosisPresets = readGroup("01_診断");
+var repairPresets = readGroup("02_改修");
 var presets = diagnosisPresets.concat(repairPresets);
 var template = readUtf8(
   path.join(root, "templates", "request-template.txt"));
 
 assert(
-  diagnosisPresets.length === 1 && repairPresets.length === 6,
-  "The shipped folders must contain one diagnosis and six repair presets.");
+  diagnosisPresets.length === 2 && repairPresets.length === 7,
+  "The shipped folders must contain two diagnosis and seven repair presets.");
 
 // ---- every shipped preset is a self-contained request ----
 
@@ -110,15 +118,15 @@ var pathEntries = repairEntries.filter(function (entry) {
 });
 
 assert(
-  diagnoseEntries.length === 1 &&
+  diagnoseEntries.length === 2 &&
     diagnoseEntries[0].stage === "diagnose" &&
     repairEntries.every(function (entry) {
       return entry.stage === "repair";
     }),
   "Folder membership must be the only source of the preset stage.");
 assert(
-  refactorEntries.length === 5 && pathEntries.length === 1,
-  "Repair presets must expose five chat routes and one that asks for " +
+  refactorEntries.length === 6 && pathEntries.length === 1,
+  "Repair presets must expose six chat routes and one that asks for " +
     "the replacement table.");
 assert(
   pathEntries[0].instruction === null && pathEntries[0].output === null,

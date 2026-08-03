@@ -85,7 +85,7 @@ var DIAGNOSE_TEMPLATE = readUtf8(
   path.join(root, "templates", "diagnose-template.txt"));
 
 var DIAGNOSE_PRESET = readUtf8(
-  path.join(root, "presets", "01_診断", "01_動作環境の事実監査.md"));
+  path.join(root, "presets", "01_マクロ改修", "01_診断", "01_動くかどうかの監査.md"));
 
 var AI_PRESET = [
   "# テスト用ひな形",
@@ -146,9 +146,9 @@ var MODULE_CODE = [
 ].join("\r\n");
 
 var presetEntries = [
-  {file: "02_改修\\90_test.md", name: "テスト用ひな形", content: AI_PRESET},
-  {file: "02_改修\\91_table.md", name: "置き換えのひな形", content: TABLE_PRESET},
-  {file: "02_改修\\92_writein.md", name: "自分で書く", content: WRITE_IN_PRESET}
+  {file: "01_マクロ改修\\\\02_改修\\\\90_test.md", name: "テスト用ひな形", content: AI_PRESET},
+  {file: "01_マクロ改修\\\\02_改修\\\\91_table.md", name: "置き換えのひな形", content: TABLE_PRESET},
+  {file: "01_マクロ改修\\\\02_改修\\\\92_writein.md", name: "自分で書く", content: WRITE_IN_PRESET}
 ];
 
 windowObject.hostBridge = {
@@ -309,7 +309,7 @@ function attach() {
 }
 
 function chooseAiPreset() {
-  return workflow.selectRepairPreset("02_改修\\90_test.md");
+  return workflow.selectRepairPreset("01_マクロ改修\\\\02_改修\\\\90_test.md");
 }
 
 function replyText(requestId, body) {
@@ -408,7 +408,7 @@ return chooseAiPreset().then(function () {
   // the replacement table: redo after correcting a value
   // -------------------------------------------------------------------
   attach();
-  return workflow.selectRepairPreset("02_改修\\91_table.md");
+  return workflow.selectRepairPreset("01_マクロ改修\\\\02_改修\\\\91_table.md");
 }).then(function () {
   var state = store.getState();
   var row;
@@ -524,7 +524,7 @@ return chooseAiPreset().then(function () {
   // a template that says it wants a write-in field gets one by name
   // -------------------------------------------------------------------
   attach();
-  return workflow.selectRepairPreset("02_改修\\92_writein.md");
+  return workflow.selectRepairPreset("01_マクロ改修\\\\02_改修\\\\92_writein.md");
 }).then(function () {
   var parsed = windowObject.MacroStudioPreset.parse(WRITE_IN_PRESET, "repair");
   var screen;

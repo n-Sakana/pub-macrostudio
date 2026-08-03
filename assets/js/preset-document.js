@@ -22,6 +22,16 @@
   // out a field with that label; it does not decide which template
   // needs one.
   var WRITE_IN_TITLE = "記入欄";
+  // What a diagnosis reply looks like. The app holds neither the section
+  // names nor the shape: a template that asks a different question needs
+  // a different answer, and only the template knows which question it
+  // asked. 指摘型 returns findings; 採点型 returns one grade and prose.
+  var SHAPE_TITLE = "返す形";
+  var SECTIONS_TITLE = "返す節";
+  var SHAPES = {
+    "指摘型": "findings",
+    "採点型": "grade"
+  };
   var SECTION_TITLES = [INSTRUCTION_TITLE, OUTPUT_TITLE];
   var OPTIONAL_SECTION_TITLES = [
     QUESTION_TITLE,
@@ -32,11 +42,18 @@
     BEHAVIOR_CANDIDATES_TITLE,
     PRESERVE_TITLE,
     RECOMMEND_TITLE,
-    WRITE_IN_TITLE
+    WRITE_IN_TITLE,
+    SHAPE_TITLE,
+    SECTIONS_TITLE
   ];
+  // An entrance is one folder with one small file that names it. It has
+  // no instruction and no output rules because it speaks to nobody: what
+  // the entrance does is decided by what its folder contains.
+  var ENTRANCE_SECTION_TITLES = [DESCRIPTION_TITLE];
   var STAGES = {
     diagnose: "diagnose",
-    repair: "repair"
+    repair: "repair",
+    entrance: "entrance"
   };
 
   var MESSAGES = {
@@ -90,6 +107,15 @@
       "「## {title}」は改修ひな形だけで使えます。",
     diagnoseOnlySection:
       "「## {title}」は診断ひな形だけで使えます。",
+    entranceOnlyDescription:
+      "入口のファイルには「## " + DESCRIPTION_TITLE +
+      "」だけを書いてください。ほかの見出しは使えません: ## {title}",
+    unknownShape:
+      "「## " + SHAPE_TITLE +
+      "」は「指摘型」か「採点型」のどちらかにしてください: {title}",
+    emptyReturnSections:
+      "「## " + SECTIONS_TITLE +
+      "」に節がありません。「- 節の名前」の形で書いてください。",
     wrongRepairSplit:
       "改修ひな形では「## " + SPLIT_OUTPUT_TITLE +
       "」を使ってください。「## " + SPLIT_DIAGNOSIS_OUTPUT_TITLE +
@@ -222,6 +248,8 @@
       preserveItems: [],
       recommendKeys: [],
       writeIn: null,
+      shape: null,
+      returnSections: [],
       instruction: null,
       output: null,
       splitOutput: null,
@@ -405,7 +433,8 @@
     var rules;
     var result;
 
-    if (stage !== STAGES.diagnose && stage !== STAGES.repair) {
+    if (stage !== STAGES.diagnose && stage !== STAGES.repair &&
+        stage !== STAGES.entrance) {
       return failure(MESSAGES.unknownStage, stage);
     }
     if (typeof content !== "string" || trimSpace(content) === "") {
@@ -449,7 +478,13 @@
           if (title === MODE_TITLE) {
             return failure(MESSAGES.obsoleteMode, stage);
           }
-          if (SECTION_TITLES.indexOf(title) < 0 &&
+          if (stage === STAGES.entrance) {
+            if (ENTRANCE_SECTION_TITLES.indexOf(title) < 0) {
+              return failure(format(
+                MESSAGES.entranceOnlyDescription,
+                title === "" ? "（名前なし）" : title), stage);
+            }
+          } else if (SECTION_TITLES.indexOf(title) < 0 &&
               OPTIONAL_SECTION_TITLES.indexOf(title) < 0) {
             return failure(format(
               MESSAGES.unknownSection,
@@ -493,6 +528,8 @@
       preserveItems: [],
       recommendKeys: [],
       writeIn: null,
+      shape: null,
+      returnSections: [],
       instruction: null,
       output: null,
       splitOutput: null,
@@ -516,6 +553,32 @@
         return failure(MESSAGES.manyDescriptions, stage);
       }
       result.description = joinWrappedLines(paragraphs[0]);
+    }
+    // What the reply looks like, and which sections it carries. Both are
+    // the diagnosis template's own business: the app validates the shape
+    // it is handed and does not know what PURPOSE or REASON mean.
+    if (Object.prototype.hasOwnProperty.call(sections, SHAPE_TITLE)) {
+      if (stage !== STAGES.diagnose) {
+        return failure(format(
+          MESSAGES.diagnoseOnlySection,
+          SHAPE_TITLE), stage);
+      }
+      body = joinBody(sections[SHAPE_TITLE]).split(CRLF)[0];
+      if (!Object.prototype.hasOwnProperty.call(SHAPES, body)) {
+        return failure(format(MESSAGES.unknownShape, body), stage);
+      }
+      result.shape = SHAPES[body];
+    }
+    if (Object.prototype.hasOwnProperty.call(sections, SECTIONS_TITLE)) {
+      if (stage !== STAGES.diagnose) {
+        return failure(format(
+          MESSAGES.diagnoseOnlySection,
+          SECTIONS_TITLE), stage);
+      }
+      result.returnSections = readSimpleList(sections[SECTIONS_TITLE]);
+      if (result.returnSections === null) {
+        return failure(MESSAGES.emptyReturnSections, stage);
+      }
     }
     if (Object.prototype.hasOwnProperty.call(sections, QUESTION_TITLE)) {
       result.questions = readQuestions(sections[QUESTION_TITLE]);
@@ -634,6 +697,23 @@
       };
     }
 
+    // An entrance names itself and says one line about what it is for.
+    // Everything else about it is decided by what its folder contains.
+    if (stage === STAGES.entrance) {
+      if (result.description === "") {
+        return failure(format(
+          MESSAGES.missingSection,
+          DESCRIPTION_TITLE), stage);
+      }
+      if (hasText(beforeName)) {
+        return failure(MESSAGES.textBeforeName, stage);
+      }
+      if (hasText(outside)) {
+        return failure(MESSAGES.textOutsideSection, stage);
+      }
+      return result;
+    }
+
     // A template that only asks for the replacement table has nothing to
     // send anywhere, so it needs no instruction and no output rules. Any
     // other template speaks to a chat and needs both.
@@ -685,6 +765,7 @@
     if (!preset || preset.error) {
       return {
         file: file,
+        content: "",
         name: "",
         stage: stage || "",
         replaceRules: null,
@@ -694,6 +775,8 @@
         preserveItems: [],
         recommendKeys: [],
         writeIn: null,
+        shape: null,
+        returnSections: [],
         valid: false,
         message: MESSAGES.unreadable,
         instruction: null,
@@ -706,6 +789,9 @@
     parsed = parse(preset.content, stage);
     return {
       file: file,
+      // The text as read. A caller that has the described entry should
+      // not have to go back to the host for the file it came from.
+      content: String(preset.content === undefined ? "" : preset.content),
       name: parsed.name,
       stage: parsed.stage,
       replaceRules: parsed.replaceRules,
@@ -714,6 +800,9 @@
       behaviorCandidates: parsed.behaviorCandidates,
       preserveItems: parsed.preserveItems,
       recommendKeys: parsed.recommendKeys,
+      writeIn: parsed.writeIn,
+      shape: parsed.shape,
+      returnSections: parsed.returnSections,
       valid: parsed.valid,
       message: parsed.message,
       instruction: parsed.instruction,
@@ -743,8 +832,48 @@
     return valid;
   }
 
+  // Everything under presets/<入口>/ belongs to one entrance. What that
+  // entrance does is read off the folder: no diagnosis folder means no
+  // diagnosis, one repair template means no template to choose.
+  function describeEntrance(entrance) {
+    var described = describe(
+      entrance && entrance.entrance ? entrance.entrance : null,
+      STAGES.entrance);
+    var diagnose = describeAll(
+      entrance && entrance.diagnose ? entrance.diagnose : [],
+      STAGES.diagnose);
+    var repair = describeAll(
+      entrance && entrance.repair ? entrance.repair : [],
+      STAGES.repair);
+    var validDiagnose = diagnose.filter(function (item) {
+      return item.valid;
+    });
+    var validRepair = repair.filter(function (item) {
+      return item.valid;
+    });
+
+    return {
+      folder: entrance && entrance.folder ? String(entrance.folder) : "",
+      name: described.name,
+      description: described.description,
+      valid: described.valid,
+      message: described.message,
+      diagnose: diagnose,
+      repair: repair,
+      // A diagnosis folder that is present but does not hold exactly one
+      // usable template is an authoring mistake, not "no diagnosis".
+      hasDiagnosis: Boolean(entrance && entrance.hasDiagnoseFolder),
+      diagnosisReady: validDiagnose.length === 1,
+      choosesTemplate: validRepair.length > 1
+    };
+  }
+
   global.MacroStudioPreset = {
     instructionTitle: INSTRUCTION_TITLE,
+    shapeTitle: SHAPE_TITLE,
+    sectionsTitle: SECTIONS_TITLE,
+    shapes: SHAPES,
+    describeEntrance: describeEntrance,
     outputTitle: OUTPUT_TITLE,
     splitOutputTitle: SPLIT_OUTPUT_TITLE,
     splitDiagnosisOutputTitle: SPLIT_DIAGNOSIS_OUTPUT_TITLE,

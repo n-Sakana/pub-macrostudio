@@ -34,7 +34,7 @@ vm.runInContext(
 var presetApi = windowObject.MacroStudioPreset;
 
 var presetPath = path.join(
-  root, "presets", "02_改修", "02_固定パスを新環境へ置き換える.md");
+  root, "presets", "01_マクロ改修", "02_改修", "02_固定パスを新環境へ置き換える.md");
 var parsed = presetApi.parse(fs.readFileSync(presetPath, "utf8"), "repair");
 
 assert(!parsed.invalid, "the shipped fixed-path preset must parse: " + parsed.message);

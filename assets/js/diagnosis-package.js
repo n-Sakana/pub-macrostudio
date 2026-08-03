@@ -4,7 +4,11 @@
   var MARKER = "'@MACROSTUDIO";
   var CRLF = "\r\n";
   var VERSION = "1";
-  var SECTION_NAMES = [
+  // The sections a reply carries are the diagnosis template's business,
+  // not this file's: a template that asks a different question needs a
+  // different answer. These four are the default for a caller that does
+  // not say, which is the shape the environment audit has always used.
+  var DEFAULT_SECTION_NAMES = [
     "PURPOSE",
     "FLOW",
     "DEPENDENCY",
@@ -12,20 +16,24 @@
   ];
   var TEXT_NAMES = ["TITLE", "CONDITION", "IMPACT", "EVIDENCE"];
   var META_NAMES = [
-    "CLASS",
+    "GRADE",
     "CONFIDENCE",
     "MODULE",
     "PROC",
     "LINES",
     "ENVKEY"
   ];
-  var CLASSES = [
-    "BLOCKER",
-    "DEFECT",
-    "CONDITIONAL",
-    "EXTERNAL",
-    "INFO"
-  ];
+  // What the reader has to do about a finding, in one letter, A good and
+  // D bad. It replaced BLOCKER / DEFECT / CONDITIONAL / EXTERNAL / INFO,
+  // which said how bad a thing was without saying what followed from it -
+  // and which could not express a defect that owes nothing to the target
+  // environment, because BLOCKER required an environment key.
+  var GRADES = ["A", "B", "C", "D"];
+  var SECTION_NAME = /^[A-Z][A-Z0-9_]{0,31}$/;
+  // A reply is either a list of findings or a single grade with its
+  // reasoning. Which one is declared by the template that asked.
+  var SHAPE_FINDINGS = "findings";
+  var SHAPE_GRADE = "grade";
   var CONFIDENCES = ["CONFIRMED", "LIKELY", "UNVERIFIED"];
   var NO_FINDING_REASONS = ["SCOPE_CLEAR", "INSUFFICIENT"];
   var CANONICAL_NUMBER = /^(0|[1-9][0-9]*)$/;
@@ -83,11 +91,14 @@
     D06: "指摘の開始行と終了行が対になっていません。",
     D07: "同じ番号の指摘が2つ以上あります。",
     D08: "指摘に META の行がないか、2つ以上あります。",
-    D09: "META は CLASS CONFIDENCE MODULE PROC LINES ENVKEY の" +
+    D09: "META は GRADE CONFIDENCE MODULE PROC LINES ENVKEY の" +
       "6つを、この順番で書く必要があります。",
-    D10: "CLASS または CONFIDENCE に、決まっていない値が書かれています。",
-    D11: "CONFIDENCE=UNVERIFIED は BLOCKER・DEFECT と組み合わせられません。",
-    D12: "CLASS=BLOCKER の指摘には ENVKEY が必要です。",
+    D10: "GRADE または CONFIDENCE に、決まっていない値が書かれています。" +
+      "GRADE は A / B / C / D のどれかです。",
+    D11: "GRADE=D は「直しようがないことが確定している」という判定なので、" +
+      "CONFIDENCE=CONFIRMED でなければ名乗れません。",
+    D12: "この診断は指摘を返す形ではありません。" +
+      "DIAG GRADE を1行だけ書いてください。",
     D13: "このブックに無いモジュール名が書かれています。" +
       "依頼文の【対象モジュール】にある名前だけが使えます。",
     D14: "想定動作環境に無い環境キーが書かれています。",
@@ -108,7 +119,7 @@
     D25: "LINES が、そのモジュールに実在しない行を指しています。" +
       "添付ファイル全体の通し行番号ではなく、" +
       "モジュールごとの行番号を使ってください。",
-    D26: "CLASS=BLOCKER に、動作を止めない環境キーが結び付いています。",
+    D26: "この診断は採点を返す形なので、指摘は書けません。",
     D27: "TITLE が1行に収まっていないか、120文字を超えています。",
     D28: "指摘の番号が 1 2 3 … の形になっていません。",
     D29: "DIAG BEGIN の件数と、実際に書かれた指摘の数が違います。",
@@ -475,6 +486,23 @@
     return Number(text);
   }
 
+  // The section names a template declared, kept only if they are usable
+  // as sentinel words. A template that declares nothing usable falls
+  // back to the four the environment audit has always returned, rather
+  // than accepting a reply with no sections at all.
+  function readSectionNames(value) {
+    var names = [];
+
+    (Array.isArray(value) ? value : []).forEach(function (name) {
+      var text = trimSpace(name).toUpperCase();
+
+      if (SECTION_NAME.test(text) && names.indexOf(text) < 0) {
+        names.push(text);
+      }
+    });
+    return names.length > 0 ? names : DEFAULT_SECTION_NAMES.slice();
+  }
+
   function makeModuleMap(modules) {
     var map = {};
 
@@ -573,16 +601,14 @@
     if (meta === null) {
       return failure("D09", "metaShape");
     }
-    if (CLASSES.indexOf(meta.CLASS) < 0 ||
+    if (GRADES.indexOf(meta.GRADE) < 0 ||
         CONFIDENCES.indexOf(meta.CONFIDENCE) < 0) {
       return failure("D10", "metaEnum");
     }
-    if (meta.CONFIDENCE === "UNVERIFIED" &&
-        ["CONDITIONAL", "EXTERNAL", "INFO"].indexOf(meta.CLASS) < 0) {
-      return failure("D11", "confidenceClass");
-    }
-    if (meta.CLASS === "BLOCKER" && meta.ENVKEY === "-") {
-      return failure("D12", "blockerEnvironment");
+    // "Nothing can be done about this" is the heaviest thing a diagnosis
+    // can say, so it cannot be said tentatively. A guess is a C.
+    if (meta.GRADE === "D" && meta.CONFIDENCE !== "CONFIRMED") {
+      return failure("D11", "gradeConfidence");
     }
     module = meta.MODULE === "-"
       ? null
@@ -629,10 +655,6 @@
         return failure("D25", "lineBounds");
       }
     }
-    if (meta.CLASS === "BLOCKER" &&
-        context.environmentMap[meta.ENVKEY].effect !== "blocked") {
-      return failure("D26", "blockerEffect");
-    }
     if (textValues.TITLE.indexOf(CRLF) >= 0 ||
         Array.from(textValues.TITLE).length > 120) {
       return failure("D27", "titleShape");
@@ -640,7 +662,7 @@
 
     result = {
       number: raw.number,
-      class: meta.CLASS,
+      grade: meta.GRADE,
       confidence: meta.CONFIDENCE,
       module: meta.MODULE,
       procedure: meta.PROC,
@@ -753,6 +775,8 @@
     var findingNumbers = {};
     var completes = [];
     var noFindings = [];
+    var grades = [];
+    var sectionValues;
     var openSection = null;
     var openFinding = null;
     var openText = null;
@@ -840,7 +864,7 @@
         name = (token.parts[3] || "").toUpperCase();
         // The short form: SECTION <name> <body, on this line>.
         if (action !== "BEGIN" && action !== "END") {
-          if (SECTION_NAMES.indexOf(action) < 0) {
+          if (context.sections.indexOf(action) < 0) {
             return failure("D05", "unknownSection");
           }
           if (openSection !== null || openFinding !== null ||
@@ -856,7 +880,7 @@
         if (token.parts.length !== 4) {
           return failure("D04", "sectionShape");
         }
-        if (SECTION_NAMES.indexOf(name) < 0) {
+        if (context.sections.indexOf(name) < 0) {
           return failure("D05", "unknownSection");
         }
         if (action === "BEGIN") {
@@ -994,6 +1018,13 @@
             : null);
           continue;
         }
+        // The scoring shape answers with one letter instead of a list.
+        if (action === "GRADE") {
+          grades.push(token.parts.length === 4
+            ? token.parts[3]
+            : null);
+          continue;
+        }
         return failure("D02", "unexpectedDiag");
       }
       return failure("D02", "unknownSentinel");
@@ -1013,14 +1044,33 @@
       return failure("D04", "laterPartSection");
     }
     if ((!part || part.index === 0) &&
-        (sectionOrder.length !== SECTION_NAMES.length ||
-         SECTION_NAMES.some(function (sectionName) {
+        (sectionOrder.length !== context.sections.length ||
+         context.sections.some(function (sectionName) {
            return !Object.prototype.hasOwnProperty.call(
              sectionBodies,
              sectionName) ||
              bodyText(sectionBodies[sectionName]) === "";
          }))) {
       return failure("D04", "sectionCardinality");
+    }
+
+    // The scoring shape carries one grade and no findings; the finding
+    // shape carries findings and no grade. A template says which it
+    // asked for, so a reply in the other shape is refused rather than
+    // read as an empty one.
+    if (context.shape === SHAPE_GRADE) {
+      if (findings.length > 0) {
+        return failure("D26", "findingsInGradeShape");
+      }
+      if (noFindings.length > 0) {
+        return failure("D20", "noFindingInGradeShape");
+      }
+      if (grades.length !== 1 || grades[0] === null ||
+          GRADES.indexOf(grades[0]) < 0) {
+        return failure("D12", "gradeShape");
+      }
+    } else if (grades.length > 0) {
+      return failure("D02", "gradeInFindingShape");
     }
 
     for (index = 0; index < findings.length; index += 1) {
@@ -1052,23 +1102,23 @@
       return failure("D20", "prematureNoFinding");
     }
 
+    sectionValues = {};
+    context.sections.forEach(function (sectionName) {
+      sectionValues[sectionName] =
+        Object.prototype.hasOwnProperty.call(sectionBodies, sectionName)
+          ? bodyText(sectionBodies[sectionName])
+          : null;
+    });
+
     return {
       ok: true,
       fragment: {
         requestId: context.requestId,
         version: VERSION,
-        sections: {
-          PURPOSE: sectionBodies.PURPOSE
-            ? bodyText(sectionBodies.PURPOSE)
-            : null,
-          FLOW: sectionBodies.FLOW ? bodyText(sectionBodies.FLOW) : null,
-          DEPENDENCY: sectionBodies.DEPENDENCY
-            ? bodyText(sectionBodies.DEPENDENCY)
-            : null,
-          ENVIRONMENT: sectionBodies.ENVIRONMENT
-            ? bodyText(sectionBodies.ENVIRONMENT)
-            : null
-        },
+        shape: context.shape,
+        sectionNames: context.sections.slice(),
+        sections: sectionValues,
+        grade: grades.length === 1 ? grades[0] : null,
         findings: validated,
         noFindings: noFindings
       }
@@ -1078,6 +1128,13 @@
   function validateConclusion(diagnosis) {
     var reasons = diagnosis.noFindings;
 
+    // The scoring shape has settled everything it can already: one
+    // grade, no findings, and nothing to conclude about their absence.
+    if (diagnosis.shape === SHAPE_GRADE) {
+      delete diagnosis.noFindings;
+      diagnosis.noFinding = null;
+      return success(diagnosis);
+    }
     if (diagnosis.findings.length === 0) {
       if (reasons.length !== 1 ||
           NO_FINDING_REASONS.indexOf(reasons[0]) < 0) {
@@ -1132,6 +1189,14 @@
     options = options || {};
     context = {
       requestId: options.requestId,
+      // Which sections and which shape came from the template that asked
+      // (§6.2). A caller that says nothing gets the environment audit's
+      // shape, which is what every reply looked like before there was
+      // more than one kind of question.
+      sections: readSectionNames(options.sections),
+      shape: options.shape === SHAPE_GRADE
+        ? SHAPE_GRADE
+        : SHAPE_FINDINGS,
       moduleMap: makeModuleMap(options.modules),
       environmentMap: makeEnvironmentMap(options.environment)
     };
@@ -1236,8 +1301,9 @@
       return left.index - right.index;
     });
     first = ordered[0].parsed.fragment;
-    if (!first.sections.PURPOSE || !first.sections.FLOW ||
-        !first.sections.DEPENDENCY || !first.sections.ENVIRONMENT) {
+    if (first.sectionNames.some(function (name) {
+      return !first.sections[name];
+    })) {
       return failure("D04", "sectionCardinality");
     }
     ordered.forEach(function (entry) {
@@ -1264,7 +1330,10 @@
     diagnosis = {
       requestId: first.requestId,
       version: VERSION,
+      shape: first.shape,
+      sectionNames: first.sectionNames,
       sections: first.sections,
+      grade: first.grade,
       findings: findings,
       noFindings: reasons
     };
@@ -1351,6 +1420,8 @@
   function restore(value) {
     var source = value;
     var findings;
+    var sectionNames;
+    var shape;
     var copy;
 
     function isText(candidate) {
@@ -1364,15 +1435,21 @@
         !Array.isArray(source.findings)) {
       return null;
     }
-    if (SECTION_NAMES.some(function (name) {
+    sectionNames = readSectionNames(source.sectionNames);
+    shape = source.shape === SHAPE_GRADE ? SHAPE_GRADE : SHAPE_FINDINGS;
+    if (sectionNames.some(function (name) {
       return !isText(source.sections[name]);
     })) {
+      return null;
+    }
+    if (shape === SHAPE_GRADE &&
+        (GRADES.indexOf(source.grade) < 0 || source.findings.length > 0)) {
       return null;
     }
     findings = source.findings.map(function (finding) {
       if (!finding || typeof finding !== "object" ||
           !CANONICAL_NUMBER.test(String(finding.number)) ||
-          CLASSES.indexOf(finding["class"]) < 0 ||
+          GRADES.indexOf(finding.grade) < 0 ||
           CONFIDENCES.indexOf(finding.confidence) < 0 ||
           !isText(finding.module) || !isText(finding.procedure) ||
           !isText(finding.lines) || !isText(finding.environmentKey) ||
@@ -1385,7 +1462,7 @@
       }
       return {
         number: String(finding.number),
-        "class": finding["class"],
+        grade: finding.grade,
         confidence: finding.confidence,
         module: finding.module,
         procedure: finding.procedure,
@@ -1402,21 +1479,29 @@
     if (findings.some(function (finding) { return finding === null; })) {
       return null;
     }
-    if (findings.length === 0) {
-      if (NO_FINDING_REASONS.indexOf(source.noFinding) < 0) {
+    if (shape === SHAPE_FINDINGS) {
+      if (findings.length === 0) {
+        if (NO_FINDING_REASONS.indexOf(source.noFinding) < 0) {
+          return null;
+        }
+      } else if (source.noFinding !== null &&
+          source.noFinding !== undefined) {
         return null;
       }
-    } else if (source.noFinding !== null && source.noFinding !== undefined) {
-      return null;
     }
     copy = {
       requestId: source.requestId,
       version: VERSION,
+      shape: shape,
+      sectionNames: sectionNames,
       sections: {},
+      grade: shape === SHAPE_GRADE ? source.grade : null,
       findings: findings,
-      noFinding: findings.length === 0 ? source.noFinding : null
+      noFinding: shape === SHAPE_FINDINGS && findings.length === 0
+        ? source.noFinding
+        : null
     };
-    SECTION_NAMES.forEach(function (name) {
+    sectionNames.forEach(function (name) {
       copy.sections[name] = source.sections[name];
     });
     return brand(copy);
@@ -1428,12 +1513,20 @@
     if (!isProductResult(diagnosis)) {
       return "";
     }
-    SECTION_NAMES.forEach(function (name) {
-      lines.push("## " + name);
+    (diagnosis.sectionNames || DEFAULT_SECTION_NAMES).forEach(
+      function (name) {
+        lines.push("## " + name);
+        lines.push("");
+        lines.push(diagnosis.sections[name]);
+        lines.push("");
+      });
+    if (diagnosis.shape === SHAPE_GRADE) {
+      lines.push("## 判定");
       lines.push("");
-      lines.push(diagnosis.sections[name]);
+      lines.push("- " + diagnosis.grade);
       lines.push("");
-    });
+      return lines.join(CRLF).replace(/(?:\r\n)+$/, "") + CRLF;
+    }
     if (diagnosis.findings.length === 0) {
       lines.push("## 指摘");
       lines.push("");
@@ -1444,7 +1537,7 @@
       lines.push("## #" + finding.number + " " + finding.texts.title);
       lines.push("");
       lines.push(
-        "- META: CLASS=" + finding.class +
+        "- META: GRADE=" + finding.grade +
         " CONFIDENCE=" + finding.confidence +
         " MODULE=" + finding.module +
         " PROC=" + finding.procedure +
@@ -1461,9 +1554,11 @@
   global.MacroStudioDiagnosis = {
     marker: MARKER,
     version: VERSION,
-    sectionNames: SECTION_NAMES.slice(),
+    defaultSectionNames: DEFAULT_SECTION_NAMES.slice(),
     textNames: TEXT_NAMES.slice(),
-    classes: CLASSES.slice(),
+    grades: GRADES.slice(),
+    findingsShape: SHAPE_FINDINGS,
+    gradeShape: SHAPE_GRADE,
     confidences: CONFIDENCES.slice(),
     noFindingReasons: NO_FINDING_REASONS.slice(),
     isProductResult: isProductResult,

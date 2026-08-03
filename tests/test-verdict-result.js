@@ -2,15 +2,21 @@
 
 // The result screen: what follows from the diagnosis.
 //
-// The diagnosis says what is true. Screen 2 now says what the reader has
-// to do about it, and it reads that off two facts they can check rather
-// than deciding anything itself:
+// This page used to work out the verdict itself, by asking whether any
+// shipped template declared the finding's environment key. That was the
+// app deciding what a finding meant, and it could only ever mean "we
+// happen to ship a file about this". The judgement moved to where it
+// belongs: the AI grades each finding A-D against the entrance's own
+// criteria, and this screen reads the letter back.
 //
-//   要改修   a shipped repair template declares this environment key -
-//            the same rule that draws ★推奨 on the next screen, so the
-//            two pages can never disagree
-//   要確認   no template declares it and it is not an INFO note
-//   改修不要  no template declares it and the AI filed it as 補助
+//   A 支障なし    動作に支障はない
+//   B 要改修      動かない、そしてこのツールのひな形で直せる
+//   C 不明        動かない、原因がコードの外にある
+//   D 改修不可    動かない、置き換え先が存在しないことが確定している
+//
+// Only B can be sent, so B is the only grade the repair screen offers.
+// The star on the template cards is a different question - "does this
+// file talk about this environment key" - and stays where it was.
 //
 // The other half is that a finding names lines, and the module is on
 // this machine, so the code opens where the finding is read.
@@ -52,15 +58,9 @@ windowObject.document = documentObject;
   });
 
 var workflow = windowObject.MacroStudioWorkflow;
-var repairDir = path.join(root, "presets", "02_改修");
-var shippedPresets = fs.readdirSync(repairDir).filter(function (name) {
-  return /\.md$/.test(name);
-}).sort().map(function (name) {
-  return {
-    file: "02_改修\\" + name,
-    content: readUtf8(path.join(repairDir, name))
-  };
-});
+var presetApi = windowObject.MacroStudioPreset;
+var macroEntrance = require("./helpers/contracts").entrance(
+  presetApi, "01_マクロ改修");
 
 var MODULE_CODE = (function () {
   var lines = [];
@@ -73,10 +73,10 @@ var MODULE_CODE = (function () {
   return lines.join("\r\n");
 }());
 
-function finding(number, className, key, module, lines) {
+function finding(number, grade, key, module, lines) {
   return {
     number: String(number),
-    "class": className,
+    grade: grade,
     confidence: "CONFIRMED",
     module: module || "-",
     procedure: "-",
@@ -99,7 +99,18 @@ var state = {
   extraRequest: "",
   questions: [],
   answers: {},
-  appInfo: {presets: {repair: shippedPresets}},
+  appInfo: {presets: {entrances: []}},
+  entrance: {
+    folder: macroEntrance.folder,
+    name: macroEntrance.name,
+    description: macroEntrance.description,
+    valid: true,
+    hasDiagnosis: true,
+    diagnosisReady: true,
+    choosesTemplate: true,
+    diagnose: macroEntrance.diagnose,
+    repair: macroEntrance.repair
+  },
   modules: [{name: "CommonUtil", code: MODULE_CODE, lineCount: 40}],
   targetEnvironment: {
     displayName: "新しい業務端末",
@@ -123,6 +134,8 @@ var state = {
     ]
   },
   diagnosis: {
+    shape: "findings",
+    sectionNames: ["PURPOSE", "FLOW", "DEPENDENCY", "ENVIRONMENT"],
     noFinding: null,
     sections: {
       PURPOSE: "帳票を作ります。",
@@ -131,12 +144,12 @@ var state = {
       ENVIRONMENT: "対象環境では止まります。"
     },
     findings: [
-      // a template addresses this one
-      finding(1, "BLOCKER", "WIN32API_BLOCKED", "CommonUtil", "8"),
-      // no template does, and it is real work
-      finding(2, "CONDITIONAL", "FIXED_HOST_NAME"),
-      // no template does, and the AI filed it as 補助
-      finding(3, "INFO", "-")
+      // does not run, and this tool can rewrite it
+      finding(1, "B", "WIN32API_BLOCKED", "CommonUtil", "8"),
+      // does not run, and the cause is outside the code
+      finding(2, "C", "FIXED_HOST_NAME"),
+      // runs fine
+      finding(3, "A", "-")
     ]
   }
 };
@@ -149,21 +162,32 @@ function collectClass(node, name) {
   });
 }
 
-// ---- three verdicts, one block each ----
+// ---- one block per grade that has something in it ----
 
-var blocks = collectClass(screen, "verdict-block");
+var blocks = collectClass(screen, "grade-block");
 
 assert(blocks.length === 3,
-  "Each verdict that has something in it gets a block: " + blocks.length);
-assert(blocks[0].classList.contains("verdict-block--repairable") &&
-  blocks[1].classList.contains("verdict-block--confirm") &&
-  blocks[2].classList.contains("verdict-block--noaction"),
-"要改修 comes first, then 要確認, then 改修不要.");
+  "Each grade that has something in it gets a block: " + blocks.length);
+assert(blocks[0].classList.contains("grade-block--c") &&
+  blocks[1].classList.contains("grade-block--b") &&
+  blocks[2].classList.contains("grade-block--a"),
+"Worst first: C is read before B, and B before A.");
 
-["要改修", "要確認", "改修不要"].forEach(function (label, index) {
-  assert(dom.text(blocks[index].querySelector(".verdict-badge")) === label,
-    "Block " + index + " must carry the " + label + " badge.");
+["C", "B", "A"].forEach(function (letter, index) {
+  assert(dom.text(blocks[index].querySelector(".grade-badge")) === letter,
+    "Block " + index + " must carry the " + letter + " badge.");
 });
+["不明", "要改修", "支障なし"].forEach(function (label, index) {
+  assert(dom.text(blocks[index].querySelector(".grade-title")) === label,
+    "Block " + index + " must say what its letter means: " + label);
+});
+// Each block says, in a sentence, what the letter asks of the reader.
+assert(dom.text(blocks[0].querySelector(".grade-note"))
+  .indexOf("このツールでは直せません") >= 0,
+"C must say that the cause is outside what this tool can rewrite.");
+assert(dom.text(blocks[1].querySelector(".grade-note"))
+  .indexOf("ひな形で改修を依頼できます") >= 0,
+"B must say that the repair can be asked for here.");
 
 // The row under each block is the problem it belongs to.
 function rowsOf(block) {
@@ -171,27 +195,36 @@ function rowsOf(block) {
 }
 
 assert(rowsOf(blocks[0]).length === 1 &&
-  rowsOf(blocks[0])[0].getAttribute("data-verdict") === "REPAIRABLE",
-"The Win32 finding is the one a template addresses.");
-assert(rowsOf(blocks[1])[0].getAttribute("data-verdict") === "CONFIRM",
-  "A finding no template claims is work outside this tool.");
-assert(rowsOf(blocks[2])[0].getAttribute("data-verdict") === "NOACTION",
-  "An INFO note no template claims is nothing to do.");
+  rowsOf(blocks[0])[0].getAttribute("data-grade") === "C",
+"A finding whose cause is outside the code is filed under C.");
+assert(rowsOf(blocks[1])[0].getAttribute("data-grade") === "B",
+  "A finding this tool can rewrite is filed under B.");
+assert(rowsOf(blocks[2])[0].getAttribute("data-grade") === "A",
+  "A finding that does not stop the macro is filed under A.");
 
 // ---- the strip at the top, including the zeros ----
 
-var tiles = collectClass(screen, "verdict-tile");
+var tiles = collectClass(screen, "grade-tile");
 
-assert(tiles.length === 3,
-  "All three verdicts are on the strip, so 要改修 0 can be read as an " +
+assert(tiles.length === 4,
+  "All four letters are on the strip, so 要改修 0 can be read as an " +
   "answer: " + tiles.length);
-assert(dom.text(tiles[0]).indexOf("1") >= 0 &&
-  dom.text(tiles[0]).indexOf("要改修") >= 0,
+assert(dom.text(tiles.filter(function (tile) {
+  return dom.text(tile.querySelector(".grade-tile-letter")) === "D";
+})[0]).indexOf("0") >= 0,
+"A letter with nothing under it still shows its zero.");
+assert(dom.text(tiles[0].querySelector(".grade-tile-count")) === "0" &&
+  dom.text(tiles[1].querySelector(".grade-tile-count")) === "1",
 "The strip counts problems, not places.");
-assert(dom.text(screen).indexOf("このツールで改修を依頼できる問題が 1 件") >= 0,
-  "The conclusion says what can be acted on here.");
+// The headline states the worst grade present, which here is C.
+assert(dom.text(screen.querySelector(".diagnosis-conclusion-verdict"))
+  .indexOf("環境の側で手を打つ") >= 0,
+"The conclusion says what the worst grade asks of the reader.");
 
-// ---- the star and the verdict are the same rule ----
+// ---- the star is still the template's own declaration ----
+// Which template a diagnosis points at is a different question from what
+// grade a finding got: it is whether a file says it addresses that
+// environment key. A grade cannot star anything by itself.
 
 var starred = collectClass(
   workflow.createNextStepScreen(state),
@@ -200,21 +233,16 @@ var starred = collectClass(
 });
 
 assert(starred.length === 1,
-  "Exactly the template that earns 要改修 earns the star: " + starred.length);
+  "Exactly the template declaring WIN32API_BLOCKED earns the star: " +
+    starred.length);
 
-state.diagnosis.findings = [finding(1, "DEFECT", "FIXED_HOST_NAME")];
-var noneScreen = workflow.createFindingsScreen(state);
-
-assert(collectClass(noneScreen, "verdict-block--repairable").length === 0 &&
-  dom.text(noneScreen).indexOf(
-    "このツールのひな形で直せる問題はありません") >= 0,
-"With nothing a template addresses, the screen says so plainly.");
+state.diagnosis.findings = [finding(1, "B", "FIXED_HOST_NAME")];
 assert(collectClass(
   workflow.createNextStepScreen(state), "choice-card").filter(
   function (card) {
     return card.classList.contains("is-recommended");
   }).length === 0,
-"And nothing is starred, because nothing claimed it.");
+"Nothing is starred when no template claims the key, whatever the grade.");
 
 // ---- zero findings still say what the AI concluded ----
 
@@ -223,18 +251,18 @@ state.diagnosis.noFinding = "INSUFFICIENT";
 var emptyScreen = workflow.createFindingsScreen(state);
 
 assert(dom.text(emptyScreen).indexOf(
-  "この監査範囲では動作阻害要因を確認できませんでした。") >= 0,
+  "対象の環境で動かなくなるところは見つかりませんでした。") >= 0,
 "A clean result is still stated.");
 assert(dom.text(emptyScreen).indexOf("判断材料が足りず") >= 0,
   "INSUFFICIENT is not the same as clean, and must not read as if it were.");
 assert(dom.text(emptyScreen).split(
-  "この監査範囲では動作阻害要因を確認できませんでした。").length === 2,
+  "対象の環境で動かなくなるところは見つかりませんでした。").length === 2,
 "The same sentence must not be printed twice on one screen.");
 
 // ---- the code opens where the finding is read ----
 
 state.diagnosis.findings = [
-  finding(1, "BLOCKER", "WIN32API_BLOCKED", "CommonUtil", "8")
+  finding(1, "B", "WIN32API_BLOCKED", "CommonUtil", "8")
 ];
 state.diagnosis.noFinding = null;
 var codeScreen = workflow.createFindingsScreen(state);
@@ -253,7 +281,7 @@ assert(dom.text(codeScreen).indexOf("Step40") < 0,
   "The module is built when the row is opened, not on every render.");
 
 // A finding with no module has nothing to open.
-state.diagnosis.findings = [finding(1, "INFO", "-")];
+state.diagnosis.findings = [finding(1, "A", "-")];
 assert(dom.collect(workflow.createFindingsScreen(state), function (node) {
   return node.classList &&
     node.classList.contains("disclosure-trigger") &&
@@ -261,12 +289,15 @@ assert(dom.collect(workflow.createFindingsScreen(state), function (node) {
 }).length === 0,
 "A finding that names no module must not offer code it cannot show.");
 
-// ---- screen 4 is arranged by the same verdict ----
+// ---- the repair screen carries B and only B ----
+// C has its cause outside the code and D has nowhere to go, so putting
+// either into a request would ask the chat for something that cannot be
+// done. They stay on the page before and in the handover memo.
 
 state.diagnosis.findings = [
-  finding(1, "BLOCKER", "WIN32API_BLOCKED", "CommonUtil", "8"),
-  finding(2, "CONDITIONAL", "FIXED_HOST_NAME"),
-  finding(3, "INFO", "-")
+  finding(1, "B", "WIN32API_BLOCKED", "CommonUtil", "8"),
+  finding(2, "C", "FIXED_HOST_NAME"),
+  finding(3, "A", "-")
 ];
 state.presetEngine = "AI";
 var inputScreen = workflow.createRepairInputScreen(state);
@@ -275,17 +306,24 @@ var selectable = dom.collect(inputScreen, function (node) {
     node.getAttribute("data-workflow-input") === "finding-group-select";
 });
 
-assert(selectable.length === 3,
-  "Every problem can still be sent: " + selectable.length);
-assert(dom.text(inputScreen).indexOf("診断で［要改修］になった指摘") >= 0,
-  "The screen says which of them this tool was built to carry out.");
-assert(collectClass(inputScreen, "disclosure").filter(function (node) {
-  return dom.text(node).indexOf("要確認") >= 0;
-}).length === 1,
-"The ones outside the tool's range are still offered, folded away.");
+assert(selectable.length === 1,
+  "Only the B finding can be sent: " + selectable.length);
+assert(dom.text(inputScreen).indexOf("診断で B（要改修）になった指摘です。") >= 0,
+  "The screen says which grade it is carrying out.");
+assert(dom.text(inputScreen).indexOf(
+  "C（不明）と D（改修不可）の 1 件は、") >= 0,
+"What is left out must be said, and counted, rather than silently absent.");
+assert(dom.text(inputScreen).indexOf("引渡しメモ") >= 0,
+  "And the screen must say where the ones left out go instead.");
+
+// With no B at all the screen says so and the write-in box is the run.
+state.diagnosis.findings = [finding(2, "C", "FIXED_HOST_NAME")];
+assert(dom.text(workflow.createRepairInputScreen(state)).indexOf(
+  "このツールで直せる指摘はありませんでした。") >= 0,
+"With nothing to send, the screen says so plainly.");
 
 console.log("test-verdict-result: PASS");
-console.log("verdict blocks and badges, the strip including its zeros, the " +
-  "star and the verdict sharing one rule, the zero-finding conclusion, the " +
-  "code opening under a finding, and screen 4 following the same order");
-
+console.log("A-D blocks and their notes, the strip including its zeros, the " +
+  "star staying the template's own declaration, the zero-finding " +
+  "conclusion, the code opening under a finding, and the repair screen " +
+  "carrying B and only B");

@@ -159,7 +159,7 @@ try {
         Assert-True ($shell.buttons -eq 2 -and $shell.sameWidth) `
             'The footer must keep two same-width navigation buttons.'
         Assert-True ($shell.progressSlots -eq 4) `
-            'The one entrance must keep four major progress columns.'
+            'Every entrance must keep four major progress columns.'
     }
 
     Assert-True (
@@ -170,34 +170,34 @@ try {
         $book.nextReady
     ) 'The path route must begin at the single workbook entrance.'
     Assert-True (
-        $diagnoseRequest.screen -eq 1 -and
+        $diagnoseRequest.screen -eq 2 -and
         $diagnoseRequest.environment -eq 1 -and
         $diagnoseRequest.requestFile
     ) 'The path route must use the same factual first-AI diagnosis.'
     Assert-True ($result.diagnosisPromptReady) `
         'The diagnosis prompt must carry the request id and source file.'
     Assert-True (
-        $diagnosis.screen -eq 1 -and
+        $diagnosis.screen -eq 2 -and
         $diagnosis.findings -eq 0 -and
         $diagnosis.recorded -and
         $diagnosis.nextReady
     ) 'A scoped zero-finding diagnosis must remain a valid fact result.'
     Assert-True (
-        $findings.screen -eq 2 -and
+        $findings.screen -eq 3 -and
         $findings.findingRows -eq 0 -and
         $findings.presetCards -eq 0 -and
         $findings.oldEntries -eq 0
     ) 'The diagnosis page must carry the facts and no template.'
     Assert-True (
-        $nextStep.screen -eq 3 -and
-        $nextStep.presetCards -eq 6 -and
+        $nextStep.screen -eq 4 -and
+        $nextStep.presetCards -eq 5 -and
         $preset.selected -eq 1 -and
         $preset.engine -cne 'AI' -and
         $preset.nextReady
     ) 'The fixed template must be selected on the choice page without restoring old entries.'
 
     Assert-True (
-        $pathMapInitial.screen -eq 4 -and
+        $pathMapInitial.screen -eq 5 -and
         $pathMapInitial.rows -ge 1 -and
         $pathMapInitial.occurrences -ge 1 -and
         $pathMapInitial.allUnapplied -and
@@ -211,13 +211,13 @@ try {
         $pathMapReady.nextReady
     ) 'A UI-entered, class-safe mapping must enable deterministic apply.'
     Assert-True (
-        $pathApplied.screen -eq 6 -and
+        $pathApplied.screen -eq 7 -and
         $pathApplied.mappingRows -eq 1 -and
         $null -eq $pathApplied.repairRequest -and
         $pathApplied.changed -ge 1
     ) 'Fixed replacement must jump directly to review without AI repair.'
     Assert-True (
-        $review.screen -eq 6 -and
+        $review.screen -eq 7 -and
         $review.accepted -ge 1 -and
         $review.nextReady -and
         $review.closed -ceq 'true' -and
@@ -234,7 +234,7 @@ try {
         [IO.Path]::GetFileName([string]$done.diffPath),
         'result.md')
     Assert-True (
-        $output.screen -eq 7 -and
+        $output.screen -eq 8 -and
         $output.nextReady -and
         @($output.files).Count -eq 6 -and
         -not (@($output.files) -contains 'repair-request.md')
@@ -248,7 +248,7 @@ try {
         'The first request did not create a run folder.'
     Assert-InsideDirectory $runFolder (Join-Path $repoRoot 'exports')
     Assert-True (
-        $done.screen -eq 9 -and
+        $done.screen -eq 10 -and
         $done.status -ceq 'success' -and
         $done.openButtons -eq 1 -and
         @($done.rows).Count -eq 6

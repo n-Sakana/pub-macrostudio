@@ -162,13 +162,6 @@
   gap: var(--space-3);
 }
 
-.diagnosis-counts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.class-chip,
 .confidence-chip,
 .environment-chip,
 .candidate-chip {
@@ -180,31 +173,6 @@
   font-size: var(--type-micro-size);
   font-weight: var(--type-micro-weight);
   line-height: var(--type-micro-line);
-}
-
-.class-chip--blocker {
-  background: var(--danger);
-  color: var(--text-on-accent);
-}
-
-.class-chip--defect {
-  background: var(--danger-soft);
-  color: var(--danger-text);
-}
-
-.class-chip--conditional {
-  background: var(--accent-soft);
-  color: var(--accent-text);
-}
-
-.class-chip--external {
-  background: var(--surface-hover);
-  color: var(--text-sub);
-}
-
-.class-chip--info {
-  border: 1px solid var(--border);
-  color: var(--text-muted);
 }
 
 .confidence-chip {
@@ -300,7 +268,7 @@
   text-align: left;
 }
 
-/* chevron, class chip, title, module, confidence */
+/* chevron, grade chip, title, module, confidence */
 .finding-toggle {
   grid-template-columns: auto auto minmax(0, 1fr) auto auto;
 }
@@ -676,18 +644,18 @@
   line-height: var(--type-micro-line);
 }
 
-/* ---- the result: what follows from the diagnosis ---- */
-/* Three answers, and every problem carries one of them. The strip at the
-   top always shows all three, including the zeros, because the reader is
-   asking "what do I have to do" and "要改修 0" answers that. */
+/* ---- the result: one letter per problem ---- */
+/* A good, D bad, and the same direction in both entrances. All four are
+   on the strip even at zero: the reader is asking "what do I have to do",
+   and "要改修 0" answers that where "不具合 0" only described a category. */
 
-.verdict-tiles {
+.grade-tiles {
   display: grid;
   gap: var(--space-3);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.verdict-tile {
+.grade-tile {
   display: grid;
   padding: var(--space-3);
   border: 1px solid var(--border-subtle);
@@ -697,43 +665,68 @@
   justify-items: center;
 }
 
-.verdict-tile--repairable {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+.grade-tile-letter {
+  color: var(--text-muted);
+  font-family: var(--font-code);
+  font-size: var(--type-label-size);
+  font-weight: var(--weight-bold);
 }
 
-.verdict-tile-count {
+.grade-tile-count {
   color: var(--text);
   font-size: var(--type-title-size);
   font-weight: var(--weight-bold);
   line-height: var(--type-title-line);
 }
 
-.verdict-tile--repairable .verdict-tile-count,
-.verdict-tile--repairable .verdict-tile-label {
+.grade-tile-label {
+  color: var(--text-sub);
+  font-size: var(--type-micro-size);
+  text-align: center;
+}
+
+.grade-tile--b {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.grade-tile--b .grade-tile-letter,
+.grade-tile--b .grade-tile-count,
+.grade-tile--b .grade-tile-label {
   color: var(--accent-text);
 }
 
-.verdict-tile-label {
-  color: var(--text-sub);
-  font-size: var(--type-label-size);
-  font-weight: var(--type-label-weight);
+.grade-tile--d {
+  border-color: var(--danger);
+  background: var(--danger-soft);
 }
 
-.verdict-block {
+.grade-tile--d .grade-tile-letter,
+.grade-tile--d .grade-tile-count,
+.grade-tile--d .grade-tile-label {
+  color: var(--danger-text);
+}
+
+.grade-block {
   display: grid;
   margin-top: var(--space-5);
   gap: var(--space-2);
 }
 
-.verdict-head {
+.grade-head,
+.value-head {
   display: grid;
   align-items: center;
   gap: var(--space-3);
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
-.verdict-title {
+.value-head {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.grade-title,
+.value-title {
   margin: 0;
   min-width: 0;
   color: var(--text);
@@ -742,40 +735,88 @@
   line-height: var(--type-section-line);
 }
 
-.verdict-count {
+.grade-count {
   color: var(--text-muted);
   font-size: var(--type-meta-size);
   white-space: nowrap;
 }
 
-.verdict-badge {
+/* The letter itself, in the row and in the block heading. It is the
+   whole label: "B" beside a title says more than "要改修 B" does. */
+.grade-badge,
+.grade-chip {
   display: inline-flex;
-  min-height: var(--icon-lg);
   align-items: center;
-  padding: 0 var(--space-3);
+  justify-content: center;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   color: var(--text-sub);
-  font-size: var(--type-label-size);
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
+  font-family: var(--font-code);
+  font-weight: var(--weight-bold);
 }
 
-.verdict-badge--repairable {
+.grade-badge {
+  min-width: var(--space-7);
+  min-height: var(--space-7);
+  font-size: var(--type-title-size);
+}
+
+.grade-chip {
+  min-width: var(--icon-lg);
+  min-height: var(--icon-lg);
+  font-size: var(--type-label-size);
+}
+
+.grade-badge--b,
+.grade-chip--b {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--text-on-accent);
 }
 
-.verdict-badge--confirm {
+.grade-badge--c,
+.grade-chip--c {
   border-color: var(--caution-text);
   color: var(--caution-text);
 }
 
-.verdict-note {
+.grade-badge--d,
+.grade-chip--d {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: var(--text-on-accent);
+}
+
+.grade-note,
+.value-judgement {
   margin: 0;
   color: var(--text-sub);
   font-size: var(--type-meta-size);
+}
+
+/* The refactoring result is a judgement and says so. The macro-repair
+   result does not carry this line, because that one is a fact. */
+.value-judgement {
+  color: var(--text-muted);
+  font-style: normal;
+}
+
+.diagnosis-conclusion-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+}
+
+/* Three cards on the first screen, before anything is read. */
+.entrance-card .choice-note {
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+  white-space: nowrap;
+}
+
+.choice-card.is-unusable {
+  border-color: var(--danger);
+  opacity: 1;
 }
 
 /* A problem on the result page opens onto the code that shows it, and
@@ -863,15 +904,15 @@
 }
 
 @media (max-width: 48em) {
-  .verdict-tiles {
-    grid-template-columns: minmax(0, 1fr);
+  .grade-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .verdict-head {
+  .grade-head {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .verdict-count {
+  .grade-count {
     grid-column: 2;
   }
 }

@@ -3,11 +3,14 @@
 
   // The β2 flow has one visible entrance and four stable major steps.
   // This table is the sole authority for screen order and readiness.
+  // The four stages of the improvement guide: 2-A preservation,
+  // 2-B judgement, 2-C repair, 2-E handover. 2-D testing happens outside
+  // this tool, and the handover memo lists its viewpoints as not run.
   var MAJORS = [
-    "ブックを読み込む",
+    "決めて読む",
     "診断する",
-    "改修を決めて実行する",
-    "ブックを作る"
+    "改修する",
+    "作って引き渡す"
   ];
 
   // Handing the request to the chat and taking the reply back is one
@@ -22,16 +25,46 @@
   // the name is how they came to disagree.
   var AI_CODE_FILE = "source-code-for-ai.md";
 
-  var BOOK_SCREEN = 0;
-  var DIAGNOSE_SCREEN = 1;
-  var FINDINGS_SCREEN = 2;
-  var NEXT_STEP_SCREEN = 3;
-  var REPAIR_INPUT_SCREEN = 4;
-  var REPAIR_SCREEN = 5;
-  var REVIEW_SCREEN = 6;
-  var OUTPUT_SCREEN = 7;
-  var BUILD_SCREEN = 8;
-  var DONE_SCREEN = 9;
+  var ENTRANCE_SCREEN = 0;
+  var BOOK_SCREEN = 1;
+  var DIAGNOSE_SCREEN = 2;
+  var FINDINGS_SCREEN = 3;
+  var NEXT_STEP_SCREEN = 4;
+  var REPAIR_INPUT_SCREEN = 5;
+  var REPAIR_SCREEN = 6;
+  var REVIEW_SCREEN = 7;
+  var OUTPUT_SCREEN = 8;
+  var BUILD_SCREEN = 9;
+  var DONE_SCREEN = 10;
+
+  // What a run does after the workbook is read is not decided here. It
+  // is read off the entrance the reader chose, which is read off what
+  // that entrance's folder contains (SPEC §2.2.0).
+  function getEntrance(state) {
+    return state && state.entrance ? state.entrance : null;
+  }
+
+  function hasDiagnosis(state) {
+    var entrance = getEntrance(state);
+
+    return Boolean(entrance) && entrance.hasDiagnosis === true;
+  }
+
+  function choosesTemplate(state) {
+    var entrance = getEntrance(state);
+
+    return Boolean(entrance) && entrance.choosesTemplate === true;
+  }
+
+  function isEntranceChosen(state) {
+    var entrance = getEntrance(state);
+
+    return Boolean(entrance) && entrance.valid === true &&
+      // A folder that has a diagnosis stage must hold exactly one usable
+      // template in it. Half a diagnosis is an authoring mistake, and
+      // walking into it would produce a request nobody can answer.
+      (entrance.hasDiagnosis !== true || entrance.diagnosisReady === true);
+  }
 
   function getModules(state) {
     return state && Array.isArray(state.modules) ? state.modules : [];
@@ -123,11 +156,12 @@
     }).length;
   }
 
-  // A run may declare that it wants no diagnosis. The findings page has
-  // nothing to show then, so the flow steps over it.
+  // An entrance with no diagnosis stage has nothing to hand over and
+  // nothing to read back, so the flow steps over both screens. This was
+  // a checkbox on the diagnosis screen; it is an entrance now, which is
+  // where a branch that changes the following screens belongs.
   function isDiagnosisSkipped(state) {
-    return Boolean(state) && state.diagnosisSkipped === true &&
-      !state.diagnosis;
+    return Boolean(state) && !hasDiagnosis(state);
   }
 
   function isDiagnosisCurrent(state) {
@@ -365,10 +399,31 @@
       : 0;
   }
 
+  function isGradeDiagnosis(state) {
+    return Boolean(state && state.diagnosis &&
+      state.diagnosis.shape === "grade");
+  }
+
   var SCREENS = [
     {
       major: 1,
-      sub: "1/1",
+      sub: "1/2",
+      title: function () { return "何をするか選びます"; },
+      meta: function (state) {
+        var entrance = getEntrance(state);
+
+        return entrance && entrance.name ? entrance.name : "3つから選ぶ";
+      },
+      context: function (state) {
+        return isEntranceChosen(state)
+          ? "右下の「次へ」で、ブックを読み込みます"
+          : "したいことに近いものを選んでください";
+      },
+      ready: isEntranceChosen
+    },
+    {
+      major: 1,
+      sub: "2/2",
       title: function () { return "Excelブックを読み込みます"; },
       meta: function () { return "対応形式 .xlsm / .xlam / .xlsb / .xls"; },
       context: function (state) {
@@ -421,6 +476,11 @@
       sub: "1/5",
       title: function () { return "診断結果を確認します"; },
       meta: function (state) {
+        // Two kinds of diagnosis, two kinds of answer: a list of
+        // problems, or one grade for the whole workbook.
+        if (isGradeDiagnosis(state)) {
+          return "判定 " + String(state.diagnosis.grade);
+        }
         return findingCount(state) + "件の指摘";
       },
       context: function () {
@@ -592,13 +652,25 @@
       clampIndex(index) === DONE_SCREEN;
   }
 
-  // The only path-changing branch is the repair engine. Questions alter
-  // screen 4's contents, never the screen graph.
+  // Three branches, all read off the entrance's own folder rather than
+  // decided here (SPEC §2.3), plus the repair engine as before.
+  //
+  //   no 01_診断/          skip the hand-over and the result
+  //   one 02_改修/ template  skip the choice of template
+  //   replacement table     skip the chat and go straight to the diff
+  //
+  // Skipping is not the same as hiding: an entrance that skips a screen
+  // never had anything to put on it.
   function nextIndex(state, index) {
     var current = clampIndex(index);
 
-    if (current === DIAGNOSE_SCREEN && isDiagnosisSkipped(state)) {
-      return NEXT_STEP_SCREEN;
+    if (current === BOOK_SCREEN && isDiagnosisSkipped(state)) {
+      return choosesTemplate(state)
+        ? NEXT_STEP_SCREEN
+        : REPAIR_INPUT_SCREEN;
+    }
+    if (current === FINDINGS_SCREEN && !choosesTemplate(state)) {
+      return REPAIR_INPUT_SCREEN;
     }
     if (current === REPAIR_INPUT_SCREEN &&
         getEngine(state) === "対応表による置換") {
@@ -608,7 +680,7 @@
   }
 
   function canGoBack(state, index) {
-    return clampIndex(index) > BOOK_SCREEN &&
+    return clampIndex(index) > ENTRANCE_SCREEN &&
       clampIndex(index) !== BUILD_SCREEN &&
       (!state || state.busyAction === null);
   }
@@ -618,6 +690,11 @@
     count: SCREENS.length,
     majors: MAJORS,
     getMajors: function () { return MAJORS.slice(); },
+    entranceScreen: ENTRANCE_SCREEN,
+    isEntranceChosen: isEntranceChosen,
+    hasDiagnosis: hasDiagnosis,
+    choosesTemplate: choosesTemplate,
+    isGradeDiagnosis: isGradeDiagnosis,
     bookScreen: BOOK_SCREEN,
     diagnoseScreen: DIAGNOSE_SCREEN,
     nextStepScreen: NEXT_STEP_SCREEN,

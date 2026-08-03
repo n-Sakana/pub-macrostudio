@@ -78,12 +78,12 @@ function finding(number, meta, title) {
 
 var finding1 = finding(
   "1",
-  "CLASS=BLOCKER CONFIDENCE=CONFIRMED MODULE=CommonUtil " +
+  "GRADE=B CONFIDENCE=CONFIRMED MODULE=CommonUtil " +
     "PROC=WaitSeconds LINES=8 ENVKEY=WIN32API_BLOCKED",
   "Windows の関数を呼ぶため実行できません。");
 var finding2 = finding(
   "2",
-  "CLASS=CONDITIONAL CONFIDENCE=LIKELY MODULE=MonthlyReport " +
+  "GRADE=B CONFIDENCE=LIKELY MODULE=MonthlyReport " +
     "PROC=LoadSource LINES=42-47 ENVKEY=FIXED_DRIVE_LETTER",
   "ドライブ文字が変わると入力を開けません。");
 
@@ -211,7 +211,7 @@ assert(
 var duplicateAcrossParts = parsePart(
   part("01", "02", finding(
     "1",
-    "CLASS=CONDITIONAL CONFIDENCE=LIKELY MODULE=MonthlyReport " +
+    "GRADE=B CONFIDENCE=LIKELY MODULE=MonthlyReport " +
       "PROC=LoadSource LINES=42 ENVKEY=FIXED_DRIVE_LETTER",
     "別の指摘です。"), 1),
   "locally unique duplicate number");

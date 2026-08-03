@@ -62,7 +62,7 @@ function buildPackage() {
     out.push(line("SECTION END " + pair[0]));
   });
   out.push(line("FINDING BEGIN 1"));
-  out.push(line("META CLASS=BLOCKER CONFIDENCE=CONFIRMED MODULE=TimerUtils " +
+  out.push(line("META GRADE=B CONFIDENCE=CONFIRMED MODULE=TimerUtils " +
     "PROC=- LINES=5,7 ENVKEY=WIN32API_BLOCKED"));
   out.push(line("TEXT BEGIN TITLE"));
   out.push("待ち時間処理が kernel32 の Sleep を直接呼ぶため、想定環境では実行できません。");
@@ -92,7 +92,7 @@ var options = {
 // ---- the contract the prompt states ----
 
 var presetText = readUtf8(path.join(
-  root, "presets", "01_診断", "01_動作環境の事実監査.md"));
+  root, "presets", "01_マクロ改修", "01_診断", "01_動くかどうかの監査.md"));
 var parsedPreset = preset.parse(presetText, "diagnose");
 
 assert(parsedPreset.valid, "The diagnosis preset must parse.");

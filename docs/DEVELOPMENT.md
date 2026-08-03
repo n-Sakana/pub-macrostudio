@@ -54,7 +54,7 @@ macrostudio/
 │   ├── css/                 # variables / layout / flow / module-list / diff / findings / path-map / code-view
 │   └── js/                  # 画面・状態・契約・lexer・決定的 path mapping
 ├── environment/             # 想定動作環境のJSON正本と出典・改訂履歴
-├── presets/                 # 01_診断（singleton）/ 02_改修（選択肢）の依頼正本
+├── presets/                 # 入口ごとに 入口.md / 01_診断（singleton）/ 02_改修 の依頼正本
 ├── templates/               # 依頼文（チャット貼付用）の中立な組み立て枠
 ├── lib/                     # WebView2 DLL（4 本）
 ├── docs/                    # SPEC.md / DEVELOPMENT.md（本書）
@@ -67,16 +67,20 @@ macrostudio/
   （子プロセスや別モジュールを作らない）。理由は SPEC §2.3。
 - **エンジン（05〜08）は UI に依存しない**。この分離があるので、`tests/` は
   エンジンだけを Add-Type してヘッドレスに検証できる。
-- **画面フローの正本は `assets/js/screens.js`**。0 `book` → 1 `diagnose` →
-  2 `findings` → 3 `nextStep` → 4 `repairInput` → 5 `repair` → 6 `review` →
-  7 `output` → 8 `build` → 9 `done` の 10 画面を持つ。依頼の受け渡しと返答の
-  取り込みは同じ画面の 2 つの段であって別画面ではない。診断を読むことと次に
-  することを選ぶことは別の決定なので、別画面である。
+- **画面フローの正本は `assets/js/screens.js`**。0 `entrance` → 1 `book` →
+  2 `diagnose` → 3 `findings` → 4 `nextStep` → 5 `repairInput` → 6 `repair` →
+  7 `review` → 8 `output` → 9 `build` → 10 `done` の 11 画面を持つ。依頼の
+  受け渡しと返答の取り込みは同じ画面の 2 つの段であって別画面ではない。診断を
+  読むことと次にすることを選ぶことは別の決定なので、別画面である。
   `state.js` は現在地・履歴・2 段階の依頼状態、`app.js` は描画と操作を担当する。
   画面番号を literal で書かず、`screens.js` が公開する名前を使う。
-- **見える入口はブック添付の 1 本だけ**。用途選択、相談、簡易モードの入口を戻さない。
-  相談の自由記述は診断画面の「ほかに気になっていること」と改修入力の「追加の要望」へ
-  移設済みである。分岐は改修入力の AI 改修／決定的置換と、改修画面の返答種別だけに置く。
+- **入口は 3 つで、その中身はフォルダが決める**。`presets/` 直下の
+  フォルダ 1 つが 1 入口で、`01_診断/` が無ければ診断せず、`02_改修/` の有効な
+  ひな形が 1 つならひな形を選ぶ画面を出さない。`screens.js` はこれを
+  `entrance.hasDiagnosis` / `entrance.choosesTemplate` として読むだけで、
+  どの入口も名前で知らない（`tests\test-shortest-path.js` が門番）。
+  用途選択、相談、簡易モードの旧入口は戻さない。相談の自由記述は診断画面の
+  「ほかに気になっていること」と改修入力の記入欄へ移設済みである。
 - **第 1 AI と第 2 AI の状態を混ぜない**。`diagnoseRequestId` / `diagnosisPackage` と
   `repairRequestId` / `intakeRequestId` は別世代である。診断依頼の入力 snapshot が変われば
   診断以降を捨て、指摘選択・希望動作・追加要望・ひな形が変われば改修以降だけを捨てる。
@@ -95,8 +99,9 @@ macrostudio/
   `assets/js/target-environment.js` だけが持つ。key や title/detail を C#・JS・ひな形へ
   fallback として複製しない（`test-environment-not-embedded.js` が検査する）。
 - **ひな形の解釈は `assets/js/preset-document.js` だけが持つ**（β2 SPEC §9.2）。
-  ホスト（C#）は `presets/01_診断/*.md` と `presets/02_改修/*.md` の列挙・テキスト
-  読み出しに徹し、H1 も節も解釈しない。段階はフォルダで決まり、`## 用途` は拒否する。
+  ホスト（C#）は `presets/*/入口.md`・`presets/*/01_診断/*.md`・
+  `presets/*/02_改修/*.md` の列挙・テキスト読み出しに徹し、H1 も節も解釈しない。
+  段階はフォルダで決まり、`## 用途` は拒否する。
   改修指示・出力指示の文面を `templates/` や `src/` や `assets/js/` へ複製しないこと
   （`tests\test-preset-migration.js` が門番として検査する）。
   モジュール単位出力の文面も同じ扱いで、任意の `## 出力指示（モジュール単位）` 節が
@@ -136,7 +141,7 @@ macrostudio/
   分類そのものは規則を書いた側の判断である。
   置き換え後の値の「形」は検査しない（それは人の判断）。
 - **1 回の実行は 3 経路のどれかになる**（SPEC §7.2）。AI だけ・対応表だけ・両方。
-  両方のときは**機械的置換が先**で、画面 4 が 2 段になる（画面は増えない）。
+  両方のときは**機械的置換が先**で、画面 5 が 2 段になる（画面は増えない）。
   AI へ渡すのは置換後のコードで、依頼文に「置き換え済み・元へ戻さない」を書く。
   置換した事実は `state.appliedMapping` が持ち、後から来る返答では消えない。
   返答を捨てる操作（取り込み直し・`改修できません`・新しい依頼の書き出し）は
@@ -186,11 +191,18 @@ macrostudio/
   色付けは `highlight: true` を渡したときだけで、**置換側は渡さない**。
   置き換えるスパンを表示専用の tokenizer に決めさせないため
   （`tests\test-path-map.js` と `tests\test-code-view.js` が門番）。
-- **診断結果の「要改修 / 要確認 / 改修不要」は 2 つの事実だけから決まる**。
-  改修ひな形の `## 推奨条件` がその環境キーを名乗っているか、
-  そして AI が付けた CLASS が INFO かどうか。前者は ★推奨 と同じ規則なので、
-  画面 2 の判定と画面 3 の推奨が食い違うことはない。
-  アプリはここで独自の良し悪しを持たない（`tests\test-verdict-result.js`）。
+- **指摘の A〜D は AI が付ける**。当初の「要改修 / 要確認 / 改修不要」は
+  アプリが「そのひな形をうちが持っているか」で決めていた。それはアプリが意味を
+  決めていたということで、言えることもそれだけだった。いまは入口の基準に照らして
+  AI が指摘ごとに A〜D を返し、アプリは letter の読み方（`改修不可` などの名前）
+  だけを持つ。**依頼に入るのは B だけ**で、C と D はできないことになるので入れない。
+  ★推奨は別の問いのまま（ひな形が `## 推奨条件` でその環境キーを名乗っているか）で、
+  等級が★を付けることはない（`tests\test-verdict-result.js` が門番）。
+- **採点の基準は 1 ファイルにしか置かない**。採点型の診断（`02_リファクタ`）が
+  何に照らして採点するかは、同じ入口の唯一の改修ひな形の `## 改修指示` である。
+  依頼文には `{{GRADING_BASIS}}` としてそこから差し込む。仕様書にも診断ひな形にも
+  複製しないこと。2 か所にあれば必ずずれ、読者は「実際にやること」と違う基準で
+  採点された結果を見ることになる。
 - **差分 HTML は確認画面の閲覧専用版で、画面と同じ実装を同梱する**（SPEC §13.11）。
   `diff.js` / `vba-highlight.js` / `diff-view.js` と `variables.css` / `flow.css` /
   `module-list.css` / `diff.css` を無加工でインラインし（`@font-face` の除去だけが
@@ -283,6 +295,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-hostservices.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-clipboard-retry.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-diagnose-webview.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-flow-webview.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-entrance-routes.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-split-webview.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-diff-report-webview.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-webview-security.ps1
@@ -367,10 +380,11 @@ node tests\test-verdict-result.js
   **拒否したときに理由の文が付くこと**もここで見る。`failure("Dxx"` で
   返せる検査番号すべてに読み手向けの一文があることを走査で確認するので、
   検査を足したら文も足さないと落ちる。
-- `tests\test-verdict-result.js` … 診断結果の「要改修 / 要確認 / 改修不要」。
-  判定はひな形の `## 推奨条件` と AI の CLASS だけから決まり、★推奨と
-  同じ規則であること、0 件のときに同じ文を 2 回出さないこと、指摘から
-  コードが開けること、画面 4 が同じ並びになることを固定する。
+- `tests\test-verdict-result.js` … 診断結果の A〜D。等級は AI が付けたものが
+  そのまま区画になること、★推奨は別の問い（ひな形の `## 推奨条件`）のままで
+  等級が★を付けないこと、0 件のときに同じ文を 2 回出さないこと、指摘から
+  コードが開けること、画面 5 が B だけを載せ、C と D の件数と行き先を言うことを
+  固定する。
 - `tests\test-code-view.js` … 置換画面と診断結果が共有するコード表示部品。
   モジュール全文が畳まれた状態で page に在ること、該当箇所のみ／前へ／次へ、
   受け取ったスパンだけを `<mark>` にすること、色付けが opt-in であること
@@ -491,7 +505,7 @@ node tests\test-verdict-result.js
   固定する。実 WebView2 側は診断、指摘選択、希望動作、改修、差分、読み直し検証済みの
   出力までを通し、原本の SHA-256 が変わらないことを確認する。
 - `tests\test-editor-focus.ps1` … 入力中の画面（SPEC §3.7）。実 WebView2 で
-  画面 4 の希望動作欄と追加の要望欄、および置換経路の置き換え後の値欄へ打ち込み、
+  画面 5 の記入欄、および置換経路の置き換え後の値欄へ打ち込み、
   **値ではなく欄そのもの**を見る。1 打鍵ごとに同じ DOM 要素のままか、フォーカスと
   カーソル位置が保たれるかを記録し、通常入力、IME 変換中の Enter（画面遷移しない）、
   貼り付け、範囲選択からの置換を検査する。1366×768 では本文・横方向のスクロールが
@@ -499,8 +513,8 @@ node tests\test-verdict-result.js
 - `tests\test-no-change.js` と `tests\test-no-change-webview.ps1` …
   診断 0 件の `SCOPE_CLEAR` / `INSUFFICIENT` と、改修 0 件の `UNNECESSARY` /
   `IMPOSSIBLE` / `NEEDDECISION` を検査する。実 WebView2 では前二者から第 2 AI へ
-  進み、後三者では画面 6 に留まって［次へ］が閉じること、NEEDDECISION の文脈を
-  画面 4 へ引用して差し戻せることを確認する。その後、新しい改修依頼と通常返答で
+  進み、後三者では画面 7 に留まって［次へ］が閉じること、NEEDDECISION の文脈を
+  画面 5 へ引用して差し戻せることを確認する。その後、新しい改修依頼と通常返答で
   ビルドまで回復できることも固定する。
 - `tests\test-window-icon.ps1` … ウィンドウが自前のアイコンを持つこと。
   アプリと同じ手順で窓を作り、そのアイコンを 32px へラスタライズして
@@ -524,9 +538,14 @@ node tests\test-verdict-result.js
 - `tests\test-diagnose-webview.ps1` は一本道の前半（実ブック → 診断依頼 → 診断返答 →
   指摘選択と希望動作 → 改修依頼）だけを実 WebView2 で通す。診断と改修の依頼 ID、
   4 成果物、原本非破壊、クリップボード再試行回数を検査する。
-- `tests\test-flow-webview.ps1` が β2 の 11 画面通し（診断 → 改修 → 差分 →
+- `tests\test-flow-webview.ps1` が 11 画面通し（入口 → 診断 → 改修 → 差分 →
   読み直し検証済み出力 → 差分レポート）を担う。2 段階の依頼 ID と 7 成果物を検査し、
   旧 P3〜P8 の個別スモークはこの 1 本へ統合した。
+- `tests\test-entrance-routes.ps1` が残る 2 つの入口を実 WebView2 で通す。
+  リファクタは採点型の返答（1 つの等級と理由）を取り込んで結果画面を確認し、
+  フリー依頼は診断そのものが無い経路で、ブックの次が改修依頼になること、
+  唯一のひな形が最初から選ばれていること、読者が書いた文だけで依頼が
+  成立することを検査する。入口ごとに変わるものだけを見る。
 - `tests\test-split-webview.ps1` は同じ WebView2 実動経路で、モジュール単位出力の
   チェックボックス、`diagnose-request.md` と `repair-request.md`、診断 part の欠番・
   冪等重複・統合、改修 part の衝突拒否・統合・取り込み直しを検証する。

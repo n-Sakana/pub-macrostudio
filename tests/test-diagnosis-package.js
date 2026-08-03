@@ -23,7 +23,8 @@ var context = vm.createContext({
 });
 windowObject.window = windowObject;
 
-["preset-document.js", "diagnosis-package.js"].forEach(function (name) {
+["preset-document.js", "response-package.js",
+  "diagnosis-package.js"].forEach(function (name) {
   vm.runInContext(
     fs.readFileSync(path.join(root, "assets", "js", name), "utf8"),
     context,
@@ -38,7 +39,8 @@ var options = {
   requestId: id,
   modules: [
     { name: "CommonUtil", lineCount: 80 },
-    { name: "MonthlyReport", lineCount: 80 }
+    { name: "MonthlyReport", lineCount: 80 },
+    { name: "SalesRules", lineCount: 80 }
   ],
   environment: {
     constraints: [
@@ -85,10 +87,14 @@ function finding(number, meta, overrides) {
 }
 
 var defaultMeta =
-  "CLASS=DEFECT CONFIDENCE=CONFIRMED MODULE=CommonUtil " +
+  "GRADE=B CONFIDENCE=CONFIRMED MODULE=CommonUtil " +
   "PROC=WaitSeconds LINES=8 ENVKEY=-";
 var blockerMeta =
-  "CLASS=BLOCKER CONFIDENCE=CONFIRMED MODULE=CommonUtil " +
+  "GRADE=B CONFIDENCE=CONFIRMED MODULE=CommonUtil " +
+  "PROC=WaitSeconds LINES=8 ENVKEY=WIN32API_BLOCKED";
+// "nothing can be done about this" cannot be said tentatively (D11).
+var impossibleMeta =
+  "GRADE=D CONFIDENCE=CONFIRMED MODULE=CommonUtil " +
   "PROC=WaitSeconds LINES=8 ENVKEY=WIN32API_BLOCKED";
 
 function packageWith(findings, settings) {
@@ -155,19 +161,21 @@ var validOne = packageWith([finding("1", defaultMeta)]);
 var validBlocker = packageWith([finding("1", blockerMeta)]);
 var validUnverified = packageWith([finding(
   "1",
-  "CLASS=CONDITIONAL CONFIDENCE=UNVERIFIED MODULE=CommonUtil " +
+  "GRADE=B CONFIDENCE=UNVERIFIED MODULE=CommonUtil " +
     "PROC=WaitSeconds LINES=8 ENVKEY=FIXED_DRIVE_LETTER")]);
 var validLocationless = packageWith([finding(
   "1",
-  "CLASS=INFO CONFIDENCE=UNVERIFIED MODULE=- PROC=- LINES=- ENVKEY=-")]);
+  "GRADE=A CONFIDENCE=UNVERIFIED MODULE=- PROC=- LINES=- ENVKEY=-")]);
 var validModuleOnly = packageWith([finding(
   "1",
-  "CLASS=INFO CONFIDENCE=UNVERIFIED MODULE=CommonUtil " +
+  "GRADE=A CONFIDENCE=UNVERIFIED MODULE=CommonUtil " +
     "PROC=- LINES=- ENVKEY=-")]);
+var validImpossible = packageWith([finding("1", impossibleMeta)]);
 var validZero = packageWith([], { noFinding: "SCOPE_CLEAR" });
 
 expectPass("ordinary finding", validOne);
-expectPass("BLOCKER with a blocked environment key", validBlocker);
+expectPass("a finding that names an environment key", validBlocker);
+expectPass("a confirmed impossible finding", validImpossible);
 expectPass("unverified conditional finding", validUnverified);
 expectPass("locationless information", validLocationless);
 expectPass("module-only location", validModuleOnly);
@@ -180,7 +188,7 @@ expectPass(
 // test. Read it, replace only its request id, and prove that it is a real
 // package rather than decorative documentation.
 var presetText = fs.readFileSync(
-  path.join(root, "presets", "01_診断", "01_動作環境の事実監査.md"),
+  path.join(root, "presets", "01_マクロ改修", "01_診断", "01_動くかどうかの監査.md"),
   "utf8");
 var parsedPreset = presetApi.parse(presetText, "diagnose");
 var exampleMatch = /```\s*\r?\n([\s\S]*?)\r?\n```/.exec(
@@ -225,13 +233,10 @@ var failures = {
     validOne,
     "CONFIDENCE=CONFIRMED CLASS=DEFECT MODULE=CommonUtil " +
       "PROC=WaitSeconds LINES=8 ENVKEY=-"),
-  D10: replaceMeta(validOne, defaultMeta.replace("DEFECT", "UNKNOWN")),
+  D10: replaceMeta(validOne, defaultMeta.replace("GRADE=B", "GRADE=E")),
   D11: replaceMeta(
     validOne,
-    defaultMeta.replace("CONFIRMED", "UNVERIFIED")),
-  D12: replaceMeta(
-    validOne,
-    defaultMeta.replace("CLASS=DEFECT", "CLASS=BLOCKER")),
+    impossibleMeta.replace("CONFIRMED", "LIKELY")),
   D13: replaceMeta(
     validOne,
     defaultMeta.replace("MODULE=CommonUtil", "MODULE=Missing")),
@@ -255,18 +260,15 @@ var failures = {
   D22: outsideSentinel,
   D23: replaceMeta(
     validOne,
-    "CLASS=INFO CONFIDENCE=UNVERIFIED MODULE=- " +
+    "GRADE=A CONFIDENCE=UNVERIFIED MODULE=- " +
       "PROC=WaitSeconds LINES=- ENVKEY=-"),
   D24: replaceMeta(
     validOne,
-    "CLASS=INFO CONFIDENCE=UNVERIFIED MODULE=- " +
+    "GRADE=A CONFIDENCE=UNVERIFIED MODULE=- " +
       "PROC=- LINES=1 ENVKEY=-"),
   D25: replaceMeta(
     validOne,
     defaultMeta.replace("LINES=8", "LINES=81")),
-  D26: replaceMeta(
-    validOne,
-    blockerMeta.replace("WIN32API_BLOCKED", "FIXED_DRIVE_LETTER")),
   D27: validOne.replace(
     "TITLE の事実です。",
     "1 行目です。\n2 行目です。"),
@@ -279,9 +281,7 @@ Object.keys(failures).forEach(function (validationId) {
   var passFixture = validOne;
 
   if (validationId === "D11") {
-    passFixture = validUnverified;
-  } else if (validationId === "D12" || validationId === "D26") {
-    passFixture = validBlocker;
+    passFixture = validImpossible;
   } else if (validationId === "D20") {
     passFixture = validZero;
   } else if (validationId === "D23" || validationId === "D24") {
@@ -290,6 +290,109 @@ Object.keys(failures).forEach(function (validationId) {
   expectPass(validationId + " valid fixture", passFixture);
   expectFailure(validationId, failures[validationId]);
 });
+
+// ---- the graded shape ----
+//
+// The refactor entrance asks one question and gets back one letter, so a
+// reply carries a grade and no findings. Each shape refuses the other's
+// reply rather than reading it as an empty one of its own kind (SPEC
+// section 4.4.4).
+
+var gradeOptions = {
+  requestId: id,
+  shape: "grade",
+  sections: ["PURPOSE", "FLOW", "DEPENDENCY", "REASON"],
+  modules: options.modules,
+  environment: options.environment
+};
+
+function gradePackage(settings) {
+  var config = settings || {};
+  var lines = [marker("DIAG BEGIN " + (config.beginCount || "0"))];
+
+  lines = lines.concat(section("PURPOSE"))
+    .concat(section("FLOW"))
+    .concat(section("DEPENDENCY"));
+  if (config.grade !== null) {
+    lines.push(marker("DIAG GRADE " + (config.grade || "C")));
+  }
+  lines = lines.concat(section("REASON"));
+  (config.findings || []).forEach(function (item) {
+    lines = lines.concat(item);
+  });
+  if (config.noFinding) {
+    lines.push(marker("DIAG NOFINDING " + config.noFinding));
+  }
+  lines.push(marker("DIAG COMPLETE " + (config.beginCount || "0")));
+  lines.push(marker("DIAG END"));
+  return lines.join("\n");
+}
+
+function expectGrade(label, text, letter) {
+  var result = api.parse(text, gradeOptions);
+
+  assert(result.ok, label + " must pass, but got " +
+    result.validationId + ": " + result.reason);
+  assert(result.diagnosis.grade === letter,
+    label + " must come back as " + letter + ", got " + result.diagnosis.grade);
+  assert(result.diagnosis.findings.length === 0,
+    label + " must carry no findings.");
+  assert(String(result.diagnosis.sections.REASON || "").length > 0,
+    label + " must carry the reason the template asked for.");
+  return result;
+}
+
+function expectGradeFailure(validationId, text) {
+  var result = api.parse(text, gradeOptions);
+
+  assert(!result.ok, validationId + " invalid graded fixture was accepted.");
+  assert(result.validationId === validationId,
+    validationId + " returned " + result.validationId +
+      " (" + result.reason + ").");
+}
+
+["A", "B", "C", "D"].forEach(function (letter) {
+  expectGrade("grade " + letter, gradePackage({grade: letter}), letter);
+});
+expectGradeFailure("D12", gradePackage({grade: null}));
+expectGradeFailure("D12", gradePackage({grade: "E"}));
+expectGradeFailure("D26", gradePackage({
+  grade: "D",
+  beginCount: "1",
+  findings: [finding("1", defaultMeta)]
+}));
+expectGradeFailure("D20", gradePackage({
+  grade: "A",
+  noFinding: "SCOPE_CLEAR"
+}));
+// The section list is the template's, so the audit's ENVIRONMENT is not
+// one of the words this shape knows.
+expectGradeFailure("D05", gradePackage({grade: "A"}).replace(
+  "SECTION BEGIN REASON", "SECTION BEGIN ENVIRONMENT")
+  .replace("SECTION END REASON", "SECTION END ENVIRONMENT"));
+// And the findings shape refuses a graded reply too: its section words
+// are not the audit's, and a stray grade is not read as a shape switch.
+assert(api.parse(gradePackage({grade: "A"}), options).validationId === "D05",
+  "A graded reply must be refused by the findings shape.");
+assert(api.parse(
+  validOne.replace(marker("DIAG COMPLETE 1"),
+    marker("DIAG GRADE A") + "\n" + marker("DIAG COMPLETE 1")),
+  options
+).validationId === "D02",
+"A grade written into a findings reply must be refused.");
+
+var gradeRecord = api.formatForRecord(
+  expectGrade("record source", gradePackage({grade: "D"}), "D").diagnosis);
+assert(gradeRecord.indexOf("## 判定\r\n\r\n- D") >= 0 &&
+    gradeRecord.indexOf("## REASON") >= 0 &&
+    gradeRecord.indexOf("## 指摘") < 0,
+"The graded record lost the grade or the reason.");
+
+var restoredGrade = api.restore(JSON.parse(JSON.stringify(
+  expectGrade("restore source", gradePackage({grade: "B"}), "B").diagnosis)));
+assert(restoredGrade && restoredGrade.grade === "B" &&
+    restoredGrade.shape === "grade",
+"A graded diagnosis must survive being written down and read back.");
 
 // Canonical decimal counts and line syntax are intentionally stricter
 // than JavaScript Number conversion.
@@ -308,11 +411,12 @@ var accepted = expectPass("record formatting source", validBlocker);
 var record = api.formatForRecord(accepted.diagnosis);
 assert(
   record.indexOf("# 診断結果\r\n") === 0 &&
-    record.indexOf("CLASS=BLOCKER") >= 0 &&
+    record.indexOf("GRADE=B") >= 0 &&
+    record.indexOf("ENVKEY=WIN32API_BLOCKED") >= 0 &&
     record.indexOf("EVIDENCE の事実です。") >= 0,
   "The accepted diagnosis record lost META or TEXT facts.");
 
 console.log("test-diagnosis-package: PASS");
 console.log(
-  "shipped example, D01-D29 pass/fail ids, zero findings, canonical " +
-    "counts, line forms and record formatting: PASS");
+  "shipped example, D01-D29 pass/fail ids, both return shapes, zero " +
+    "findings, canonical counts, line forms and record formatting: PASS");

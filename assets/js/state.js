@@ -26,6 +26,12 @@
       screen: 0,
       history: [],
       appInfo: null,
+
+      // Which of the three kinds of work this run is. Chosen on the
+      // first screen, before the workbook. It carries the entrance's
+      // own templates, so what the run does next is read off the folder
+      // rather than decided here (SPEC §2.2.0).
+      entrance: null,
       book: null,
       bookInventory: null,
       bookSnapshot: "",
@@ -37,7 +43,6 @@
       targetEnvironment: null,
       targetEnvironmentSnapshot: "",
       diagnosisConcern: "",
-      diagnosisSkipped: false,
       diagnosisSplit: false,
       diagnosisRequestId: null,
       diagnosisRequestSnapshot: null,
@@ -424,7 +429,10 @@
   // A finding the target environment stops the macro on is not optional
   // work, so it starts selected. The reader unticks what they do not want
   // rather than hunting for what they must not miss.
-  var REQUIRED_FINDING_CLASSES = ["BLOCKER", "DEFECT"];
+  // The grade that means "this does not run and this tool can fix it".
+  // Those arrive ticked because they are what the run is for; C and D
+  // cannot be sent anywhere, and A is nothing to do.
+  var REQUIRED_FINDING_GRADES = ["B"];
 
   function requiredFindingIds() {
     var findings = state.diagnosis && Array.isArray(state.diagnosis.findings)
@@ -432,7 +440,7 @@
       : [];
 
     return findings.filter(function (finding) {
-      return REQUIRED_FINDING_CLASSES.indexOf(finding["class"]) >= 0;
+      return REQUIRED_FINDING_GRADES.indexOf(finding.grade) >= 0;
     }).map(function (finding) {
       return String(finding.number);
     });
@@ -489,9 +497,14 @@
   function setBook(book, modules) {
     var api = screenApi();
     var appInfo = state.appInfo;
+    // The entrance is chosen before the workbook, so reading another
+    // workbook does not un-choose the work. Everything else about the
+    // run belonged to the previous workbook and goes.
+    var entrance = state.entrance;
 
     state = createInitialState();
     state.appInfo = appInfo;
+    state.entrance = entrance;
     state.screen = api ? api.bookScreen : 0;
     state.book = book || null;
     state.modules = modules || [];
@@ -514,6 +527,26 @@
   function setAppInfo(appInfo) {
     state.appInfo = appInfo;
     notify();
+  }
+
+  // Choosing the work. A different entrance asks a different question,
+  // so everything downstream - the diagnosis, the template, the request -
+  // belonged to the old question and is dropped. The workbook is not: it
+  // is the same workbook whichever question is asked about it.
+  function setEntrance(entrance) {
+    var next = entrance || null;
+    var folder = next ? String(next.folder || "") : "";
+    var current = state.entrance ? String(state.entrance.folder || "") : "";
+
+    if (folder === current) {
+      return false;
+    }
+    state.entrance = next;
+    invalidateDiagnosisRequest();
+    invalidateDiagnosisResult();
+    state.diagnosisConcern = "";
+    notify();
+    return true;
   }
 
   function setTargetEnvironment(profile, canonicalSnapshot) {
@@ -540,22 +573,12 @@
     return true;
   }
 
-  // Skipping is a declared choice, not a silent absence: the run records
-  // that no diagnosis was asked for, and any diagnosis already taken in
-  // is dropped so the request cannot claim facts it did not use.
-  function setDiagnosisSkipped(enabled) {
-    var next = enabled === true;
-
-    if (next === state.diagnosisSkipped) {
-      return false;
-    }
-    state.diagnosisSkipped = next;
-    if (next) {
-      invalidateDiagnosisResult();
-    }
-    clearRepairInput();
-    notify();
-    return true;
+  // Whether this run diagnoses at all is the entrance's answer, not a
+  // switch of its own. It used to be a checkbox on the diagnosis screen,
+  // which meant a branch that changes the following screens was hidden
+  // inside one of them (SPEC §2.2.1).
+  function isDiagnosisSkipped() {
+    return Boolean(state.entrance) && state.entrance.hasDiagnosis !== true;
   }
 
   function setDiagnosisSplit(enabled) {
@@ -829,9 +852,10 @@
   // The order the templates are offered in, so a request reads the same
   // way whichever order the reader ticked them.
   function orderPresets(entries) {
-    var offered = state.appInfo && state.appInfo.presets &&
-      Array.isArray(state.appInfo.presets.repair)
-      ? state.appInfo.presets.repair.map(function (item) {
+    // What is offered belongs to the chosen entrance, so the order comes
+    // from there rather than from the whole install.
+    var offered = state.entrance && Array.isArray(state.entrance.repair)
+      ? state.entrance.repair.map(function (item) {
         return item.file;
       })
       : [];
@@ -961,7 +985,7 @@
     // A run that skipped the diagnosis has no findings to carry, but it
     // still has a template and a request of its own.
     if (!requestId || !state.presetFile ||
-        (!state.diagnosis && state.diagnosisSkipped !== true)) {
+        (!state.diagnosis && !isDiagnosisSkipped())) {
       return false;
     }
     // The request was written from the code the table produced, so
@@ -971,6 +995,10 @@
     state.repairRequestSnapshot = state.repairInputSnapshot;
     state.repairRequestText = String(next.requestText || "");
     state.repairRequestFilePath = next.requestPath || null;
+    // A run that does not diagnose writes this request first, so the
+    // folder and the stamp arrive here rather than from the diagnosis.
+    state.runFolder = next.runFolder || state.runFolder;
+    state.outputTimestamp = next.outputTimestamp || state.outputTimestamp;
     state.handoffFolder = next.handoffFolder || state.handoffFolder;
     state.repairPrompt = next.prompt || null;
     state.repairPromptCopied = false;
@@ -1093,7 +1121,7 @@
         requestPath: state.diagnosisRequestFilePath,
         concern: state.diagnosisConcern,
         split: state.diagnosisSplit === true,
-        skipped: state.diagnosisSkipped === true,
+        skipped: isDiagnosisSkipped(),
         version: state.diagnosisVersion,
         filePath: state.diagnosisFilePath,
         attribution: state.diagnosisAttribution,
@@ -1513,9 +1541,10 @@
     setBook: setBook,
     setBookInventory: setBookInventory,
     setAppInfo: setAppInfo,
+    setEntrance: setEntrance,
     setTargetEnvironment: setTargetEnvironment,
     setDiagnosisConcern: setDiagnosisConcern,
-    setDiagnosisSkipped: setDiagnosisSkipped,
+    isDiagnosisSkipped: isDiagnosisSkipped,
     setDiagnosisSplit: setDiagnosisSplit,
     isDiagnosisRequestDirty: isDiagnosisRequestDirty,
     commitDiagnosisRequest: commitDiagnosisRequest,

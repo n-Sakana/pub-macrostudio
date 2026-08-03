@@ -80,7 +80,7 @@ assert(state.commitDiagnosis(productDiagnosis, "diagnosis.md"),
   "State must accept the diagnosis object returned by the product parser.");
 
 state.setRepairPreset({
-  file: "02_改修\\sample.md",
+  file: "01_マクロ改修\\\\02_改修\\\\sample.md",
   name: "ひな形",
   content: "preset",
   parsed: {
@@ -127,7 +127,7 @@ assert(state.setNoChangeResult(productNoChange),
 
 var pathApi = windowObject.MacroStudioPathMap;
 state.setRepairPreset({
-  file: "02_改修\\03_path.md",
+  file: "01_マクロ改修\\\\02_改修\\\\03_path.md",
   name: "固定パスを新環境へ置き換える",
   content: "path preset",
   parsed: {

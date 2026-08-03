@@ -88,7 +88,7 @@ var diagnosisText = [
   diagMarker("SECTION BEGIN ENVIRONMENT"), "対象環境では API を使えません。",
   diagMarker("SECTION END ENVIRONMENT"),
   diagMarker("FINDING BEGIN 1"),
-  diagMarker("META CLASS=BLOCKER CONFIDENCE=CONFIRMED MODULE=Main " +
+  diagMarker("META GRADE=B CONFIDENCE=CONFIRMED MODULE=Main " +
     "PROC=Run LINES=2 ENVKEY=WIN32API_BLOCKED"),
   diagMarker("TEXT BEGIN TITLE"), "Win32 API を呼んでいる",
   diagMarker("TEXT END TITLE"),
@@ -103,20 +103,52 @@ var diagnosisText = [
   diagMarker("DIAG END")
 ].join("\r\n");
 
-assert(screens.count === 10 &&
-  store.startSimple === undefined && store.setMode === undefined &&
-  screens.modeScreen === undefined && screens.isSimple === undefined,
-"The beta2 flow must expose one 10-screen graph and no simple-mode API.");
-assert(screens.nextIndex({}, screens.bookScreen) === screens.diagnoseScreen,
-  "The workbook screen must lead only to diagnosis, never to findings.");
+var contracts = require("./helpers/contracts");
+var presetApi = windowObject.MacroStudioPreset;
+var entrances = fs.readdirSync(path.join(root, "presets"))
+  .filter(function (name) {
+    return fs.statSync(path.join(root, "presets", name)).isDirectory();
+  }).sort().map(function (folder) {
+    return contracts.entrance(presetApi, folder);
+  });
 
+assert(screens.count === 11 &&
+  store.startSimple === undefined && store.setMode === undefined &&
+  store.setDiagnosisSkipped === undefined &&
+  screens.modeScreen === undefined && screens.isSimple === undefined,
+"The flow must expose one 11-screen graph and no simple-mode API.");
+// Three entrances, each usable, each saying for itself what a run of its
+// kind does. Nothing about the shape of a run is decided in the app.
+assert(entrances.length === 3 && entrances.every(function (entrance) {
+  return entrance.valid === true && entrance.description.length > 0;
+}), "The install must ship exactly three usable entrances.");
+assert(entrances.filter(function (entrance) {
+  return entrance.hasDiagnosis;
+}).length === 2, "Two of the three entrances diagnose.");
+assert(entrances.every(function (entrance) {
+  return entrance.hasDiagnosis === false || entrance.diagnosisReady === true;
+}), "An entrance that diagnoses must hold exactly one diagnosis template.");
+
+var macroEntrance = entrances[0];
+
+assert(macroEntrance.folder === "01_マクロ改修" &&
+  macroEntrance.choosesTemplate === true,
+"The macro entrance is the one that offers a choice of repair template.");
+assert(screens.nextIndex({entrance: macroEntrance}, screens.bookScreen) ===
+  screens.diagnoseScreen,
+"For an entrance that diagnoses, the workbook leads only to the diagnosis.");
+
+store.setEntrance(macroEntrance);
+assert(store.getState().screen === screens.entranceScreen && store.goNext() &&
+  store.getState().screen === screens.bookScreen,
+"The shortest path must begin by saying what the run is for.");
 store.setBook({
   name: "book.xlsm", path: "C:\\books\\book.xlsm", ext: ".xlsm",
   totalLines: 3
 }, modules);
-assert(store.getState().screen === screens.bookScreen && store.goNext() &&
+assert(store.goNext() &&
   store.getState().screen === screens.diagnoseScreen,
-"The shortest path must begin at book and enter the diagnosis screen.");
+"The attached workbook must enter the diagnosis screen.");
 store.setTargetEnvironment(environment, "ENVIRONMENT SNAPSHOT");
 store.commitDiagnosisRequest({requestId: diagnosisId});
 store.setDiagnosisHandoffProgress(true, true);
@@ -134,8 +166,7 @@ store.commitDiagnosis(parsedDiagnosis.diagnosis, "diagnosis.md");
 assert(store.goNext() && store.getState().screen === screens.findingsScreen,
   "A valid diagnosis, not a skip, must open findings.");
 
-var findings = workflow.createFindingsScreen(Object.assign(
-  store.getState(), {appInfo: {presets: {repair: []}}}));
+var findings = workflow.createFindingsScreen(store.getState());
 // One tier stays shut on the shortest path: the box holding the places a
 // problem was found in. Inside that box nothing else has to be opened.
 var groupPanel = findings.querySelector(".group-panel");
@@ -144,16 +175,17 @@ assert(groupPanel && groupPanel.hidden === true,
 assert(findings.querySelector(".occurrence-toggle") === null,
   "There is no second tier to leave unopened.");
 
-var presetPath = path.join(root, "presets", "02_改修",
-  "01_Win32 API を使わない形へ直す.md");
-var presetContent = readUtf8(presetPath);
-var parsedPreset = windowObject.MacroStudioPreset.parse(presetContent, "repair");
-assert(parsedPreset.valid, "The selected shipped repair preset must parse.");
+// The template comes off the entrance's own list, so the shortest path
+// walks the files the install actually ships.
+var chosen = macroEntrance.repair[0];
+
+assert(chosen && chosen.valid,
+  "The macro entrance must offer a usable repair template.");
 store.setRepairPreset({
-  file: "02_改修\\02_Win32 API を使わない形へ直す.md",
-  name: parsedPreset.name,
-  content: presetContent,
-  parsed: parsedPreset
+  file: chosen.file,
+  name: chosen.name,
+  content: chosen.content,
+  parsed: presetApi.parse(chosen.content, "repair")
 });
 assert(store.goNext() && store.getState().screen === screens.nextStepScreen,
   "The read diagnosis must lead to the choice of work.");
@@ -196,9 +228,18 @@ var productText = [
   readUtf8(path.join(root, "assets", "js", "screens", "workflow.js"))
 ].join("\n");
 assert(productText.indexOf("簡易モードで始める") < 0 &&
-  productText.indexOf("AIで相談する") < 0,
+  productText.indexOf("AIで相談する") < 0 &&
+  productText.indexOf("診断せずに進む") < 0,
 "No visible diagnosis-skip or simple-mode entrance may remain in product code.");
+// What the entrances are called is authored in their own folders, so the
+// app may not carry the names of the three it happens to ship.
+entrances.forEach(function (entrance) {
+  assert(productText.indexOf(entrance.name) < 0,
+    "The app names an entrance it should be reading off disk: " +
+      entrance.name);
+});
 
 console.log("test-shortest-path: PASS");
-console.log("one entrance, mandatory product-validated diagnosis, collapsed " +
-  "evidence, one template and one desired line reach build");
+console.log("three entrances read off disk, the macro entrance's mandatory " +
+  "product-validated diagnosis, collapsed evidence, one template and one " +
+  "desired line reach build");

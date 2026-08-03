@@ -192,7 +192,18 @@ namespace MacroStudio.Tests
                 Dictionary<string, object> report)
             {
                 await WaitFor(
-                    "MacroStudioState.getState().appInfo !== null");
+                    "MacroStudioState.getState().appInfo !== null && " +
+                    "document.querySelector('[data-entrance-folder=" +
+                    "\"01_マクロ改修\"]') !== null");
+                // The run says what it is for before it reads anything.
+                await Execute(
+                    "document.querySelector('[data-entrance-folder=" +
+                    "\"01_マクロ改修\"]').click();");
+                await ClickNext(1);
+                await WaitFor(
+                    "MacroStudioState.getState().entrance !== null && " +
+                    "MacroStudioState.getState().screen === " +
+                    "MacroStudioScreens.bookScreen");
                 Dictionary<string, object> eventData =
                     new Dictionary<string, object>();
                 eventData.Add("path", bookPath);
@@ -201,11 +212,12 @@ namespace MacroStudio.Tests
                     "MacroStudioState.getState().book !== null && " +
                     "MacroStudioState.getState().busyAction === null");
                 report.Add("singleEntrance", await ReadBool(
-                    "MacroStudioState.getState().screen === 0 && " +
+                    "MacroStudioState.getState().screen === " +
+                    "MacroStudioScreens.bookScreen && " +
                     "document.querySelectorAll(" +
                     "'[data-action=\"select-mode\"]," +
                     "[data-action=\"select-purpose\"]').length === 0"));
-                await ClickNext(1);
+                await ClickNext(2);
                 await WaitFor(
                     "MacroStudioState.getState().diagnosisRequestId " +
                     "!== null && " +
@@ -242,15 +254,14 @@ namespace MacroStudio.Tests
                     ".diagnosisParts === null," +
                     "recorded:MacroStudioState.getState()" +
                     ".diagnosisFilePath !== null})"));
-                await ClickNext(2);
-                // Reading the diagnosis and choosing the work are two pages.
                 await ClickNext(3);
+                // Reading the diagnosis and choosing the work are two pages.
+                await ClickNext(4);
 
                 string presetFile = await ReadJson(
                     "(function(){" +
-                    "var entries = MacroStudioPreset.describeAll(" +
-                    "MacroStudioState.getState().appInfo.presets.repair," +
-                    "'repair');" +
+                    "var entries = " +
+                    "MacroStudioState.getState().entrance.repair;" +
                     "var found = '';" +
                     "entries.forEach(function(entry){" +
                     "if (!found && entry.valid && " +
@@ -277,7 +288,7 @@ namespace MacroStudio.Tests
                     "MacroStudioState.getState().splitOutputRules " +
                     "!== null && " +
                     "MacroStudioState.getState().busyAction === null");
-                await ClickNext(4);
+                await ClickNext(5);
                 // The blocking finding is selected from the start and the
                 // screen asks nothing further about it.
                 await WaitFor(
@@ -310,7 +321,7 @@ namespace MacroStudio.Tests
                     lines,
                     marker,
                     1,
-                    "DEFECT",
+                    "B",
                     "AppController",
                     "Test",
                     "2",
@@ -319,7 +330,7 @@ namespace MacroStudio.Tests
                     lines,
                     marker,
                     2,
-                    "INFO",
+                    "A",
                     "TimerUtils",
                     "-",
                     "1",
@@ -333,7 +344,7 @@ namespace MacroStudio.Tests
                 List<string> lines,
                 string marker,
                 int number,
-                string className,
+                string grade,
                 string module,
                 string procedure,
                 string lineRange,
@@ -341,7 +352,7 @@ namespace MacroStudio.Tests
             {
                 string value = number.ToString();
                 lines.Add(marker + "FINDING BEGIN " + value);
-                lines.Add(marker + "META CLASS=" + className +
+                lines.Add(marker + "META GRADE=" + grade +
                     " CONFIDENCE=CONFIRMED MODULE=" + module +
                     " PROC=" + procedure + " LINES=" + lineRange +
                     " ENVKEY=-");

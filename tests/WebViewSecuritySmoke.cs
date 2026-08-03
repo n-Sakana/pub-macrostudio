@@ -224,9 +224,14 @@ namespace MacroStudio.Tests
                 // only arrives by way of a host request that the router
                 // accepted.
                 result.Add("trustedRequestWorks", await ReadJson(
+                    // Every Markdown file the host handed over: each
+                    // entrance's own file, plus its two stages.
                     "({presets:MacroStudioState.getState()" +
-                    ".appInfo.presets.diagnose.length+" +
-                    "MacroStudioState.getState().appInfo.presets.repair.length," +
+                    ".appInfo.presets.entrances.reduce(" +
+                    "function(total,entrance){" +
+                    "return total+(entrance.entrance?1:0)+" +
+                    "entrance.diagnose.length+" +
+                    "entrance.repair.length;},0)," +
                     "version:String(MacroStudioState.getState()" +
                     ".appInfo.version)})"));
                 result.Add("startPage", await CurrentSource());

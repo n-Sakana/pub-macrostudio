@@ -198,6 +198,8 @@ var diagnosisPrompt = promptApi.buildRequestPrompt({
     body: "契約形式で返してください。"
   },
   requestId: "3f1c9c7a-2b64-4a1e-9f52-0b5a4d2e77c1",
+  gradingBasis: "【改修の基準】" + crlf + "動くかどうかで見てください。" +
+    crlf + crlf,
   codeFileName: options.codeFileName,
   book: options.book,
   modules: options.modules
@@ -215,6 +217,9 @@ var expectedDiagnosisPrompt = [
   "【診断指示】",
   "事実だけを監査してください。",
   "",
+  "【改修の基準】",
+  "動くかどうかで見てください。",
+  "",
   "【対象モジュール】※ 0 行のモジュールは元から空です",
   "  - Module1 （標準モジュール, 3 行）",
   "  - ThisWorkbook （ドキュメントモジュール, 0 行）",
@@ -226,6 +231,22 @@ var expectedDiagnosisPrompt = [
 assert(
   diagnosisPrompt === expectedDiagnosisPrompt,
   "Generated diagnosis request prompt mismatch.");
+
+// An entrance with no single repair template has no basis to name, and
+// the request must then carry no empty heading at all.
+assert(
+  promptApi.buildRequestPrompt({
+    template: diagnosisTemplate,
+    requestText: "事実だけを監査してください。",
+    targetEnvironment: "[execution]",
+    outputRules: {title: "出力指示", body: "契約形式で返してください。"},
+    requestId: "3f1c9c7a-2b64-4a1e-9f52-0b5a4d2e77c1",
+    gradingBasis: "",
+    codeFileName: options.codeFileName,
+    book: options.book,
+    modules: options.modules
+  }).indexOf("【改修の基準】") < 0,
+  "An empty grading basis must leave no heading behind.");
 
 var missingEnvironmentPlaceholder = false;
 try {

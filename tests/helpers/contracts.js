@@ -33,7 +33,7 @@ function diagnosis(api, settings) {
     lines.push(marker(requestId, "FINDING BEGIN " + number));
     lines.push(marker(
       requestId,
-      "META CLASS=" + (finding.className || "INFO") +
+      "META GRADE=" + (finding.grade || "A") +
         " CONFIDENCE=" + (finding.confidence || "UNVERIFIED") +
         " MODULE=" + moduleName +
         " PROC=" + procedure +
@@ -55,6 +55,8 @@ function diagnosis(api, settings) {
   lines.push(marker(requestId, "DIAG END"));
   result = api.parse(lines.join("\r\n"), {
     requestId: requestId,
+    shape: config.shape || null,
+    sections: config.sections || null,
     modules: config.modules || [],
     environment: config.environment || { constraints: [] }
   });
@@ -107,7 +109,51 @@ function repair(api, settings) {
   return described;
 }
 
+// One entrance, described the way the app describes it: read the real
+// folder, hand it to the product parser. A test that walks the flow has
+// to choose an entrance first, because what the flow does after the
+// workbook is read off the entrance's folder (SPEC §2.2.0).
+function entrance(presetApi, folder) {
+  var fs = require("fs");
+  var path = require("path");
+  var root = path.resolve(__dirname, "..", "..");
+  var dir = path.join(root, "presets", folder);
+  var entranceFile = path.join(dir, "入口.md");
+
+  function read(file) {
+    var text = fs.readFileSync(file, "utf8");
+    return text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+  }
+
+  function group(stage) {
+    var stageDir = path.join(dir, stage);
+
+    if (!fs.existsSync(stageDir)) {
+      return [];
+    }
+    return fs.readdirSync(stageDir).filter(function (name) {
+      return /\.md$/.test(name);
+    }).sort().map(function (name) {
+      return {
+        file: folder + "\\" + stage + "\\" + name,
+        content: read(path.join(stageDir, name))
+      };
+    });
+  }
+
+  return presetApi.describeEntrance({
+    folder: folder,
+    entrance: fs.existsSync(entranceFile)
+      ? {file: folder + "\\入口.md", content: read(entranceFile)}
+      : null,
+    hasDiagnoseFolder: fs.existsSync(path.join(dir, "01_診断")),
+    diagnose: group("01_診断"),
+    repair: group("02_改修")
+  });
+}
+
 module.exports = {
   diagnosis: diagnosis,
-  repair: repair
+  repair: repair,
+  entrance: entrance
 };

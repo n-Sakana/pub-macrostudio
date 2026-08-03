@@ -66,13 +66,13 @@ var COMPACT = [
   m("SECTION FLOW CommonUtil から始まり、MonthlyReport が集計します。"),
   m("SECTION DEPENDENCY 共有フォルダのブックを開きます。"),
   m("SECTION ENVIRONMENT Windows の関数を直接呼ぶ処理が動きません。"),
-  m("FINDING 1 CLASS=BLOCKER CONFIDENCE=CONFIRMED MODULE=CommonUtil " +
+  m("FINDING 1 GRADE=B CONFIDENCE=CONFIRMED MODULE=CommonUtil " +
     "PROC=WaitSeconds LINES=8,21 ENVKEY=WIN32API_BLOCKED"),
   "TITLE: 待ち時間の処理が Windows の関数を直接呼んでいます。",
   "CONDITION: 実行すると必ず通ります。",
   "IMPACT: 最初の待ち時間で止まります。",
   "EVIDENCE: CommonUtil の 8 行目に宣言があります。",
-  m("FINDING 2 CLASS=CONDITIONAL CONFIDENCE=LIKELY MODULE=MonthlyReport " +
+  m("FINDING 2 GRADE=B CONFIDENCE=LIKELY MODULE=MonthlyReport " +
     "PROC=LoadSource LINES=42-47 ENVKEY=FIXED_DRIVE_LETTER"),
   "TITLE: 読み込み元がドライブ文字で書かれています。",
   "CONDITION: 同じ割り当てが無い端末で起きます。",
@@ -120,7 +120,7 @@ var MIXED = [
   m("SECTION FLOW CommonUtil から始まります。"),
   m("SECTION DEPENDENCY 共有フォルダのブックを開きます。"),
   m("SECTION ENVIRONMENT 対象環境では動きません。"),
-  m("FINDING 1 CLASS=INFO CONFIDENCE=UNVERIFIED MODULE=- PROC=- " +
+  m("FINDING 1 GRADE=A CONFIDENCE=UNVERIFIED MODULE=- PROC=- " +
     "LINES=- ENVKEY=-"),
   "TITLE: 補助情報です。",
   "CONDITION: 常に成立します。",
@@ -246,7 +246,7 @@ assert(Object.keys(ids).length > 20,
 // ---- the shipped template asks for the short form ----
 
 var presetText = readUtf8(path.join(
-  root, "presets", "01_診断", "01_動作環境の事実監査.md"));
+  root, "presets", "01_マクロ改修", "01_診断", "01_動くかどうかの監査.md"));
 var parsedPreset = preset.parse(presetText, "diagnose");
 
 assert(parsedPreset.valid, "The diagnosis template must parse.");

@@ -43,17 +43,17 @@ Object.assign(windowObject, {
     {filename: name});
 });
 
-var diagnoseFile = "01_診断\\01_動作環境の事実監査.md";
-var repairFile = "02_改修\\06_自分で改修内容を書く.md";
+var diagnoseFile = "01_マクロ改修\\01_診断\\01_動くかどうかの監査.md";
+var repairFile = "03_フリー依頼\\02_改修\\01_自分で改修内容を書く.md";
 var diagnoseRaw = {
   file: diagnoseFile,
-  content: readUtf8(path.join(root, "presets", "01_診断",
-    "01_動作環境の事実監査.md"))
+  content: readUtf8(path.join(root, "presets", "01_マクロ改修", "01_診断",
+    "01_動くかどうかの監査.md"))
 };
 var repairRaw = {
   file: repairFile,
-  content: readUtf8(path.join(root, "presets", "02_改修",
-    "06_自分で改修内容を書く.md"))
+  content: readUtf8(path.join(root, "presets", "03_フリー依頼", "02_改修",
+    "01_自分で改修内容を書く.md"))
 };
 var diagnoseTemplate = readUtf8(path.join(root, "templates",
   "diagnose-template.txt"));
@@ -90,12 +90,6 @@ windowObject.hostBridge = {
 var store = windowObject.MacroStudioState;
 var workflow = windowObject.MacroStudioWorkflow;
 windowObject.MacroStudioApp = {
-  getDiagnosisPresetStatus: function () {
-    return {
-      ok: true,
-      entry: windowObject.MacroStudioPreset.describe(diagnoseRaw, "diagnose")
-    };
-  },
   createOutputTimestamp: function () { return "20260801_112233"; },
   createCodeFileTimestamp: function () { return "2026-08-01 11:22:33"; },
   showToast: function () {},
@@ -113,7 +107,22 @@ var diagnosis = {
 };
 
 (async function () {
-  store.setAppInfo({presets: {diagnose: [diagnoseRaw], repair: [repairRaw]}});
+  store.setAppInfo({presets: {entrances: []}});
+  // Both values now live on the entrance's own screens: the concern on
+  // the diagnosis screen of an entrance that diagnoses, the extra
+  // request on the repair input of whichever entrance is running.
+  store.setEntrance({
+    folder: "01_マクロ改修",
+    name: "マクロ改修",
+    description: "動くようにします。",
+    valid: true,
+    hasDiagnosis: true,
+    diagnosisReady: true,
+    choosesTemplate: false,
+    diagnose: windowObject.MacroStudioPreset.describeAll(
+      [diagnoseRaw], "diagnose"),
+    repair: windowObject.MacroStudioPreset.describeAll([repairRaw], "repair")
+  });
   store.setBook({
     name: "book.xlsm", path: "C:\\books\\book.xlsm", ext: ".xlsm",
     totalLines: 3

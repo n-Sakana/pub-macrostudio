@@ -23,13 +23,31 @@
   var lazyContent = {};
   var entering = false;
   var lastEnteredScreen = null;
-  var CLASS_ORDER = ["BLOCKER", "DEFECT", "CONDITIONAL", "EXTERNAL", "INFO"];
-  var CLASS_LABELS = {
-    BLOCKER: "阻害",
-    DEFECT: "不具合",
-    CONDITIONAL: "条件付き",
-    EXTERNAL: "前提",
-    INFO: "補助"
+  // What the reader has to do about a problem, in one letter. Worst
+  // first, because a workbook that cannot be made to run at all is the
+  // thing to read before a list of things that can be fixed.
+  var GRADE_ORDER = ["D", "C", "B", "A"];
+  var GRADE_LABELS = {
+    A: "支障なし",
+    B: "要改修",
+    C: "不明",
+    D: "改修不可"
+  };
+  var GRADE_NOTES = {
+    A: "動作に支障はありません。読むだけで結構です。",
+    B: "動きません。このツールのひな形で改修を依頼できます。",
+    C: "動きません。原因がコードの外にあるので、このツールでは直せません。" +
+      "環境の側で手を打つことになります。",
+    D: "動きません。置き換え先が無いことが確定しています。" +
+      "このマクロをこの環境で動かすことはできません。"
+  };
+  // The refactoring diagnosis grades the workbook as a whole, and the
+  // letters mean something else there: how much there is to gain.
+  var VALUE_LABELS = {
+    A: "直すところは見当たらない",
+    B: "少しある",
+    C: "ある",
+    D: "大きい"
   };
   var CONFIDENCE_LABELS = {
     CONFIRMED: "確認済み",
@@ -260,9 +278,9 @@
       ? diagnosis.findings.slice()
       : [];
     findings.sort(function (left, right) {
-      var classDifference = CLASS_ORDER.indexOf(left.class) -
-        CLASS_ORDER.indexOf(right.class);
-      return classDifference || Number(left.number) - Number(right.number);
+      var gradeDifference = GRADE_ORDER.indexOf(left.grade) -
+        GRADE_ORDER.indexOf(right.grade);
+      return gradeDifference || Number(left.number) - Number(right.number);
     });
     return findings;
   }
@@ -297,16 +315,16 @@
     return found;
   }
 
-  function worstClass(findings) {
-    var best = CLASS_ORDER.length - 1;
+  function worstGrade(findings) {
+    var best = GRADE_ORDER.length - 1;
 
     findings.forEach(function (finding) {
-      var index = CLASS_ORDER.indexOf(finding["class"]);
+      var index = GRADE_ORDER.indexOf(finding.grade);
       if (index >= 0 && index < best) {
         best = index;
       }
     });
-    return CLASS_ORDER[best];
+    return GRADE_ORDER[best];
   }
 
   // One problem, however many places it shows up in. Thirteen findings
@@ -317,7 +335,6 @@
     var order = [];
     var byAxis = {};
     var axisOrder = [];
-    var repairable = repairableKeys(state);
 
     findings.forEach(function (finding) {
       var key = finding.environmentKey === "-" ? "" : finding.environmentKey;
@@ -337,11 +354,10 @@
         title: constraint && constraint.title
           ? constraint.title
           : firstLine(byKey[key][0].texts.title),
-        "class": worstClass(byKey[key]),
+        grade: worstGrade(byKey[key]),
         findings: byKey[key]
       };
 
-      group.verdict = verdictOf(group, repairable);
       if (!Object.prototype.hasOwnProperty.call(byAxis, axis)) {
         byAxis[axis] = [];
         axisOrder.push(axis);
@@ -353,8 +369,8 @@
     });
     return axisOrder.map(function (axis) {
       byAxis[axis].sort(function (left, right) {
-        return CLASS_ORDER.indexOf(left["class"]) -
-          CLASS_ORDER.indexOf(right["class"]);
+        return GRADE_ORDER.indexOf(left.grade) -
+          GRADE_ORDER.indexOf(right.grade);
       });
       return {
         axis: axis,
@@ -364,80 +380,24 @@
     });
   }
 
-  // ---- what the reader is being asked to do about each problem ----
-  //
-  // The diagnosis says what is true. This says what follows from it, and
-  // it is read off two facts the reader can check rather than decided
-  // here: whether some repair template declares the environment key this
-  // problem names, and the class the AI gave it. Nothing else.
-  //
-  //   要改修   a template addresses this key, so this tool can prepare
-  //            the request. This is the same rule that draws ★推奨 on
-  //            the next screen, so the two can never disagree.
-  //   要確認   no template addresses it and it is not an INFO note, so it
-  //            is real work that happens outside this tool.
-  //   改修不要  no template addresses it and the AI filed it as 補助.
-  var VERDICT_ORDER = ["REPAIRABLE", "CONFIRM", "NOACTION"];
-  var VERDICT_LABELS = {
-    REPAIRABLE: "要改修",
-    CONFIRM: "要確認",
-    NOACTION: "改修不要"
-  };
-  var VERDICT_HEADINGS = {
-    REPAIRABLE: "要改修",
-    CONFIRM: "要確認（このツールの範囲外）",
-    NOACTION: "改修不要"
-  };
-  var VERDICT_NOTES = {
-    REPAIRABLE: "このツールのひな形で改修を依頼できます。",
-    CONFIRM: "このツールのひな形にはありません。人が確かめて決めます。",
-    NOACTION: "直す対象ではないと診断されています。読むだけで結構です。"
-  };
-
-  // Every environment key that some valid repair template says it
-  // addresses. A template that names none never claims anything.
-  function repairableKeys(state) {
-    var keys = {};
-    var presets = state.appInfo && state.appInfo.presets
-      ? state.appInfo.presets.repair
-      : [];
-
-    if (!global.MacroStudioPreset) {
-      return keys;
-    }
-    global.MacroStudioPreset.describeAll(presets || [], "repair").forEach(
-      function (entry) {
-        if (!entry.valid) {
-          return;
-        }
-        (entry.recommendKeys || []).forEach(function (key) {
-          keys[String(key)] = true;
-        });
-      });
-    return keys;
-  }
-
-  function verdictOf(group, keys) {
-    if (group.key &&
-        Object.prototype.hasOwnProperty.call(keys, group.key)) {
-      return "REPAIRABLE";
-    }
-    return group["class"] === "INFO" ? "NOACTION" : "CONFIRM";
-  }
-
-  function groupsByVerdict(categories) {
+  // The grade the diagnosis gave, grouped. The tool works nothing out
+  // here: the AI named A, B, C or D against a definition written in the
+  // template, and this only sorts by it. Deciding the verdict from which
+  // templates happen to exist was tried and dropped - it could not
+  // express a defect that owes nothing to the target environment,
+  // because that finding names no environment key.
+  function gradesOf(categories) {
     var buckets = {};
 
-    VERDICT_ORDER.forEach(function (name) { buckets[name] = []; });
+    GRADE_ORDER.forEach(function (name) { buckets[name] = []; });
     allGroups(categories).forEach(function (group) {
-      buckets[group.verdict].push(group);
+      buckets[group.grade].push(group);
     });
-    return VERDICT_ORDER.map(function (name) {
+    return GRADE_ORDER.map(function (name) {
       return {
-        verdict: name,
-        label: VERDICT_LABELS[name],
-        heading: VERDICT_HEADINGS[name],
-        note: VERDICT_NOTES[name],
+        grade: name,
+        label: GRADE_LABELS[name],
+        note: GRADE_NOTES[name],
         groups: buckets[name]
       };
     });
@@ -454,12 +414,12 @@
     return groups;
   }
 
-  function countGroupClasses(categories) {
+  function countGroupGrades(categories) {
     var counts = {};
 
-    CLASS_ORDER.forEach(function (name) { counts[name] = 0; });
+    GRADE_ORDER.forEach(function (name) { counts[name] = 0; });
     allGroups(categories).forEach(function (group) {
-      counts[group["class"]] += 1;
+      counts[group.grade] += 1;
     });
     return counts;
   }
@@ -487,7 +447,7 @@
   function notMeasuredNote(state, finding) {
     var constraint;
 
-    if (!finding || finding["class"] !== "BLOCKER" ||
+    if (!finding || finding.grade !== "B" ||
         finding.environmentKey === "-") {
       return "";
     }
@@ -554,7 +514,7 @@
       });
     sortedFindings(diagnosis).forEach(function (finding) {
       lines.push(
-        "#" + padFinding(finding.number) + " [" + finding.class + "/" +
+        "#" + padFinding(finding.number) + " [" + finding.grade + "/" +
         finding.confidence + "] " + finding.texts.title);
       lines.push("    成立条件: " + finding.texts.condition);
       lines.push("    影響: " + finding.texts.impact);
@@ -604,7 +564,7 @@
         return;
       }
       lines.push(
-        "#" + padFinding(finding.number) + " [" + finding.class + "] " +
+        "#" + padFinding(finding.number) + " [" + finding.grade + "] " +
         finding.texts.title);
       lines.push("    " + formatLocation(finding));
       lines.push("    成立条件: " + finding.texts.condition);
@@ -779,22 +739,46 @@
     return lines.join(CRLF) + CRLF;
   }
 
+  // Every entrance the presets folder holds, already described by
+  // preset-document.js. The app never reads what is inside them.
+  function listEntrances(state) {
+    return state && state.appInfo && Array.isArray(state.appInfo.entrances)
+      ? state.appInfo.entrances
+      : [];
+  }
+
+  function entranceRepairPresets(state) {
+    return state && state.entrance && Array.isArray(state.entrance.repair)
+      ? state.entrance.repair
+      : [];
+  }
+
+  // What this run is called. Authored in the entrance's own folder, so
+  // the app can say it back without knowing any of the three by name.
+  function entranceName(state) {
+    return state && state.entrance ? String(state.entrance.name || "") : "";
+  }
+
+  // The one diagnosis template of the chosen entrance, with the raw file
+  // beside it. An entrance with no diagnosis stage has none, and the
+  // flow steps over the screens that would have used it.
   function diagnosisPreset(state) {
-    var status = global.MacroStudioApp.getDiagnosisPresetStatus();
-    var raw = null;
-    if (!status || !status.ok || !status.entry ||
-        !state.appInfo || !state.appInfo.presets ||
-        !Array.isArray(state.appInfo.presets.diagnose)) {
+    var entrance = state && state.entrance ? state.entrance : null;
+    var valid;
+
+    if (!entrance || entrance.hasDiagnosis !== true) {
       return null;
     }
-    (state.appInfo.presets.diagnose || []).some(function (entry) {
-      if (entry.file === status.entry.file) {
-        raw = entry;
-        return true;
-      }
-      return false;
+    valid = (entrance.diagnose || []).filter(function (entry) {
+      return entry.valid;
     });
-    return raw ? {entry: status.entry, raw: raw} : null;
+    if (valid.length !== 1) {
+      return null;
+    }
+    return {
+      entry: valid[0],
+      raw: {file: valid[0].file, content: valid[0].content}
+    };
   }
 
   // The reply did not come back in the shape the request asked for. The
@@ -913,6 +897,31 @@
     return null;
   }
 
+  // What the diagnosis is asked to grade against. It is not written here
+  // and not written in the diagnosis template either: it is the repair
+  // template's own 改修指示. An entrance with one repair template has one
+  // basis; an entrance with several has no single basis to name, and its
+  // diagnosis does not ask for one.
+  //
+  // Keeping the criteria in one file is the point. Copying them into the
+  // diagnosis template would let the two stages drift apart, and the
+  // reader would be told the code was graded against something the
+  // repair does not do.
+  function gradingBasis(state) {
+    var valid = entranceRepairPresets(state).filter(function (entry) {
+      return entry.valid && entry.instruction;
+    });
+
+    if (valid.length !== 1) {
+      return "";
+    }
+    // The heading travels with the text so an entrance without a single
+    // basis sends no empty heading, the same way the outside-code block
+    // disappears when there is nothing outside the code.
+    return "【改修の基準】" + CRLF +
+      String(valid[0].instruction.body || "") + CRLF + CRLF;
+  }
+
   function prepareDiagnosisRequest(force) {
     var store = global.MacroStudioState;
     var state = store.getState();
@@ -963,7 +972,8 @@
           modules: state.modules,
           codeFileName: AI_CODE_FILE,
           targetEnvironment: state.targetEnvironmentSnapshot,
-          outsideCode: composeOutsideCode(state)
+          outsideCode: composeOutsideCode(state),
+          gradingBasis: gradingBasis(state)
         }), requestId);
         code = global.MacroStudioPrompt.buildCodeFile({
           book: state.book,
@@ -1054,8 +1064,13 @@
   function applyDiagnosisText(text) {
     var store = global.MacroStudioState;
     var state = store.getState();
+    var selected = diagnosisPreset(state);
+    // Which sections and which shape to expect are the template's
+    // answer, so the reply is checked against what was actually asked.
     var options = {
       requestId: state.diagnosisRequestId,
+      shape: selected ? selected.entry.shape : null,
+      sections: selected ? selected.entry.returnSections : null,
       modules: state.modules,
       environment: state.targetEnvironment
     };
@@ -1120,6 +1135,30 @@
     }, failHost);
   }
 
+  // Choosing the work. The templates in play change with it, so anything
+  // chosen under the old entrance goes; the workbook stays, because it
+  // is the same workbook whichever question is asked about it.
+  function selectEntrance(folder) {
+    var store = global.MacroStudioState;
+    var state = store.getState();
+    var chosen = null;
+
+    if (!folder || state.busyAction) {
+      return false;
+    }
+    listEntrances(state).some(function (entrance) {
+      if (entrance.folder === folder) {
+        chosen = entrance;
+        return true;
+      }
+      return false;
+    });
+    if (!chosen || !chosen.valid) {
+      return false;
+    }
+    return store.setEntrance(chosen);
+  }
+
   function selectRepairPreset(file) {
     var store = global.MacroStudioState;
     var state = store.getState();
@@ -1159,10 +1198,10 @@
   function syncSelectedPreset(state) {
     var raw = null;
     var parsed;
-    if (!state.presetFile || !state.appInfo || !state.appInfo.presets) {
+    if (!state.presetFile) {
       return false;
     }
-    (state.appInfo.presets.repair || []).some(function (entry) {
+    entranceRepairPresets(state).some(function (entry) {
       if (entry.file === state.presetFile) {
         raw = entry;
         return true;
@@ -1217,6 +1256,7 @@
     var diagnosisText;
     var selectedText;
     var outputRules;
+    var timestamp;
 
     if (state.busyAction || state.presetEngine !== "AI" ||
         !global.MacroStudioScreens.isRepairInputReady(state)) {
@@ -1243,6 +1283,12 @@
       return Promise.resolve(null);
     }
     requestId = createIdentity();
+    // On an entrance that diagnoses, the run folder was named by the
+    // diagnosis request and this reuses it. On one that does not, this
+    // request is the first thing the run writes, so it names the folder
+    // itself rather than writing into nowhere.
+    timestamp = state.outputTimestamp ||
+      global.MacroStudioApp.createOutputTimestamp(new Date());
     requestText = composeRepairRequestText(parsed, state, requestId);
     diagnosisText = formatDiagnosisForPrompt(state.diagnosis);
     selectedText = formatSelectedFindings(state);
@@ -1276,8 +1322,16 @@
       }
       return global.hostBridge.request("writeRequestFiles", {
         stage: "repair",
-        outputTimestamp: state.outputTimestamp,
+        outputTimestamp: timestamp,
         request: prompt,
+        // The workbook as it was read. The host keeps the first one a
+        // run writes and never replaces it, so on an entrance that
+        // diagnoses this is the copy the diagnosis already recorded.
+        code: global.MacroStudioPrompt.buildCodeFile({
+          book: state.book,
+          modules: state.modules,
+          generatedAt: global.MacroStudioApp.createCodeFileTimestamp(new Date())
+        }),
         // What the chat is given for this stage. On the route that
         // replaced fixed paths first, this is the code the machine
         // already rewrote; source-code.md keeps the workbook as read.
@@ -1297,7 +1351,9 @@
           requestText: requestText,
           prompt: prompt,
           requestPath: result.requestPath,
-          handoffFolder: result.handoffFolderPath
+          runFolder: result.folderPath,
+          handoffFolder: result.handoffFolderPath,
+          outputTimestamp: timestamp
         });
         store.setBusyAction(null);
         if (replaced) {
@@ -1692,17 +1748,6 @@
     var environment = element("div", "environment-detail");
     var concernBox = element("div", "concern-detail");
 
-    // A skipped diagnosis hands nothing over, so the hand-off sentence has
-    // to stay out of that branch entirely. Printing it first meant the
-    // screen told the reader to bring an answer back and, one line later,
-    // that no diagnosis would happen.
-    if (state.diagnosisSkipped) {
-      root.appendChild(intro(
-        "診断は行いません。右下の「次へ」で、次にすることを選びます。"));
-      appendDiagnosisSkip(root, state);
-      return root;
-    }
-
     // The header above already says what this screen is for, and the two
     // numbered steps say what to do. An opening line that repeated both
     // was a third copy of the same sentence.
@@ -1759,20 +1804,6 @@
       true));
 
     root.appendChild(optional);
-    appendDiagnosisSkip(root, state);
-    return root;
-  }
-
-  // The way through this screen is to ask the AI. Someone who already
-  // knows what to change can skip it, but that is the exception, so it
-  // sits after the ordinary route rather than in front of it.
-  function appendDiagnosisSkip(root, state) {
-    root.appendChild(optionRow(
-      "diagnosis-skip",
-      "診断を飛ばして、直したいことを自分で書く",
-      state.diagnosisSkipped === true,
-      state.busyAction !== null,
-      "diagnosis-skip"));
     return root;
   }
 
@@ -1944,12 +1975,12 @@
     button.setAttribute("aria-expanded", open ? "true" : "false");
     button.setAttribute("aria-controls", id);
     button.appendChild(icon("chevron", "flow-icon--small disclosure-chevron"));
-    button.appendChild(element("span", "class-chip class-chip--" +
-      group["class"].toLowerCase(), CLASS_LABELS[group["class"]]));
+    button.appendChild(element("span", "grade-chip grade-chip--" +
+      group.grade.toLowerCase(), group.grade));
     button.appendChild(element("span", "group-title", group.title));
     button.appendChild(element("span", "group-count",
       "該当 " + group.findings.length + " か所"));
-    row.setAttribute("data-verdict", group.verdict);
+    row.setAttribute("data-grade", group.grade);
     panel.id = id;
     panel.hidden = !open;
     group.findings.forEach(function (finding) {
@@ -1960,27 +1991,26 @@
     return row;
   }
 
-  // One block per verdict: what it means in a sentence, then the problems
-  // that fall under it. The reader is answering "what do I do about
-  // this", so the page is arranged by the answer rather than by the kind
-  // of work, which is the arrangement the next screen needs.
-  function createVerdictSection(state, bucket, prefix) {
-    var box = element("div", "verdict-block verdict-block--" +
-      bucket.verdict.toLowerCase());
-    var head = element("div", "verdict-head");
+  // One block per grade: the letter, what it means in a sentence, then
+  // the problems that carry it. Worst first, so a workbook that cannot
+  // be made to run is read before a list of things that can be fixed.
+  function createGradeSection(state, bucket, prefix) {
+    var box = element("div", "grade-block grade-block--" +
+      bucket.grade.toLowerCase());
+    var head = element("div", "grade-head");
     var list = element("div", "findings-list findings-list--result");
 
     head.appendChild(element(
       "span",
-      "verdict-badge verdict-badge--" + bucket.verdict.toLowerCase(),
-      bucket.label));
-    head.appendChild(element("h2", "verdict-title", bucket.heading));
+      "grade-badge grade-badge--" + bucket.grade.toLowerCase(),
+      bucket.grade));
+    head.appendChild(element("h2", "grade-title", bucket.label));
     head.appendChild(element(
       "span",
-      "verdict-count",
+      "grade-count",
       bucket.groups.length + " 件"));
     box.appendChild(head);
-    box.appendChild(element("p", "verdict-note", bucket.note));
+    box.appendChild(element("p", "grade-note", bucket.note));
     bucket.groups.forEach(function (group) {
       list.appendChild(createGroupRow(state, group, prefix));
     });
@@ -2013,15 +2043,6 @@
     return box;
   }
 
-  function countClasses(diagnosis) {
-    var counts = {};
-    CLASS_ORDER.forEach(function (name) { counts[name] = 0; });
-    sortedFindings(diagnosis).forEach(function (finding) {
-      counts[finding.class] += 1;
-    });
-    return counts;
-  }
-
   // A template is recommended only when the accepted diagnosis names an
   // environment constraint the template declares it addresses. No finding
   // with that key, no star: a recommendation the reader cannot trace back
@@ -2042,11 +2063,7 @@
 
   function createPresetCards(state) {
     var cards = element("div", "choice-list");
-    var entries = global.MacroStudioPreset.describeAll(
-      state.appInfo && state.appInfo.presets
-          ? state.appInfo.presets.repair
-          : [],
-      "repair");
+    var entries = entranceRepairPresets(state);
 
     entries.forEach(function (entry) {
       var card;
@@ -2105,11 +2122,16 @@
     return cards;
   }
 
+  // A heading for each section a diagnosis template may declare. A name
+  // with no heading here is shown under its own name rather than hidden:
+  // the template decides what it returns, so the app cannot refuse to
+  // display something it has no word for.
   var SUMMARY_LABELS = {
     PURPOSE: "このマクロは何をするものか",
     FLOW: "どう動いているか",
     DEPENDENCY: "何に頼っているか",
-    ENVIRONMENT: "対象の環境で何が起きるか"
+    ENVIRONMENT: "対象の環境で何が起きるか",
+    REASON: "そう判断した理由"
   };
 
   // One row that opens, drawn the same way a finding row is, so the two
@@ -2129,7 +2151,10 @@
     button.setAttribute("aria-expanded", open ? "true" : "false");
     button.setAttribute("aria-controls", id);
     button.appendChild(icon("chevron", "flow-icon--small disclosure-chevron"));
-    button.appendChild(element("span", "summary-label", SUMMARY_LABELS[name]));
+    button.appendChild(element(
+      "span",
+      "summary-label",
+      SUMMARY_LABELS[name] || name));
     panel.id = id;
     panel.hidden = !open;
     panel.appendChild(element("p", "summary-full",
@@ -2139,73 +2164,91 @@
     return row;
   }
 
-  // Two or three lines that give the whole diagnosis: what the macro is
-  // for, what the target environment does to it, and how much has to be
-  // dealt with. The count is of problems, not of places: a macro that
-  // calls Sleep in thirteen procedures is one thing to decide about.
-  function createVerdictTile(bucket) {
+  function createGradeTile(bucket) {
     var tile = element(
       "div",
-      "verdict-tile verdict-tile--" + bucket.verdict.toLowerCase());
+      "grade-tile grade-tile--" + bucket.grade.toLowerCase());
 
+    tile.appendChild(element("span", "grade-tile-letter", bucket.grade));
     tile.appendChild(element(
       "span",
-      "verdict-tile-count",
+      "grade-tile-count",
       String(bucket.groups.length)));
-    tile.appendChild(element("span", "verdict-tile-label", bucket.label));
+    tile.appendChild(element("span", "grade-tile-label", bucket.label));
     return tile;
   }
 
-  function createDiagnosisHeadline(state, counts, occurrences, buckets) {
+  // Two lines that give the whole diagnosis, then the four letters. All
+  // four are shown even at zero: the reader is asking "what do I have to
+  // do", and "要改修 0" answers that question where "不具合 0" only
+  // described a category.
+  function createDiagnosisHeadline(state, occurrences, buckets) {
     var box = element("div", "diagnosis-conclusion");
-    var chips = element("div", "diagnosis-counts");
-    var tiles = element("div", "verdict-tiles");
-    var repairable = buckets ? buckets[0].groups.length : 0;
-    var total = buckets
-      ? buckets[0].groups.length + buckets[1].groups.length +
-        buckets[2].groups.length
-      : 0;
+    var tiles = element("div", "grade-tiles");
+    var worst = null;
 
+    (buckets || []).some(function (bucket) {
+      if (bucket.groups.length > 0) {
+        worst = bucket;
+        return true;
+      }
+      return false;
+    });
     box.setAttribute("aria-live", "polite");
+    box.appendChild(element(
+      "p",
+      "diagnosis-conclusion-text",
+      firstSentence(state.diagnosis.sections.PURPOSE)));
+    if (state.diagnosis.sections.ENVIRONMENT) {
+      box.appendChild(element(
+        "p",
+        "diagnosis-conclusion-text",
+        firstSentence(state.diagnosis.sections.ENVIRONMENT)));
+    }
+    box.appendChild(element(
+      "p",
+      "diagnosis-conclusion-verdict",
+      worst === null
+        ? "対象の環境で動かなくなるところは見つかりませんでした。"
+        : worst.note));
+    (buckets || []).forEach(function (bucket) {
+      tiles.appendChild(createGradeTile(bucket));
+    });
+    box.appendChild(tiles);
+    box.appendChild(element(
+      "p",
+      "diagnosis-conclusion-note",
+      "指摘は原因ごとに1件です。該当箇所は合わせて " + occurrences + " か所。"));
+    return box;
+  }
+
+  // The other kind of diagnosis: one grade for the workbook and the
+  // reasoning in prose. It is a judgement, and the screen says so - the
+  // macro-repair result does not, because that one is a fact.
+  function createGradeResult(state) {
+    var box = element("div", "diagnosis-conclusion diagnosis-conclusion--grade");
+    var grade = String(state.diagnosis.grade || "");
+    var head = element("div", "value-head");
+
+    head.appendChild(element(
+      "span",
+      "grade-badge grade-badge--" + grade.toLowerCase(),
+      grade));
+    // What the run is about is the entrance's name, which is authored in
+    // its own folder. The app supplies only what the letter means.
+    head.appendChild(element(
+      "h2",
+      "value-title",
+      entranceName(state) + "する価値は " + (VALUE_LABELS[grade] || "")));
+    box.appendChild(head);
     box.appendChild(element(
       "p",
       "diagnosis-conclusion-text",
       firstSentence(state.diagnosis.sections.PURPOSE)));
     box.appendChild(element(
       "p",
-      "diagnosis-conclusion-text",
-      firstSentence(state.diagnosis.sections.ENVIRONMENT)));
-    box.appendChild(element(
-      "p",
-      "diagnosis-conclusion-verdict",
-      total === 0
-        ? "この監査範囲では動作阻害要因を確認できませんでした。"
-        : (repairable > 0
-          ? "このツールで改修を依頼できる問題が " + repairable +
-            " 件あります（該当 " + occurrences + " か所）。"
-          : "このツールのひな形で直せる問題はありません。" +
-            "内容を確認してください。")));
-    // Three tiles, always all three, because the reader is asking "what
-    // do I have to do" and "要改修 0" is the answer to that question.
-    (buckets || []).forEach(function (bucket) {
-      tiles.appendChild(createVerdictTile(bucket));
-    });
-    if (buckets) {
-      box.appendChild(tiles);
-    }
-    // Only the kinds that are actually here. "不具合 0" is a fact about
-    // a category, not about this workbook, and every one of them the
-    // reader has to skip past costs the ones that matter.
-    CLASS_ORDER.forEach(function (name) {
-      if (counts[name] === 0) {
-        return;
-      }
-      chips.appendChild(element(
-        "span",
-        "class-chip class-chip--" + name.toLowerCase(),
-        CLASS_LABELS[name] + " " + counts[name]));
-    });
-    box.appendChild(chips);
+      "value-judgement",
+      "これは AI の見立てです。同じコードでも AI によって変わります。"));
     return box;
   }
 
@@ -2219,12 +2262,16 @@
   }
 
   // The result of the diagnosis, arranged by what it asks of the reader.
-  // The conclusion is first, then one block per verdict, then what the
+  // The conclusion is first, then one block per grade, then what the
   // diagnosis could not see, and only then the macro's own description -
   // which is background, not a decision.
+  //
+  // Which sections exist is the template's answer, not this file's, so
+  // the summary rows are drawn from what came back.
   function createFindingsScreen(state) {
     var root = task(true);
     var summaryList = element("div", "summary-list");
+    var sectionNames;
     var categories;
     var buckets;
     var empty;
@@ -2232,34 +2279,43 @@
     if (!state.diagnosis) {
       return missingDiagnosis(root);
     }
-    categories = groupFindings(state, sortedFindings(state.diagnosis));
-    buckets = groupsByVerdict(categories);
+    sectionNames = Array.isArray(state.diagnosis.sectionNames)
+      ? state.diagnosis.sectionNames
+      : ["PURPOSE", "FLOW", "DEPENDENCY", "ENVIRONMENT"];
 
-    root.appendChild(createDiagnosisHeadline(
-      state,
-      countGroupClasses(categories),
-      sortedFindings(state.diagnosis).length,
-      buckets));
-
-    if (allGroups(categories).length === 0) {
-      empty = createEmptyFindings(state);
-      if (empty) {
-        root.appendChild(empty);
+    if (state.diagnosis.shape === "grade") {
+      root.appendChild(createGradeResult(state));
+      root.appendChild(element("h2", "task-step", "そう判断した理由"));
+      root.appendChild(sourceBlock(state.diagnosis.sections.REASON || ""));
+    } else {
+      categories = groupFindings(state, sortedFindings(state.diagnosis));
+      buckets = gradesOf(categories);
+      root.appendChild(createDiagnosisHeadline(
+        state,
+        sortedFindings(state.diagnosis).length,
+        buckets));
+      if (allGroups(categories).length === 0) {
+        empty = createEmptyFindings(state);
+        if (empty) {
+          root.appendChild(empty);
+        }
       }
+      buckets.forEach(function (bucket) {
+        if (bucket.groups.length === 0) {
+          return;
+        }
+        root.appendChild(createGradeSection(state, bucket, "diagnosis"));
+      });
     }
-    buckets.forEach(function (bucket) {
-      if (bucket.groups.length === 0) {
-        return;
-      }
-      root.appendChild(createVerdictSection(state, bucket, "diagnosis"));
-    });
     appendOutsideCodeWork(root, state);
 
     root.appendChild(element("h2", "task-step", "このマクロの詳細"));
-    ["PURPOSE", "FLOW", "DEPENDENCY", "ENVIRONMENT"].forEach(
-      function (name) {
-        summaryList.appendChild(createSummaryRow(state, name));
-      });
+    sectionNames.filter(function (name) {
+      // The reasoning is already the body of the page above it.
+      return name !== "REASON";
+    }).forEach(function (name) {
+      summaryList.appendChild(createSummaryRow(state, name));
+    });
     root.appendChild(summaryList);
 
     root.appendChild(element(
@@ -2309,7 +2365,8 @@
   function createNextStepScreen(state) {
     var root = task(true);
 
-    if (!state.diagnosis && !state.diagnosisSkipped) {
+    if (!state.diagnosis &&
+        !global.MacroStudioScreens.isDiagnosisSkipped(state)) {
       return missingDiagnosis(root);
     }
     root.appendChild(createPresetCards(state));
@@ -2363,17 +2420,17 @@
     checkbox.setAttribute("data-workflow-input", "finding-group-select");
     checkbox.setAttribute("data-finding-ids", ids.join(","));
     header.appendChild(checkbox);
-    header.appendChild(element("span", "class-chip class-chip--" +
-      group["class"].toLowerCase(), CLASS_LABELS[group["class"]]));
+    header.appendChild(element("span", "grade-chip grade-chip--" +
+      group.grade.toLowerCase(), group.grade));
     header.appendChild(element("span", "finding-title", group.title));
     header.appendChild(element("span", "group-count",
       "該当 " + ids.length + " か所"));
-    row.setAttribute("data-verdict", group.verdict);
+    row.setAttribute("data-grade", group.grade);
     row.appendChild(header);
     return row;
   }
 
-  function createRepairVerdictRows(state, bucket) {
+  function createRepairGradeRows(state, bucket) {
     var box = element("div", "category-block");
 
     bucket.groups.forEach(function (group) {
@@ -2382,51 +2439,126 @@
     return box;
   }
 
-  // The verdict from the page before decides what this screen offers
-  // first. 要改修 is what this tool can carry out, so it is in the open;
-  // the rest can still be sent, folded away under a row that says how
-  // many there are and what they were.
+  // Only B can be sent. C is a problem whose cause is outside the code
+  // and D has nowhere to go, so putting either in a request would ask
+  // for something that cannot be done; A is nothing to do. They are on
+  // the page before and in the handover memo, not here.
   function appendRepairFindings(root, state) {
-    var buckets = groupsByVerdict(
+    var buckets = gradesOf(
       groupFindings(state, sortedFindings(state.diagnosis)));
     var box = section("改修する指摘", "repair-findings");
-    var others = [];
+    var sendable = null;
+    var blocked = 0;
 
     buckets.forEach(function (bucket) {
-      if (bucket.groups.length === 0) {
+      if (bucket.grade === "B") {
+        sendable = bucket;
         return;
       }
-      if (bucket.verdict === "REPAIRABLE") {
-        box.appendChild(element(
-          "p",
-          "task-note",
-          "診断で［要改修］になった指摘です。" +
-            "チェックしたものが、そのまま依頼文になります。"));
-        box.appendChild(createRepairVerdictRows(state, bucket));
-        return;
+      if (bucket.grade === "C" || bucket.grade === "D") {
+        blocked += bucket.groups.length;
       }
-      others.push(bucket);
     });
-    if (buckets[0].groups.length === 0) {
+    if (sendable && sendable.groups.length > 0) {
       box.appendChild(element(
         "p",
         "task-note",
-        "このツールのひな形で直せる指摘はありませんでした。" +
-          "下の指摘を選んで依頼することもできます。"));
+        "診断で B（要改修）になった指摘です。" +
+          "チェックしたものが、そのまま依頼文になります。"));
+      box.appendChild(createRepairGradeRows(state, sendable));
+    } else {
+      box.appendChild(element(
+        "p",
+        "task-note",
+        "このツールで直せる指摘はありませんでした。" +
+          "下の欄に書けば、それだけを依頼できます。"));
     }
-    others.forEach(function (bucket) {
-      var content = element("div", "repair-other-verdict");
-
-      content.appendChild(element("p", "task-note", bucket.note));
-      content.appendChild(createRepairVerdictRows(state, bucket));
-      box.appendChild(createDisclosure(
-        "repair-verdict-" + bucket.verdict.toLowerCase(),
-        bucket.heading + " の指摘も選ぶ",
-        content,
-        false,
-        bucket.groups.length + " 件"));
-    });
+    if (blocked > 0) {
+      box.appendChild(element(
+        "p",
+        "task-note",
+        "C（不明）と D（改修不可）の " + blocked + " 件は、" +
+          "このツールでは直せないので依頼に入りません。" +
+          "完了画面の引渡しメモへ、人がやることとして残ります。"));
+    }
     root.appendChild(box);
+    return root;
+  }
+
+  // The first screen. Three kinds of work, and the folder each one owns
+  // decides what happens after the workbook is read.
+  function createEntranceScreen(state) {
+    var root = task(true);
+    var cards = element("div", "choice-list");
+    var entrances = listEntrances(state);
+
+    root.appendChild(intro(
+      "このブックに何をしますか。選んだものによって、" +
+        "このあとの診断と手順が変わります。"));
+    if (entrances.length === 0) {
+      root.appendChild(element(
+        "p",
+        "preset-invalid-item",
+        "presets フォルダに入口がありません。" +
+          "presets の下に入口のフォルダを置いてください。"));
+      return root;
+    }
+    entrances.forEach(function (entrance) {
+      var card;
+      var body;
+      var mark;
+      var box;
+      var chosen = state.entrance &&
+        state.entrance.folder === entrance.folder;
+
+      if (!entrance.valid) {
+        cards.appendChild(element(
+          "p",
+          "preset-invalid-item",
+          entrance.folder + " — " + entrance.message));
+        return;
+      }
+      card = element("button", "choice-card entrance-card");
+      body = element("span", "choice-body");
+      mark = element("span", "choice-state");
+      box = element("span", "option-checkbox choice-checkbox");
+      card.type = "button";
+      card.setAttribute("data-action", "select-entrance");
+      card.setAttribute("data-entrance-folder", entrance.folder);
+      card.setAttribute("role", "radio");
+      card.setAttribute("aria-checked", chosen ? "true" : "false");
+      card.disabled = state.busyAction !== null;
+      if (chosen) {
+        card.classList.add("is-selected");
+        box.appendChild(icon("check", "flow-icon--small"));
+      }
+      card.appendChild(box);
+      card.appendChild(icon("template", "choice-icon"));
+      body.appendChild(element("span", "choice-title", entrance.name));
+      body.appendChild(element(
+        "span",
+        "choice-description",
+        entrance.description));
+      // What this entrance will actually do, read off its own folder.
+      // The reader can see before choosing whether a diagnosis happens.
+      mark.appendChild(element(
+        "span",
+        "choice-note",
+        entrance.hasDiagnosis ? "診断あり" : "診断なし"));
+      card.appendChild(body);
+      card.appendChild(mark);
+      if (entrance.hasDiagnosis && !entrance.diagnosisReady) {
+        card.disabled = true;
+        card.classList.add("is-unusable");
+        body.appendChild(element(
+          "span",
+          "choice-description",
+          "この入口の診断ひな形が1つに定まりません。" +
+            "presets の 01_診断 を確認してください。"));
+      }
+      cards.appendChild(card);
+    });
+    root.appendChild(cards);
     return root;
   }
 
@@ -2772,6 +2904,9 @@
 
   function build(index, state) {
     var screens = global.MacroStudioScreens;
+    if (index === screens.entranceScreen) {
+      return createEntranceScreen(state);
+    }
     if (index === screens.bookScreen) {
       return createBookScreen(state);
     }
@@ -2884,6 +3019,10 @@
     if (action === "import-diagnosis") {
       importDiagnosisFromClipboard(); return true;
     }
+    if (action === "select-entrance") {
+      selectEntrance(button.getAttribute("data-entrance-folder"));
+      return true;
+    }
     if (action === "select-repair-preset") {
       selectRepairPreset(button.getAttribute("data-preset-file")); return true;
     }
@@ -2918,8 +3057,6 @@
       store.setDiagnosisConcern(target.value);
     } else if (kind === "repair-answer") {
       store.setAnswer(Number(target.getAttribute("data-question-index")), target.value);
-    } else if (kind === "diagnosis-skip") {
-      store.setDiagnosisSkipped(target.checked === true);
     } else if (kind === "finding-group-select") {
       String(target.getAttribute("data-finding-ids") || "").split(",")
         .filter(Boolean).forEach(function (id) {
@@ -3044,6 +3181,25 @@
         arrived) {
       selectRecommendedPresets(state);
     }
+    // An entrance with one template never shows the screen that chooses
+    // one, so choosing it is what the entrance already meant.
+    if (state.screen === global.MacroStudioScreens.repairInputScreen &&
+        !global.MacroStudioScreens.choosesTemplate(state) &&
+        (state.presetFiles || []).length === 0) {
+      selectOnlyPreset(state);
+    }
+  }
+
+  function selectOnlyPreset(state) {
+    var valid = entranceRepairPresets(state).filter(function (entry) {
+      return entry.valid;
+    });
+
+    if (valid.length !== 1) {
+      return false;
+    }
+    selectRepairPreset(valid[0].file);
+    return true;
   }
 
   // The diagnosis already said which templates it points at, so arriving
@@ -3053,13 +3209,10 @@
   function selectRecommendedPresets(state) {
     var recommended;
 
-    if ((state.presetFiles || []).length > 0 || !state.diagnosis ||
-        !state.appInfo || !state.appInfo.presets) {
+    if ((state.presetFiles || []).length > 0 || !state.diagnosis) {
       return false;
     }
-    recommended = global.MacroStudioPreset.describeAll(
-      state.appInfo.presets.repair || [],
-      "repair").filter(function (entry) {
+    recommended = entranceRepairPresets(state).filter(function (entry) {
       return entry.valid && recommendedBy(state, entry).length > 0;
     });
     if (recommended.length === 0) {
@@ -3110,6 +3263,7 @@
     composeDiagnosisRequestText: composeDiagnosisRequestText,
     composeOutsideCode: composeOutsideCode,
     composeRepairRequestText: composeRepairRequestText,
+    createEntranceScreen: createEntranceScreen,
     createBookScreen: createBookScreen,
     createDiagnoseScreen: createDiagnoseScreen,
     createFindingsScreen: createFindingsScreen,

@@ -151,7 +151,14 @@ $stageRoot = Join-Path $stageContainer 'distribution'
 $smokeBook = Join-Path $testdataRoot 'test_large.xlsm'
 $stagedScript = Join-Path $stageRoot 'macrostudio.ps1'
 $launchPath = Join-Path $stageRoot 'launch.vbs'
-$repairFolderName = '02_' + [char]0x6539 + [char]0x4FEE
+# Templates live under the entrance that owns them, so the file the
+# probe adds goes into the first entrance's repair stage and is reported
+# with that entrance's folder in front of it.
+$entranceFolderName = '01_' + [string]::Join(
+    '',
+    [char[]](0x30DE, 0x30AF, 0x30ED, 0x6539, 0x4FEE))
+$repairFolderName = Join-Path $entranceFolderName (
+    '02_' + [char]0x6539 + [char]0x4FEE)
 $stagedRepairPresetRoot = Join-Path (
     Join-Path $stageRoot 'presets') $repairFolderName
 $stagedProcessId = 0
@@ -288,10 +295,14 @@ try {
         Get-ChildItem -LiteralPath (Join-Path $stageRoot 'presets') `
             -Filter '*.md' -File -Recurse
     ).Count
+    # Every Markdown file under presets, whichever entrance holds it,
+    # must have reached the page - the entrance names as well as the
+    # templates under them.
     Assert-True (
-        ($initialPresets.stateCount + $initialPresets.diagnoseCount) -eq
-            $diskPresetCount) `
-        'Initial preset count does not match staged files.'
+        $initialPresets.installedCount -eq $diskPresetCount) `
+        ('Initial preset count does not match staged files: ' +
+            [string]$initialPresets.installedCount + ' vs ' +
+            [string]$diskPresetCount)
 
     $launchText = [IO.File]::ReadAllText(
         $launchPath,

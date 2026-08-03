@@ -158,7 +158,16 @@ namespace MacroStudio.Tests
                 try
                 {
                     await WaitFor(
-                        "MacroStudioState.getState().appInfo !== null");
+                        "MacroStudioState.getState().appInfo !== null && " +
+                        "document.querySelector('[data-entrance-folder=" +
+                        "\"01_マクロ改修\"]') !== null");
+                    // The templates on offer belong to an entrance, so
+                    // this walk chooses one before reading anything.
+                    await Execute(
+                        "document.querySelector('[data-entrance-folder=" +
+                        "\"01_マクロ改修\"]').click();");
+                    await WaitFor(
+                        "MacroStudioState.getState().entrance !== null");
                     Dictionary<string, object> eventData =
                         new Dictionary<string, object>();
                     eventData.Add("path", bookPath);
@@ -201,15 +210,21 @@ namespace MacroStudio.Tests
                         "MacroStudioScreens.nextStepScreen");
                     Result = await ReadJson(
                         "(function(){" +
-                        "var info=MacroStudioState.getState().appInfo;" +
-                        "var presets=info.presets.repair;" +
-                        "var entries=MacroStudioPreset" +
-                        ".describeAll(presets,'repair');" +
+                        "var state=MacroStudioState.getState();" +
+                        "var entrance=state.entrance;" +
+                        "var presets=entrance.repair;" +
+                        "var entries=presets;" +
                         "return {" +
+                        // Every Markdown file the install holds, across
+                        // every entrance: its name file and its stages.
+                        "installedCount:state.appInfo.entrances.reduce(" +
+                        "function(total,item){" +
+                        "return total+1+item.diagnose.length+" +
+                        "item.repair.length;},0)," +
                         "count:document.querySelectorAll(" +
                         "'[data-action=\"select-repair-preset\"]').length," +
                         "stateCount:presets.length," +
-                        "diagnoseCount:info.presets.diagnose.length," +
+                        "diagnoseCount:entrance.diagnose.length," +
                         "invalidCount:entries.filter(function(item){" +
                         "return !item.valid;}).length," +
                         "validCount:entries.filter(function(item){" +

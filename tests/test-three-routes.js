@@ -102,8 +102,8 @@ var TABLE_PRESET = [
 ].join("\r\n");
 
 var presetEntries = [
-  {file: "02_改修\\90_ai.md", name: "AIひな形", content: AI_PRESET},
-  {file: "02_改修\\91_table.md", name: "置き換えのひな形", content: TABLE_PRESET}
+  {file: "01_マクロ改修\\\\02_改修\\\\90_ai.md", name: "AIひな形", content: AI_PRESET},
+  {file: "01_マクロ改修\\\\02_改修\\\\91_table.md", name: "置き換えのひな形", content: TABLE_PRESET}
 ];
 
 windowObject.hostBridge = {
@@ -180,9 +180,21 @@ function attach(second) {
   written.length = 0;
   toasts.length = 0;
   store.reset();
-  store.setAppInfo({
-    version: "test",
-    presets: {diagnose: [], repair: presetEntries}
+  store.setAppInfo({version: "test", presets: {entrances: []}});
+  // Which templates are on offer belongs to the entrance, and this walk
+  // is about the repair step, so the entrance holds these two and asks
+  // for a diagnosis (SPEC §2.2.0).
+  store.setEntrance({
+    folder: "01_マクロ改修",
+    name: "マクロ改修",
+    description: "動くようにします。",
+    valid: true,
+    hasDiagnosis: true,
+    diagnosisReady: true,
+    choosesTemplate: true,
+    diagnose: [],
+    repair: windowObject.MacroStudioPreset.describeAll(
+      presetEntries, "repair")
   });
   store.setBook({
     name: "book.xlsm",
@@ -220,7 +232,7 @@ function attach(second) {
         }]
       },
       findings: [{
-        number: "1", className: "DEFECT", confidence: "CONFIRMED",
+        number: "1", grade: "B", confidence: "CONFIRMED",
         module: "Report", procedure: "-", lines: "4",
         environmentKey: "FIXED_DRIVE_LETTER",
         title: "S ドライブが新しい端末にない"
@@ -258,7 +270,7 @@ function finalCode() {
 // =====================================================================
 
 attach();
-workflow.selectRepairPreset("02_改修\\90_ai.md").then(function () {
+workflow.selectRepairPreset("01_マクロ改修\\\\02_改修\\\\90_ai.md").then(function () {
   assert(screens.getEngine(store.getState()) === "AI",
     "A template that sends a request is the AI route.");
   assert(!screens.hasReplacementStage(store.getState()),
@@ -289,7 +301,7 @@ workflow.selectRepairPreset("02_改修\\90_ai.md").then(function () {
   // route 2: the table only
   // =================================================================
   attach();
-  return workflow.selectRepairPreset("02_改修\\91_table.md");
+  return workflow.selectRepairPreset("01_マクロ改修\\\\02_改修\\\\91_table.md");
 }).then(function () {
   assert(screens.getEngine(store.getState()) === "対応表による置換",
     "A template that only carries rules is the table route.");
@@ -314,9 +326,9 @@ workflow.selectRepairPreset("02_改修\\90_ai.md").then(function () {
   // route 3: both, in the order that matters
   // =================================================================
   attach();
-  return workflow.selectRepairPreset("02_改修\\91_table.md");
+  return workflow.selectRepairPreset("01_マクロ改修\\\\02_改修\\\\91_table.md");
 }).then(function () {
-  return workflow.selectRepairPreset("02_改修\\90_ai.md");
+  return workflow.selectRepairPreset("01_マクロ改修\\\\02_改修\\\\90_ai.md");
 }).then(function () {
   var state = store.getState();
 
@@ -423,9 +435,9 @@ workflow.selectRepairPreset("02_改修\\90_ai.md").then(function () {
   workflow.enter(store.getState());
   return settle();
 }).then(function () {
-  assert(store.getState().presetFiles.indexOf("02_改修\\91_table.md") >= 0,
+  assert(store.getState().presetFiles.indexOf("01_マクロ改修\\\\02_改修\\\\91_table.md") >= 0,
     "The template the diagnosis points at arrives already ticked.");
-  return workflow.selectRepairPreset("02_改修\\91_table.md");
+  return workflow.selectRepairPreset("01_マクロ改修\\\\02_改修\\\\91_table.md");
 }).then(function () {
   // The screen is redrawn after every change and enter() runs each
   // time, so ticking it back on would leave no way to take it off.
@@ -442,9 +454,9 @@ workflow.selectRepairPreset("02_改修\\90_ai.md").then(function () {
   // a reply that names one module does not undo the rest
   // ===================================================================
   attach(true);
-  return workflow.selectRepairPreset("02_改修\\91_table.md");
+  return workflow.selectRepairPreset("01_マクロ改修\\\\02_改修\\\\91_table.md");
 }).then(function () {
-  return workflow.selectRepairPreset("02_改修\\90_ai.md");
+  return workflow.selectRepairPreset("01_マクロ改修\\\\02_改修\\\\90_ai.md");
 }).then(function () {
   store.goTo(screens.repairInputScreen, false);
   store.setFindingSelected("1", true);

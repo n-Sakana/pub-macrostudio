@@ -50,7 +50,9 @@ var diagnosis = contracts.diagnosis(windowObject.MacroStudioDiagnosis, {
   modules: store.getState().modules,
   findings: [{
     number: "1",
-    className: "DEFECT",
+    // Only B can be sent: it is the one grade that says both "this does
+    // not run" and "this tool can do something about it" (SPEC §2.2.1).
+    grade: "B",
     confidence: "CONFIRMED",
     module: "Main",
     procedure: "Run",
@@ -63,7 +65,7 @@ var diagnosis = contracts.diagnosis(windowObject.MacroStudioDiagnosis, {
 });
 store.commitDiagnosis(diagnosis, "diagnosis.md");
 store.setRepairPreset({
-  file: "02_改修\\test.md",
+  file: "01_マクロ改修\\\\02_改修\\\\test.md",
   name: "test",
   content: "preset-content",
   parsed: {
