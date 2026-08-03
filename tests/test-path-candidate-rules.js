@@ -58,6 +58,10 @@ function match(value, before) {
         new RegExp(rule.contextExclude).test(before || "")) {
       continue;
     }
+    if (rule.contextInclude &&
+        !new RegExp(rule.contextInclude).test(before || "")) {
+      continue;
+    }
     found = new RegExp(rule.pattern, "d").exec(value);
     if (!found) {
       continue;
@@ -136,7 +140,15 @@ var MUST_REJECT = [
   // パス連結に使っている実物で、置き換える対象ではない。
   ["\\", "区切り 1 文字 (円記号)"],
   ["\\\\", "区切りだけ"],
-  ["//", "区切りだけ"]
+  ["//", "区切りだけ"],
+  // 2026-08-03: 区切りを含むというだけの文字列。数が増えると本物が埋もれる。
+  ["はい/いいえ", "選択肢の文字列"],
+  ["有/無", "選択肢の文字列 (日本語)"],
+  ["A/B", "英字 1 文字の対"],
+  ["入力/出力/集計", "区切りで並べた見出し"],
+  [" \\n14", "プロシージャ属性のショートカット指定 (先生の実物)"],
+  ["1/3", "分数"],
+  ["合計/平均", "見出し"]
 ];
 
 // ---- PROD-11: the same literal, in and out of the call ----
@@ -171,7 +183,27 @@ var CONTEXT = [
   ["S:\\eigyo\\shinsei\\", "    app.Explore ", true,
     "Explore の引数は本物のパス (F04 の実物)"],
   ["C:\\data\\", "    Set sh = CreateObject(", true,
-    "ドライブ始まりは文脈に関係なく場所"]
+    "ドライブ始まりは文脈に関係なく場所"],
+  // 2026-08-03: VBE が書くプロシージャ属性は、実行される値ではない。
+  // 除外は下 3 行だけに付けてある。ドライブ始まり・UNC・URL・環境変数は
+  // 「文脈で取りこぼす余地を作らない」という上の決定をそのまま残す
+  // （属性行に本物のパスが書いてあっても、それは拾ってよい）。
+  ["\\data\\", "Attribute Foo.VB_ProcData.VB_Invoke_Func = ", false,
+    "属性行の断片"],
+  ["report.xlsx", "Attribute Foo.VB_Description = ", false,
+    "属性行のファイル名"],
+  ["S:\\eigyo\\data.csv", "Attribute Foo.VB_Description = ", true,
+    "属性行でも、ドライブ始まりは文脈に関係なく場所"],
+  // 2026-08-03: プリンタ名。ポートが付いていれば文脈は要らず、
+  // 付いていなければ ActivePrinter へ代入している文脈でだけ拾う。
+  ["Canon LBP6230 on Ne01:", "    x = ", true, "ポート付きプリンタ名"],
+  ["EPSON PX-M885F on Ne04:", "    ", true, "ポート付きプリンタ名"],
+  ["経理課プリンタ", "    Application.ActivePrinter = ", true,
+    "ActivePrinter への代入"],
+  ["経理課プリンタ", "    .PrintOut ActivePrinter:=", true,
+    "PrintOut の名前付き引数"],
+  ["経理課プリンタ", "    label = ", false,
+    "同じ文字列でも、代入先が分からなければ拾わない"]
 ];
 
 // ---- PROD-11: shapes that are not locations at all ----

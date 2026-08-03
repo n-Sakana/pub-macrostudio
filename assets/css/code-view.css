@@ -1,0 +1,131 @@
+/* The shared code block: a toolbar that says how many places there are
+   and steps through them, then the code with those places marked. The
+   replacement table and the diagnosis result both draw this, so the
+   reader learns one set of controls instead of two. */
+
+.code-view {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.code-view-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.code-view-label {
+  margin-right: auto;
+  color: var(--text-sub);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+}
+
+.code-view-counter {
+  min-width: var(--space-7);
+  color: var(--text-muted);
+  font-family: var(--font-code);
+  font-size: var(--type-meta-size);
+  text-align: center;
+}
+
+.code-view-button {
+  display: inline-flex;
+  height: var(--btn-h-sm);
+  align-items: center;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-sub);
+  cursor: pointer;
+  font-size: var(--type-micro-size);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+.code-view-button:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.code-view-button:disabled {
+  border-color: var(--border-subtle);
+  background: var(--surface-sunken);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.code-view-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.code-view-button.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.code-view-body {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.code-view-module {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.code-view-missing {
+  margin: 0;
+  color: var(--danger-text);
+  font-size: var(--type-meta-size);
+}
+
+/* Only the marked places, with a little of what is around them. The rest
+   of the module is still in the page, folded, so opening it is instant
+   and nothing has to be built a second time. */
+.code-view.is-matches-only .path-evidence-line.is-folded {
+  display: none;
+}
+
+.code-view:not(.is-matches-only) .code-view-gap,
+.code-view-gap.is-expanded {
+  display: none;
+}
+
+.code-view-gap {
+  display: flex;
+  padding: var(--space-1) 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+}
+
+.code-view-gap-button {
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: var(--font-code);
+  font-size: var(--type-micro-size);
+}
+
+.code-view-gap-button:hover {
+  color: var(--accent-text);
+}
+
+.code-view-gap-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Where 前へ / 次へ just landed. It fades on its own in the diff; here it
+   stays, because the reader is reading rather than skimming. */
+.path-evidence-line.is-current {
+  background: var(--accent-soft);
+  box-shadow: inset var(--rail-w) 0 0 0 var(--accent);
+}

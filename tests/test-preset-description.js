@@ -233,7 +233,7 @@ var entries = presetApi.describeAll(presets, "repair").filter(function (entry) {
 });
 
 assert(
-  entries.length === 4,
+  entries.length === 6,
   "The shipped presets must be readable for this check.");
 
 entries.forEach(function (entry) {

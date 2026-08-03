@@ -299,24 +299,48 @@ assert(
   }),
   "An arbitrary string-replacement API must not be public.");
 
+// The evidence block moved into assets/js/code-view.js so that the
+// diagnosis result can show code the same way. The rule that made it
+// worth writing has not moved: what is marked is the span the product
+// lexer recorded, and on the mapping route no display-only tokenizer is
+// allowed to have an opinion about where that span is.
 var workflowSource = fs.readFileSync(
   path.join(__dirname, "..", "assets", "js", "screens", "workflow.js"),
   "utf8");
+var codeViewSource = fs.readFileSync(
+  path.join(__dirname, "..", "assets", "js", "code-view.js"),
+  "utf8");
 assert(
-  workflowSource.indexOf("path-evidence-mark") >= 0 &&
-    workflowSource.indexOf("occurrence.column") >= 0 &&
+  workflowSource.indexOf("occurrence.column") >= 0 &&
     workflowSource.indexOf("occurrence.endColumn") >= 0,
-  "The evidence UI must highlight the exact product-lexer span.");
+  "The mapping evidence must be handed the exact product-lexer span.");
 assert(
   workflowSource.indexOf("MacroStudioVbaHighlight") < 0,
-  "The mapping evidence UI must not use the display-only highlighter.");
+  "The mapping screen must not reach for the display-only highlighter.");
+assert(
+  codeViewSource.indexOf("path-evidence-mark") >= 0 &&
+    /mark\.column[\s\S]{0,400}mark\.endColumn/.test(codeViewSource),
+  "The shared code block must mark exactly the span it was handed.");
+assert(
+  /highlight\s*\?[\s\S]{0,200}tokenizeLine/.test(codeViewSource) &&
+    /settings\.highlight === true/.test(codeViewSource),
+  "Colouring must be opt-in, so the route that marks a replacement can " +
+    "refuse it.");
+assert(
+  /createOccurrenceModules[\s\S]{0,1200}?\n  \}/.exec(
+    workflowSource)[0].indexOf("highlight") < 0,
+  "The mapping evidence must not ask for colouring.");
 
 var uiWindow = {};
-var uiDocument = {createElement: dom.createElement};
+var uiDocument = {
+  createElement: dom.createElement,
+  createTextNode: dom.createTextNode
+};
 var uiContext = vm.createContext({window: uiWindow, document: uiDocument});
 uiWindow.window = uiWindow;
 uiWindow.document = uiDocument;
-["icons.js", "preset-document.js", "vba-lexer.js", "path-map.js", "screens.js",
+["icons.js", "preset-document.js", "vba-lexer.js", "path-map.js",
+  "vba-highlight.js", "code-view.js", "screens.js",
   "screens/workflow.js"].forEach(function (name) {
   vm.runInContext(
     fs.readFileSync(path.join(__dirname, "..", "assets", "js", name), "utf8"),
@@ -360,20 +384,61 @@ assert(unselectedUiRow &&
   !unselectedUiRow.querySelector(".path-map-input"),
 "A row the template leaves unticked must wait to be included.");
 // The reader is deciding about a string, so the module it lives in is
-// shown whole, with the exact token marked inside it. A list of line
+// available whole, with the exact token marked inside it. A list of line
 // numbers named the place without showing it.
-var evidenceMarks = dom.collect(uiScreen, function (node) {
+//
+// The code is built when the row is opened, not on every render of every
+// row: a workbook with forty candidates was rebuilding every module of
+// every one of them on each keystroke in the value field. So the row
+// carries the control that opens it, and the block itself is checked by
+// building it the way the row does.
+var evidenceTrigger = selectedUiRow.querySelector(".disclosure-trigger");
+
+assert(evidenceTrigger &&
+  dom.text(evidenceTrigger).indexOf("Classifier") >= 0,
+"The row must offer the code of the module the candidate sits in.");
+assert(dom.text(selectedUiRow).indexOf("Option Explicit") < 0,
+  "A closed row must not have built the module it is holding back.");
+
+var evidenceBlock = uiWindow.MacroStudioCodeView.create({
+  key: "evidence-probe",
+  matchesOnly: true,
+  modules: [{
+    name: "Classifier",
+    code: classifierModule.code,
+    hits: row(uiMapping, "C:\\Data\\report.xlsx").occurrences.map(
+      function (occurrence) {
+        return {
+          line: Number(occurrence.line),
+          column: Number(occurrence.column),
+          endColumn: Number(occurrence.endColumn)
+        };
+      })
+  }]
+});
+var evidenceMarks = dom.collect(evidenceBlock, function (node) {
   return node.classList && node.classList.contains("path-evidence-mark");
 });
+
 assert(evidenceMarks.length > 0 && dom.text(evidenceMarks[0]).charAt(0) === '"',
   "Evidence must visibly mark the full string token, including its quotes.");
-assert(dom.text(selectedUiRow).indexOf("Option Explicit") >= 0 &&
-  dom.text(selectedUiRow).indexOf("End Sub") >= 0,
-"The module must be shown whole, not as the lines around the match.");
-assert(dom.collect(selectedUiRow, function (node) {
+assert(dom.text(evidenceBlock).indexOf("Option Explicit") >= 0 &&
+  dom.text(evidenceBlock).indexOf("End Sub") >= 0,
+"The whole module must still be in the block, folded rather than dropped.");
+assert(dom.collect(evidenceBlock, function (node) {
   return node.classList && node.classList.contains("path-module-name");
 }).length === 1,
 "Each module the candidate appears in is named once.");
+assert(dom.collect(evidenceBlock, function (node) {
+  return node.getAttribute &&
+    node.getAttribute("data-action") === "code-view-next";
+}).length === 1 &&
+  dom.collect(evidenceBlock, function (node) {
+    return node.getAttribute &&
+      node.getAttribute("data-action") === "code-view-matches";
+  }).length === 1,
+"The block must carry the controls that step through the places and " +
+  "narrow the view to them.");
 
 // Nothing on this screen judges the value that was typed in.
 var typedUiMapping = update(

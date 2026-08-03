@@ -329,6 +329,9 @@
   font-size: var(--type-meta-size);
 }
 
+/* One column. It held two, because the location sat beside the evidence;
+   with the location gone the second column only made the evidence half
+   as wide as the two lines above it. */
 .finding-detail {
   display: grid;
   margin: 0 var(--space-3) var(--space-3);
@@ -337,7 +340,7 @@
   color: var(--text-sub);
   font-size: var(--type-meta-size);
   gap: var(--space-2);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* Inside the box the detail is the row's body, not an indented aside. */
@@ -456,19 +459,6 @@
 .need-decision-item h3,
 .need-decision-item p {
   margin: 0;
-}
-
-@media (max-width: 68.6875em) {
-  .finding-detail {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .finding-detail-block,
-  .finding-condition,
-  .finding-impact,
-  .finding-environment {
-    grid-column: 1;
-  }
 }
 
 @media (max-width: 63.9375em) {
@@ -684,6 +674,206 @@
   color: var(--text-muted);
   font-size: var(--type-micro-size);
   line-height: var(--type-micro-line);
+}
+
+/* ---- the result: what follows from the diagnosis ---- */
+/* Three answers, and every problem carries one of them. The strip at the
+   top always shows all three, including the zeros, because the reader is
+   asking "what do I have to do" and "要改修 0" answers that. */
+
+.verdict-tiles {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.verdict-tile {
+  display: grid;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  gap: var(--space-1);
+  justify-items: center;
+}
+
+.verdict-tile--repairable {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.verdict-tile-count {
+  color: var(--text);
+  font-size: var(--type-title-size);
+  font-weight: var(--weight-bold);
+  line-height: var(--type-title-line);
+}
+
+.verdict-tile--repairable .verdict-tile-count,
+.verdict-tile--repairable .verdict-tile-label {
+  color: var(--accent-text);
+}
+
+.verdict-tile-label {
+  color: var(--text-sub);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+}
+
+.verdict-block {
+  display: grid;
+  margin-top: var(--space-5);
+  gap: var(--space-2);
+}
+
+.verdict-head {
+  display: grid;
+  align-items: center;
+  gap: var(--space-3);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.verdict-title {
+  margin: 0;
+  min-width: 0;
+  color: var(--text);
+  font-size: var(--type-section-size);
+  font-weight: var(--type-section-weight);
+  line-height: var(--type-section-line);
+}
+
+.verdict-count {
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  white-space: nowrap;
+}
+
+.verdict-badge {
+  display: inline-flex;
+  min-height: var(--icon-lg);
+  align-items: center;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-sub);
+  font-size: var(--type-label-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.verdict-badge--repairable {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.verdict-badge--confirm {
+  border-color: var(--caution-text);
+  color: var(--caution-text);
+}
+
+.verdict-note {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+}
+
+/* A problem on the result page opens onto the code that shows it, and
+   the code block brings its own scrolling. A second scroller around it
+   would make the reader chase two of them. */
+.findings-list--result .group-panel {
+  max-height: none;
+  overflow: visible;
+}
+
+.findings-empty-box {
+  display: grid;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  gap: var(--space-1);
+}
+
+.findings-empty-box .findings-empty {
+  padding: 0;
+}
+
+.findings-empty-note {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+}
+
+/* Why the last paste was refused, left on the screen while it is being
+   fixed. A toast has faded by then. */
+.intake-error {
+  display: grid;
+  margin: var(--space-3) 0;
+  padding: var(--space-4);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  gap: var(--space-2);
+}
+
+.intake-error-title {
+  margin: 0;
+  color: var(--danger-text);
+  font-size: var(--type-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+.intake-error-detail {
+  margin: 0;
+  color: var(--text);
+}
+
+.intake-error-message {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+}
+
+.intake-error-steps {
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+}
+
+.intake-error-steps li {
+  margin: var(--space-1) 0;
+}
+
+.intake-error-check {
+  margin: 0;
+  color: var(--text-muted);
+  font-family: var(--font-code);
+  font-size: var(--type-micro-size);
+}
+
+/* Everything the reader may add to the hand-off besides the code. */
+.attachment-hint {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-3);
+  border-left: var(--rail-w) solid var(--accent);
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+}
+
+@media (max-width: 48em) {
+  .verdict-tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .verdict-head {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .verdict-count {
+    grid-column: 2;
+  }
 }
 
 /* Text the app did not write, shown the way it was written: the target

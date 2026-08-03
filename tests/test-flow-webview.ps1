@@ -260,7 +260,7 @@ try {
     }
     Assert-True (
         $nextStep.screen -eq 3 -and
-        $nextStep.presetCards -eq 4 -and
+        $nextStep.presetCards -eq 6 -and
         ([string]$nextStep.firstCard).Contains('01_Win32') -and
         $nextStep.recommended -eq $expectedStars -and
         $nextStep.nextReady -eq $expectedReady

@@ -28,6 +28,22 @@ function descendants(node, selector, found) {
   return result;
 }
 
+// Enough of a text node for the walkers below: it reads as a childless
+// element with no class and no attributes, so text() picks up its
+// content and neither collect() nor querySelectorAll trips over it.
+function createTextNode(text) {
+  return {
+    nodeType: 3,
+    tagName: "#text",
+    className: "",
+    textContent: String(text === undefined || text === null ? "" : text),
+    children: [],
+    parentNode: null,
+    getAttribute: function () { return null; },
+    hasAttribute: function () { return false; }
+  };
+}
+
 function createElement(tagName) {
   var node = {
     nodeType: 1,
@@ -129,6 +145,7 @@ function collect(node, predicate, found) {
 
 module.exports = {
   createElement: createElement,
+  createTextNode: createTextNode,
   text: text,
   collect: collect,
   matches: matches

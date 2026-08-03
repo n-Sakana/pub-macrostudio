@@ -26,8 +26,15 @@ function Assert-InsideDirectory {
 }
 
 if ([string]::IsNullOrEmpty($BookPath)) {
+    # 改善ガイド 3.1 の見本。EXPORT_ROOT = "S:\eigyo\shinsei\" という
+    # 本物の固定パスが 1 つあり、ひな形が既定で選ぶ行になる。
+    #
+    # 以前は input_monthly_report.xlsm を使っていたが、あのブックには
+    # 固定パスが 1 つも無い。候補が並んでいたのは、旧規則が
+    # "yyyy/mm/dd hh:nn:ss" を「場所を含む文字列」と呼んでいたからで、
+    # つまりこの試験は誤検知の上で緑になっていた（2026-08-03）。
     $BookPath = Join-Path $PSScriptRoot `
-        '..\testdata\input_monthly_report.xlsm'
+        '..\testdata\guide-samples\S01_fixed_drive.xlsm'
 }
 if ([string]::IsNullOrEmpty($ProductRoot)) {
     $ProductRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -183,7 +190,7 @@ try {
     ) 'The diagnosis page must carry the facts and no template.'
     Assert-True (
         $nextStep.screen -eq 3 -and
-        $nextStep.presetCards -eq 4 -and
+        $nextStep.presetCards -eq 6 -and
         $preset.selected -eq 1 -and
         $preset.engine -cne 'AI' -and
         $preset.nextReady

@@ -190,7 +190,7 @@ try {
     ) 'The diagnosis page must show the facts and no template at all.'
     Assert-True (
         $nextStep.screen -eq 3 -and
-        $nextStep.presetCards -eq 4 -and
+        $nextStep.presetCards -eq 6 -and
         ([string]$nextStep.firstCard).Contains('01_Win32') -and
         -not $nextStep.nextReady
     ) 'The choice page must offer the templates in the fixed order.'

@@ -234,10 +234,15 @@ namespace MacroStudio.Tests
             {
                 Dictionary<string, object> phase =
                     new Dictionary<string, object>();
+                // A book with a real fixed path in it. The general
+                // refactoring sample has none: it only ever produced
+                // mapping rows because the old rules called a date
+                // format picture a location (2026-08-03).
                 string mappingBook = Path.Combine(
                     baseDir,
                     "testdata",
-                    "input_monthly_report.xlsm");
+                    "guide-samples",
+                    "S01_fixed_drive.xlsm");
 
                 await StartOver();
                 await AttachBook(mappingBook);

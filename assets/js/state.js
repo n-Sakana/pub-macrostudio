@@ -56,6 +56,11 @@
       // failure is worth a retry; a second means retrying the same way
       // is not the answer.
       intakeFailures: {diagnose: 0, repair: 0},
+
+      // Why the last reply was refused, kept on the screen until one is
+      // taken in. A toast that has already faded cannot be read while
+      // fixing the paste, which is exactly when it is needed.
+      intakeError: {diagnose: null, repair: null},
       presetFile: null,
       presetName: "",
       presetFiles: [],
@@ -597,6 +602,9 @@
     state.diagnosisRequestText = String(next.requestText || "");
     state.diagnosisRequestFilePath = next.requestPath || null;
     state.diagnosisPrompt = next.prompt || null;
+    // A refusal belongs to the reply it refused. Writing a fresh request
+    // is the reader acting on it, so it stops being the current news.
+    state.intakeError.diagnose = null;
     state.runFolder = next.runFolder || state.runFolder;
     state.handoffFolder = next.handoffFolder || state.handoffFolder;
     state.outputTimestamp = next.outputTimestamp || state.outputTimestamp;
@@ -661,12 +669,33 @@
   function clearIntakeFailures(stage) {
     var key = stage === "repair" ? "repair" : "diagnose";
 
-    if (!state.intakeFailures[key]) {
+    if (!state.intakeFailures[key] && !state.intakeError[key]) {
       return false;
     }
     state.intakeFailures[key] = 0;
+    state.intakeError[key] = null;
     notify();
     return true;
+  }
+
+  // What the contract found wrong, in the words the screen shows. Never
+  // the reply itself (SPEC 8.4): a check number, a reason code and the
+  // two sentences that go with them.
+  function setIntakeError(stage, error) {
+    var key = stage === "repair" ? "repair" : "diagnose";
+
+    state.intakeError[key] = error
+      ? {
+        code: String(error.code || ""),
+        validationId: String(error.validationId || ""),
+        reason: String(error.reason || ""),
+        message: String(error.message || ""),
+        detail: String(error.detail || ""),
+        count: Number(error.count || 1)
+      }
+      : null;
+    notify();
+    return state.intakeError[key];
   }
 
   // More than one template can be chosen. Their instructions go into one
@@ -947,6 +976,7 @@
     state.repairPromptCopied = false;
     state.repairFolderOpened = false;
     state.lastError = null;
+    state.intakeError.repair = null;
     notify();
     return true;
   }
@@ -1495,6 +1525,7 @@
     setRepairPreset: setRepairPreset,
     noteIntakeFailure: noteIntakeFailure,
     clearIntakeFailures: clearIntakeFailures,
+    setIntakeError: setIntakeError,
     setAnswer: setAnswer,
     setFindingSelected: setFindingSelected,
     setDesiredBehaviour: setDesiredBehaviour,

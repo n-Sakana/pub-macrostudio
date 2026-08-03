@@ -239,6 +239,72 @@
       .split("\n");
   }
 
+  // ---- decoration a chat client added on the way out ----
+  //
+  // Quoting the block, turning it into a bullet, HTML-escaping it or
+  // swapping the apostrophe for a typographic one are all things the
+  // client does, not things the answer got wrong, and asking again does
+  // not fix any of them.
+  //
+  // Only a line that was not a sentinel and becomes one is replaced.
+  // Module bodies are code and are taken verbatim; nothing here can turn
+  // a line of VBA into a sentinel, because it only removes and never
+  // invents the marker. The diagnosis contract keeps its own copy of
+  // this: the two wire formats are owned separately on purpose.
+  var ENTITIES = {
+    "&lt;": "<",
+    "&gt;": ">",
+    "&quot;": "\"",
+    "&apos;": "'",
+    "&#39;": "'",
+    "&#x27;": "'",
+    "&nbsp;": " ",
+    "&amp;": "&"
+  };
+
+  function undecorate(line) {
+    var value = String(line).replace(/^[\s　]+|[\s　]+$/g, "");
+
+    value = value.replace(/^(?:>[\s　]*)+/, "");
+    value = value.replace(/^(?:[-*+]|\d+[.)])[\s　]+/, "");
+    value = value.replace(/<\/?(?:code|pre|span|p|div|strong|em|b|i)>/gi, "");
+    value = value.replace(/^`+/, "").replace(/`+$/, "");
+    value = value.replace(
+      /&(?:lt|gt|quot|apos|nbsp|amp|#39|#x27);/gi,
+      function (found) {
+        var key = found.toLowerCase();
+
+        return Object.prototype.hasOwnProperty.call(ENTITIES, key)
+          ? ENTITIES[key]
+          : found;
+      });
+    value = value.replace(/^[\s　]+/, "");
+    value = value.replace(/^[‘’‛ʼ´＇`]/, "'");
+    value = value.replace(/^'＠/, "'@");
+    value = value.replace(/^＠/, "@");
+    if (value.indexOf("@MACROSTUDIO") === 0) {
+      value = "'" + value;
+    }
+    return value;
+  }
+
+  function isSentinelLine(line) {
+    return String(line).replace(/^[\s　]+|[\s　]+$/g, "")
+      .indexOf(MARKER) === 0;
+  }
+
+  function normalizeLines(lines) {
+    return lines.map(function (line) {
+      var repaired;
+
+      if (isSentinelLine(line)) {
+        return line;
+      }
+      repaired = undecorate(line);
+      return isSentinelLine(repaired) ? repaired : line;
+    });
+  }
+
   // A sentinel is recognised on its own line only, so a marker-looking
   // string inside real code cannot end a module.
   function readSentinel(line) {
@@ -304,7 +370,7 @@
       return failure("empty");
     }
 
-    lines = splitLines(text);
+    lines = normalizeLines(splitLines(text));
     for (index = 0; index < lines.length; index += 1) {
       sentinel = readSentinel(lines[index]);
       if (sentinel === null) {

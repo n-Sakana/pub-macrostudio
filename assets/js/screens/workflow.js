@@ -16,6 +16,11 @@
     UNCLEAR: "依頼の内容を決められないという回答です"
   };
   var disclosureState = {};
+  // Content a closed row has not needed yet. A workbook with forty
+  // candidates was building every module of every candidate on every
+  // render - including one per keystroke in the value field - and the
+  // window stopped answering. Nothing is built until the row is opened.
+  var lazyContent = {};
   var entering = false;
   var lastEnteredScreen = null;
   var CLASS_ORDER = ["BLOCKER", "DEFECT", "CONDITIONAL", "EXTERNAL", "INFO"];
@@ -171,6 +176,19 @@
       ? disclosureState[key]
       : openByDefault === true;
 
+    // A caller may hand a function instead of an element when building
+    // the content is expensive. It is called on the render that first
+    // shows the row open, and not before.
+    delete lazyContent[key];
+    if (typeof content === "function") {
+      if (open) {
+        content = content();
+      } else {
+        lazyContent[key] = {factory: content, panelId: panelId};
+        content = element("div", "disclosure-placeholder");
+      }
+    }
+
     trigger.type = "button";
     trigger.setAttribute("data-action", "toggle-workflow-disclosure");
     trigger.setAttribute("data-disclosure-key", key);
@@ -299,6 +317,7 @@
     var order = [];
     var byAxis = {};
     var axisOrder = [];
+    var repairable = repairableKeys(state);
 
     findings.forEach(function (finding) {
       var key = finding.environmentKey === "-" ? "" : finding.environmentKey;
@@ -322,6 +341,7 @@
         findings: byKey[key]
       };
 
+      group.verdict = verdictOf(group, repairable);
       if (!Object.prototype.hasOwnProperty.call(byAxis, axis)) {
         byAxis[axis] = [];
         axisOrder.push(axis);
@@ -340,6 +360,85 @@
         axis: axis,
         label: AXIS_LABELS[axis] || AXIS_LABELS[""],
         groups: byAxis[axis]
+      };
+    });
+  }
+
+  // ---- what the reader is being asked to do about each problem ----
+  //
+  // The diagnosis says what is true. This says what follows from it, and
+  // it is read off two facts the reader can check rather than decided
+  // here: whether some repair template declares the environment key this
+  // problem names, and the class the AI gave it. Nothing else.
+  //
+  //   要改修   a template addresses this key, so this tool can prepare
+  //            the request. This is the same rule that draws ★推奨 on
+  //            the next screen, so the two can never disagree.
+  //   要確認   no template addresses it and it is not an INFO note, so it
+  //            is real work that happens outside this tool.
+  //   改修不要  no template addresses it and the AI filed it as 補助.
+  var VERDICT_ORDER = ["REPAIRABLE", "CONFIRM", "NOACTION"];
+  var VERDICT_LABELS = {
+    REPAIRABLE: "要改修",
+    CONFIRM: "要確認",
+    NOACTION: "改修不要"
+  };
+  var VERDICT_HEADINGS = {
+    REPAIRABLE: "要改修",
+    CONFIRM: "要確認（このツールの範囲外）",
+    NOACTION: "改修不要"
+  };
+  var VERDICT_NOTES = {
+    REPAIRABLE: "このツールのひな形で改修を依頼できます。",
+    CONFIRM: "このツールのひな形にはありません。人が確かめて決めます。",
+    NOACTION: "直す対象ではないと診断されています。読むだけで結構です。"
+  };
+
+  // Every environment key that some valid repair template says it
+  // addresses. A template that names none never claims anything.
+  function repairableKeys(state) {
+    var keys = {};
+    var presets = state.appInfo && state.appInfo.presets
+      ? state.appInfo.presets.repair
+      : [];
+
+    if (!global.MacroStudioPreset) {
+      return keys;
+    }
+    global.MacroStudioPreset.describeAll(presets || [], "repair").forEach(
+      function (entry) {
+        if (!entry.valid) {
+          return;
+        }
+        (entry.recommendKeys || []).forEach(function (key) {
+          keys[String(key)] = true;
+        });
+      });
+    return keys;
+  }
+
+  function verdictOf(group, keys) {
+    if (group.key &&
+        Object.prototype.hasOwnProperty.call(keys, group.key)) {
+      return "REPAIRABLE";
+    }
+    return group["class"] === "INFO" ? "NOACTION" : "CONFIRM";
+  }
+
+  function groupsByVerdict(categories) {
+    var buckets = {};
+
+    VERDICT_ORDER.forEach(function (name) { buckets[name] = []; });
+    allGroups(categories).forEach(function (group) {
+      buckets[group.verdict].push(group);
+    });
+    return VERDICT_ORDER.map(function (name) {
+      return {
+        verdict: name,
+        label: VERDICT_LABELS[name],
+        heading: VERDICT_HEADINGS[name],
+        note: VERDICT_NOTES[name],
+        groups: buckets[name]
       };
     });
   }
@@ -382,11 +481,6 @@
     return found;
   }
 
-  function environmentTitle(state, key) {
-    var constraint = environmentConstraint(state, key);
-    return constraint ? constraint.title : "";
-  }
-
   // SPEC 4.4.2: what the AI read and what we assume about the terminal
   // are two different certainties. A finding that stops the macro, resting
   // on an assumption nobody measured on the target machine, says so.
@@ -408,6 +502,44 @@
   function formatLocation(finding) {
     return "module: " + finding.module + " / proc: " +
       finding.procedure + " / lines: " + finding.lines;
+  }
+
+  // The lines a finding names, as numbers. The contract already refused
+  // anything that is not a comma list of numbers and ranges inside the
+  // module, so reading it is all that is left to do.
+  function findingLines(finding) {
+    var numbers = [];
+
+    if (!finding || !finding.lines || finding.lines === "-") {
+      return numbers;
+    }
+    String(finding.lines).split(",").forEach(function (item) {
+      var parts = item.split("-");
+      var start = Number(parts[0]);
+      var end = Number(parts.length === 2 ? parts[1] : parts[0]);
+      var line;
+
+      if (!isFinite(start) || !isFinite(end) || start < 1 || end < start) {
+        return;
+      }
+      for (line = start; line <= end; line += 1) {
+        numbers.push({line: line});
+      }
+    });
+    return numbers;
+  }
+
+  function findModule(state, name) {
+    var found = null;
+
+    (state.modules || []).some(function (module) {
+      if (module.name === name) {
+        found = module;
+        return true;
+      }
+      return false;
+    });
+    return found;
   }
 
   function formatDiagnosisForPrompt(diagnosis) {
@@ -733,6 +865,17 @@
       code: detail && detail.code,
       count: count
     });
+    // The same refusal, written where it can still be read while the
+    // paste is being fixed. A toast is gone by then, which is how the
+    // same reply came to be pasted four times in a row.
+    store.setIntakeError(stage, {
+      code: detail && detail.code,
+      validationId: detail && detail.validationId,
+      reason: detail && detail.reason,
+      message: message,
+      detail: detail && detail.detail,
+      count: count
+    });
     if (count >= 2) {
       global.MacroStudioApp.showToast(
         message + CRLF +
@@ -867,6 +1010,14 @@
     // disabled with nothing to read and nothing to fix.
     if (store.isDiagnosisRequestDirty()) {
       store.noteIntakeFailure("diagnose");
+      store.setIntakeError("diagnose", {
+        code: "E-DIAG-01",
+        reason: "requestDirty",
+        message: "依頼文を作ったあとで入力が変わっているため、" +
+          "この回答は取り込めません。",
+        detail: "［依頼を作り直す］で依頼文を作り直し、" +
+          "その依頼への回答を取り込んでください。"
+      });
       global.MacroStudioApp.showToast(
         "依頼文を作ったあとで入力が変わっているため、この回答は取り込めません。" +
           "［依頼を作り直す］で依頼文を作り直し、その依頼への回答を取り込んでください。",
@@ -882,6 +1033,12 @@
       if (!store.commitDiagnosis(diagnosis, result.path)) {
         store.setBusyAction(null);
         store.noteIntakeFailure("diagnose");
+        store.setIntakeError("diagnose", {
+          code: "E-DIAG-01",
+          reason: "notCurrent",
+          message: "AIの回答を取り込めませんでした。",
+          detail: "いま画面にある依頼への回答か確認してください。"
+        });
         global.MacroStudioApp.showToast(
           "AIの回答を取り込めませんでした。この依頼への回答か確認してください。",
           "error");
@@ -1510,6 +1667,20 @@
     return actions;
   }
 
+  // The chat is given the code and the assumed environment. Anything
+  // else the reader happens to have - the specification the macro was
+  // written from, a screenshot of the error, the sheet it reads - is
+  // theirs to add, and it is worth saying so, because a chat that has
+  // seen them writes a better diagnosis. The templates say the same
+  // thing to the AI, so the offer and the instruction agree.
+  function attachmentHint() {
+    return element(
+      "p",
+      "attachment-hint",
+      "仕様書、手順書、エラーの画面など、参考になる資料が手元にあれば" +
+        "いっしょに添付してください。AIはそれも踏まえて答えます。");
+  }
+
   // What the reader has to know to hand the request over, and nothing
   // else. The environment the diagnosis assumes, the extra concern and
   // the long-reply switch are all optional reading, so they fold away
@@ -1532,10 +1703,9 @@
       return root;
     }
 
-    root.appendChild(intro(
-      "診断の依頼文はできています。AIへ渡して、返ってきた答えをこの画面へ" +
-        "戻してください。"));
-
+    // The header above already says what this screen is for, and the two
+    // numbered steps say what to do. An opening line that repeated both
+    // was a third copy of the same sentence.
     root.appendChild(element("h2", "task-step", "1. 依頼をAIへ渡す"));
     if (state.diagnosisRequestId) {
       root.appendChild(element(
@@ -1543,6 +1713,7 @@
         "task-note",
         "依頼文をコピーして貼り付け、開いたフォルダの " + AI_CODE_FILE + " を" +
           "添付します。"));
+      root.appendChild(attachmentHint());
       root.appendChild(createHandoffActions(state, "diagnose"));
     } else if (state.busyAction) {
       root.appendChild(element("p", "inline-status", "診断依頼を作成しています…"));
@@ -1605,6 +1776,52 @@
     return root;
   }
 
+  // Why the last paste was refused, written on the screen and left there
+  // until one is taken in.
+  //
+  // The contract has always known which check failed; only the log was
+  // told. The reader saw "取り込めませんでした" and nothing else, so the
+  // same reply went round again - which is the single most frustrating
+  // thing this tool does. The check number is printed too: it is the
+  // thing to quote when reporting that a chat cannot be made to comply.
+  function appendIntakeError(root, state, stage) {
+    var error = state.intakeError ? state.intakeError[stage] : null;
+    var box;
+    var steps;
+
+    if (!error) {
+      return root;
+    }
+    box = element("div", "intake-error");
+    box.setAttribute("role", "alert");
+    box.appendChild(element(
+      "h3",
+      "intake-error-title",
+      "この返答は取り込めませんでした"));
+    if (error.detail) {
+      box.appendChild(element("p", "intake-error-detail", error.detail));
+    }
+    if (error.message) {
+      box.appendChild(element("p", "intake-error-message", error.message));
+    }
+    steps = element("ul", "intake-error-steps");
+    [
+      "AIの返答のコードブロックを、先頭から末尾まで全部コピーし直す",
+      "うまくいかないときは、依頼文をもう一度そのまま渡してやり直す",
+      "それでも同じなら、同じ依頼文を別のAIへ渡す"
+    ].forEach(function (text) {
+      steps.appendChild(element("li", "", text));
+    });
+    box.appendChild(steps);
+    box.appendChild(element(
+      "p",
+      "intake-error-check",
+      "検査番号 " + (error.validationId || "-") +
+        "／" + error.count + " 回目"));
+    root.appendChild(box);
+    return root;
+  }
+
   // The second half of the same screen: what comes back from the chat.
   function appendDiagnoseIntake(root, state) {
     var button;
@@ -1614,6 +1831,7 @@
       "p",
       "task-note",
       "AIの返答にあるコードブロック全体をコピーして、下のボタンを押します。"));
+    appendIntakeError(root, state, "diagnose");
     // The same feedback as the hand-off buttons above: the control says
     // what it did. A second line underneath, naming a file the reader
     // never asked about, is one message too many.
@@ -1633,26 +1851,27 @@
     return root;
   }
 
+  // The three things the finding says about itself. Where it is was
+  // printed twice - once at the head of the row and once here under
+  // 該当箇所 - and so was the environment constraint, whose title is
+  // already the name of the group this row sits in. Both copies are
+  // gone; the key stays, because that is the part nothing else carries.
   function createFindingDetails(state, finding) {
     var detail = element("div", "finding-detail");
-    var location = element("div", "finding-detail-block");
     var evidence = element("div", "finding-detail-block");
+
     detail.appendChild(element("p", "finding-condition",
       "成立条件: " + finding.texts.condition));
     detail.appendChild(element("p", "finding-impact",
       "影響: " + finding.texts.impact));
-    location.appendChild(element("strong", "", "該当箇所"));
-    location.appendChild(element("code", "", formatLocation(finding)));
     evidence.appendChild(element("strong", "", "根拠"));
     evidence.appendChild(element("p", "", finding.texts.evidence));
-    detail.appendChild(location);
     detail.appendChild(evidence);
     if (finding.environmentKey !== "-") {
       detail.appendChild(element(
         "p",
         "finding-environment",
-        "参照した環境制約: " + finding.environmentKey + " — " +
-          environmentTitle(state, finding.environmentKey)));
+        "環境キー: " + finding.environmentKey));
     }
     var notMeasured = notMeasuredNote(state, finding);
     if (notMeasured) {
@@ -1664,9 +1883,19 @@
   // One occurrence of a grouped problem: where it is and why it counts.
   // Flat, not a second thing to open. One accordion opens onto a box and
   // the box scrolls; two tiers of accordion is a maze.
+  //
+  // The code is the exception. "lines 42-47 of MonthlyReport" tells the
+  // reader where to look without showing them anything, and the module
+  // is already on this machine, so it opens here in the same block the
+  // replacement table uses.
   function createOccurrenceRow(state, finding) {
     var row = element("div", "occurrence-row");
     var head = element("div", "occurrence-head");
+    var module = finding.module === "-"
+      ? null
+      : findModule(state, finding.module);
+    var hits = findingLines(finding);
+    var key;
 
     head.appendChild(element("code", "occurrence-location",
       formatLocation(finding)));
@@ -1674,6 +1903,27 @@
       CONFIDENCE_LABELS[finding.confidence]));
     row.appendChild(head);
     row.appendChild(createFindingDetails(state, finding));
+    if (module && global.MacroStudioCodeView) {
+      key = "finding-code-" + finding.number;
+      row.appendChild(createDisclosure(
+        key,
+        "このコードを見る（" + finding.module + "）",
+        function () {
+          return global.MacroStudioCodeView.create({
+            key: key,
+            note: hits.length > 0 ? "指摘の該当行" : "モジュール全体",
+            matchesOnly: hits.length > 0,
+            highlight: true,
+            modules: [{
+              name: finding.module,
+              code: String(module.code || ""),
+              hits: hits
+            }]
+          });
+        },
+        false,
+        hits.length > 0 ? finding.lines + " 行目" : ""));
+    }
     return row;
   }
 
@@ -1699,6 +1949,7 @@
     button.appendChild(element("span", "group-title", group.title));
     button.appendChild(element("span", "group-count",
       "該当 " + group.findings.length + " か所"));
+    row.setAttribute("data-verdict", group.verdict);
     panel.id = id;
     panel.hidden = !open;
     group.findings.forEach(function (finding) {
@@ -1709,31 +1960,57 @@
     return row;
   }
 
-  function createCategorySection(state, category, prefix) {
-    var box = element("div", "category-block");
+  // One block per verdict: what it means in a sentence, then the problems
+  // that fall under it. The reader is answering "what do I do about
+  // this", so the page is arranged by the answer rather than by the kind
+  // of work, which is the arrangement the next screen needs.
+  function createVerdictSection(state, bucket, prefix) {
+    var box = element("div", "verdict-block verdict-block--" +
+      bucket.verdict.toLowerCase());
+    var head = element("div", "verdict-head");
+    var list = element("div", "findings-list findings-list--result");
 
-    box.appendChild(element("h3", "category-label", category.label));
-    category.groups.forEach(function (group) {
-      box.appendChild(createGroupRow(state, group, prefix));
+    head.appendChild(element(
+      "span",
+      "verdict-badge verdict-badge--" + bucket.verdict.toLowerCase(),
+      bucket.label));
+    head.appendChild(element("h2", "verdict-title", bucket.heading));
+    head.appendChild(element(
+      "span",
+      "verdict-count",
+      bucket.groups.length + " 件"));
+    box.appendChild(head);
+    box.appendChild(element("p", "verdict-note", bucket.note));
+    bucket.groups.forEach(function (group) {
+      list.appendChild(createGroupRow(state, group, prefix));
     });
+    box.appendChild(list);
     return box;
   }
 
-  function createFindingsList(state) {
-    var list = element("div", "findings-list");
-    var findings = sortedFindings(state.diagnosis);
+  var NO_FINDING_NOTES = {
+    SCOPE_CLEAR: "診断の範囲は確認できた、というのがAIの結論です。",
+    INSUFFICIENT: "判断材料が足りず、確認しきれなかったとAIは言っています。" +
+      "気になる点を書き足して、もう一度診断を依頼できます。"
+  };
 
-    if (!findings.length) {
-      list.appendChild(element(
-        "p",
-        "findings-empty",
-        "この監査範囲では動作阻害要因を確認できませんでした。"));
-      return list;
+  // The conclusion above already said there was nothing. What is left to
+  // say is which of the two zeros this is: the diagnosis covered its
+  // ground, or it ran out of material. Repeating the first sentence here
+  // would be the same line twice on one screen.
+  function createEmptyFindings(state) {
+    var reason = state.diagnosis ? state.diagnosis.noFinding : null;
+    var box;
+
+    if (!reason || !NO_FINDING_NOTES[reason]) {
+      return null;
     }
-    groupFindings(state, findings).forEach(function (category) {
-      list.appendChild(createCategorySection(state, category, "diagnosis"));
-    });
-    return list;
+    box = element("div", "findings-empty-box");
+    box.appendChild(element(
+      "p",
+      "findings-empty",
+      NO_FINDING_NOTES[reason]));
+    return box;
   }
 
   function countClasses(diagnosis) {
@@ -1866,10 +2143,28 @@
   // for, what the target environment does to it, and how much has to be
   // dealt with. The count is of problems, not of places: a macro that
   // calls Sleep in thirteen procedures is one thing to decide about.
-  function createDiagnosisHeadline(state, counts, occurrences) {
+  function createVerdictTile(bucket) {
+    var tile = element(
+      "div",
+      "verdict-tile verdict-tile--" + bucket.verdict.toLowerCase());
+
+    tile.appendChild(element(
+      "span",
+      "verdict-tile-count",
+      String(bucket.groups.length)));
+    tile.appendChild(element("span", "verdict-tile-label", bucket.label));
+    return tile;
+  }
+
+  function createDiagnosisHeadline(state, counts, occurrences, buckets) {
     var box = element("div", "diagnosis-conclusion");
     var chips = element("div", "diagnosis-counts");
-    var acted = counts.BLOCKER + counts.DEFECT + counts.CONDITIONAL;
+    var tiles = element("div", "verdict-tiles");
+    var repairable = buckets ? buckets[0].groups.length : 0;
+    var total = buckets
+      ? buckets[0].groups.length + buckets[1].groups.length +
+        buckets[2].groups.length
+      : 0;
 
     box.setAttribute("aria-live", "polite");
     box.appendChild(element(
@@ -1883,10 +2178,21 @@
     box.appendChild(element(
       "p",
       "diagnosis-conclusion-verdict",
-      acted > 0
-        ? "対象環境で対処が必要な問題が " + acted + " 件あります（該当 " +
-          occurrences + " か所）。"
-        : "この監査範囲では動作阻害要因を確認できませんでした。"));
+      total === 0
+        ? "この監査範囲では動作阻害要因を確認できませんでした。"
+        : (repairable > 0
+          ? "このツールで改修を依頼できる問題が " + repairable +
+            " 件あります（該当 " + occurrences + " か所）。"
+          : "このツールのひな形で直せる問題はありません。" +
+            "内容を確認してください。")));
+    // Three tiles, always all three, because the reader is asking "what
+    // do I have to do" and "要改修 0" is the answer to that question.
+    (buckets || []).forEach(function (bucket) {
+      tiles.appendChild(createVerdictTile(bucket));
+    });
+    if (buckets) {
+      box.appendChild(tiles);
+    }
     // Only the kinds that are actually here. "不具合 0" is a fact about
     // a category, not about this workbook, and every one of them the
     // reader has to skip past costs the ones that matter.
@@ -1912,22 +2218,42 @@
     return root;
   }
 
-  // The diagnosis, and only the diagnosis. Two or three lines at the top
-  // give the whole of it; the macro's own description and every finding's
-  // evidence open underneath, in the same kind of row.
+  // The result of the diagnosis, arranged by what it asks of the reader.
+  // The conclusion is first, then one block per verdict, then what the
+  // diagnosis could not see, and only then the macro's own description -
+  // which is background, not a decision.
   function createFindingsScreen(state) {
     var root = task(true);
     var summaryList = element("div", "summary-list");
+    var categories;
+    var buckets;
+    var empty;
 
     if (!state.diagnosis) {
       return missingDiagnosis(root);
     }
-    var categories = groupFindings(state, sortedFindings(state.diagnosis));
+    categories = groupFindings(state, sortedFindings(state.diagnosis));
+    buckets = groupsByVerdict(categories);
 
     root.appendChild(createDiagnosisHeadline(
       state,
       countGroupClasses(categories),
-      sortedFindings(state.diagnosis).length));
+      sortedFindings(state.diagnosis).length,
+      buckets));
+
+    if (allGroups(categories).length === 0) {
+      empty = createEmptyFindings(state);
+      if (empty) {
+        root.appendChild(empty);
+      }
+    }
+    buckets.forEach(function (bucket) {
+      if (bucket.groups.length === 0) {
+        return;
+      }
+      root.appendChild(createVerdictSection(state, bucket, "diagnosis"));
+    });
+    appendOutsideCodeWork(root, state);
 
     root.appendChild(element("h2", "task-step", "このマクロの詳細"));
     ["PURPOSE", "FLOW", "DEPENDENCY", "ENVIRONMENT"].forEach(
@@ -1935,10 +2261,6 @@
         summaryList.appendChild(createSummaryRow(state, name));
       });
     root.appendChild(summaryList);
-
-    root.appendChild(element("h2", "task-step", "見つかった事実"));
-    root.appendChild(createFindingsList(state));
-    appendOutsideCodeWork(root, state);
 
     root.appendChild(element(
       "p",
@@ -2046,60 +2368,66 @@
     header.appendChild(element("span", "finding-title", group.title));
     header.appendChild(element("span", "group-count",
       "該当 " + ids.length + " か所"));
+    row.setAttribute("data-verdict", group.verdict);
     row.appendChild(header);
-
-    group.findings.forEach(function (finding) {
-    });
     return row;
   }
 
-  function createRepairCategorySection(state, category) {
+  function createRepairVerdictRows(state, bucket) {
     var box = element("div", "category-block");
 
-    box.appendChild(element("h3", "category-label", category.label));
-    category.groups.forEach(function (group) {
+    bucket.groups.forEach(function (group) {
       box.appendChild(createRepairFindingRow(state, group));
     });
     return box;
   }
 
-  // One line of a module, with the candidate marked where it sits. The
-  // span comes from the product lexer, so what is highlighted is exactly
-  // the token that would be replaced - not a text search that might land
-  // somewhere else.
-  function createModuleLine(number, text, occurrences) {
-    var line = element("div", "path-evidence-line");
-    var code = element("code", "path-evidence-text");
-    var here = occurrences.filter(function (occurrence) {
-      return Number(occurrence.line) === number;
-    }).sort(function (left, right) {
-      return left.column - right.column;
-    });
-    var cursor = 0;
+  // The verdict from the page before decides what this screen offers
+  // first. 要改修 is what this tool can carry out, so it is in the open;
+  // the rest can still be sent, folded away under a row that says how
+  // many there are and what they were.
+  function appendRepairFindings(root, state) {
+    var buckets = groupsByVerdict(
+      groupFindings(state, sortedFindings(state.diagnosis)));
+    var box = section("改修する指摘", "repair-findings");
+    var others = [];
 
-    line.appendChild(element(
-      "span",
-      "path-evidence-number",
-      String(number)));
-    if (here.length === 0) {
-      code.textContent = text;
-    } else {
-      here.forEach(function (occurrence) {
-        code.appendChild(element(
-          "span",
-          "",
-          text.slice(cursor, occurrence.column)));
-        code.appendChild(element(
-          "mark",
-          "path-evidence-mark",
-          text.slice(occurrence.column, occurrence.endColumn)));
-        cursor = occurrence.endColumn;
-      });
-      code.appendChild(element("span", "", text.slice(cursor)));
-      line.classList.add("is-match");
+    buckets.forEach(function (bucket) {
+      if (bucket.groups.length === 0) {
+        return;
+      }
+      if (bucket.verdict === "REPAIRABLE") {
+        box.appendChild(element(
+          "p",
+          "task-note",
+          "診断で［要改修］になった指摘です。" +
+            "チェックしたものが、そのまま依頼文になります。"));
+        box.appendChild(createRepairVerdictRows(state, bucket));
+        return;
+      }
+      others.push(bucket);
+    });
+    if (buckets[0].groups.length === 0) {
+      box.appendChild(element(
+        "p",
+        "task-note",
+        "このツールのひな形で直せる指摘はありませんでした。" +
+          "下の指摘を選んで依頼することもできます。"));
     }
-    line.appendChild(code);
-    return line;
+    others.forEach(function (bucket) {
+      var content = element("div", "repair-other-verdict");
+
+      content.appendChild(element("p", "task-note", bucket.note));
+      content.appendChild(createRepairVerdictRows(state, bucket));
+      box.appendChild(createDisclosure(
+        "repair-verdict-" + bucket.verdict.toLowerCase(),
+        bucket.heading + " の指摘も選ぶ",
+        content,
+        false,
+        bucket.groups.length + " 件"));
+    });
+    root.appendChild(box);
+    return root;
   }
 
   // What comes back is written into the field like anything typed there,
@@ -2199,12 +2527,16 @@
     }
     // The reader is deciding about a string, and what settles it is the
     // code around it. A list of line numbers did not settle anything, so
-    // the module itself opens here instead.
+    // the module itself opens here instead - built when the row is
+    // opened, not on every render of every row.
     controls.appendChild(createDisclosure(
       evidenceKey,
       "このコードを見る（" + moduleNamesOf(row).join("、") + "）",
-      createOccurrenceModules(state, row),
-      disclosureState[evidenceKey] === true));
+      function () {
+        return createOccurrenceModules(state, row, evidenceKey);
+      },
+      disclosureState[evidenceKey] === true,
+      row.occurrences.length + "か所"));
     box.appendChild(controls);
     return box;
   }
@@ -2220,48 +2552,42 @@
     return names;
   }
 
-  // The whole of every module the candidate appears in, with the
-  // candidate marked. A list of line numbers told the reader where to
-  // look without showing them anything; deciding about a string needs
-  // the code around it.
-  function createOccurrenceModules(state, row) {
-    var body = element("div", "path-module-list");
+  // Every module the candidate appears in, with the candidate marked,
+  // shown through the same block the diagnosis result uses: only the
+  // places by default, with a way to step between them and to open the
+  // code around any of them.
+  function createOccurrenceModules(state, row, key) {
     var modules = state.modules || [];
 
-    moduleNamesOf(row).forEach(function (name) {
-      var found = null;
-      var block;
-      var here;
+    return global.MacroStudioCodeView.create({
+      key: key || ("path-map-" + row.groupKey),
+      note: "この文字列がある行",
+      matchesOnly: true,
+      modules: moduleNamesOf(row).map(function (name) {
+        var found = null;
 
-      modules.some(function (module) {
-        if (module.name === name) {
-          found = module;
-          return true;
-        }
-        return false;
-      });
-      body.appendChild(element("h3", "path-module-name", name));
-      if (!found) {
-        body.appendChild(element(
-          "p",
-          "path-map-error",
-          "このモジュールを読み取れませんでした。"));
-        return;
-      }
-      here = row.occurrences.filter(function (occurrence) {
-        return occurrence.module === name;
-      });
-      block = element("div", "path-evidence-code");
-      String(found.code || "")
-        .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n")
-        .split("\n")
-        .forEach(function (text, index) {
-          block.appendChild(createModuleLine(index + 1, text, here));
+        modules.some(function (module) {
+          if (module.name === name) {
+            found = module;
+            return true;
+          }
+          return false;
         });
-      body.appendChild(block);
+        return {
+          name: name,
+          code: found ? String(found.code || "") : null,
+          hits: row.occurrences.filter(function (occurrence) {
+            return occurrence.module === name;
+          }).map(function (occurrence) {
+            return {
+              line: Number(occurrence.line),
+              column: Number(occurrence.column),
+              endColumn: Number(occurrence.endColumn)
+            };
+          })
+        };
+      })
     });
-    return body;
   }
 
   // The table itself. It is a stage of a run, not a screen: on a run that
@@ -2336,13 +2662,7 @@
       root.appendChild(createQuestionFields(state));
     }
     if (state.diagnosis) {
-      var findings = section("改修する指摘", "repair-findings");
-      groupFindings(state, sortedFindings(state.diagnosis)).forEach(
-        function (category) {
-          findings.appendChild(
-            createRepairCategorySection(state, category));
-        });
-      root.appendChild(findings);
+      appendRepairFindings(root, state);
     } else {
       root.appendChild(intro(
         "診断を行っていないので、直したいことを下の欄に書いてください。"));
@@ -2393,9 +2713,6 @@
 
   function createRepairScreen(state) {
     var root = task(true);
-    root.appendChild(intro(
-      "改修の依頼文はできています。AIへ渡して、返ってきたコードを" +
-        "この画面へ戻してください。"));
 
     root.appendChild(element("h2", "task-step", "1. 依頼をAIへ渡す"));
     root.appendChild(element(
@@ -2403,6 +2720,7 @@
       "task-note",
       "依頼文をコピーして貼り付け、開いたフォルダの " + AI_CODE_FILE + " を" +
         "添付します。"));
+    root.appendChild(attachmentHint());
     root.appendChild(createHandoffActions(state, "repair"));
 
     root.appendChild(element("h2", "task-step", "2. 返答を取り込む"));
@@ -2410,6 +2728,7 @@
       "p",
       "task-note",
       "AIの返答にあるコードブロック全体をコピーして、下のボタンを押します。"));
+    appendIntakeError(root, state, "repair");
     if (state.noChangeResult) {
       var noChange = section(
         NO_CHANGE_TITLES[state.noChangeResult.verdict] ||
@@ -2474,6 +2793,30 @@
     return task(true);
   }
 
+  // Build what a row was holding back, once, on the render that first
+  // opens it. The built content stays in the page afterwards, so opening
+  // and closing again costs nothing.
+  function fillLazyContent(key) {
+    var pending = lazyContent[key];
+    var panel;
+    var built;
+
+    if (!pending) {
+      return false;
+    }
+    delete lazyContent[key];
+    panel = document.getElementById(pending.panelId);
+    if (!panel) {
+      return false;
+    }
+    built = pending.factory();
+    while (panel.firstChild) {
+      panel.removeChild(panel.firstChild);
+    }
+    panel.appendChild(built);
+    return true;
+  }
+
   function toggleDisclosure(button, finding) {
     var controls = button.getAttribute("aria-controls");
     var panel = controls ? document.getElementById(controls) : null;
@@ -2483,6 +2826,9 @@
       : button.getAttribute("data-disclosure-key");
     var box = button.parentNode;
 
+    if (open) {
+      fillLazyContent(key);
+    }
     disclosureState[key] = open;
     button.setAttribute("aria-expanded", open ? "true" : "false");
     // The .disclosure body animates from data-open; a finding row still
@@ -2508,6 +2854,23 @@
     }
     if (action === "toggle-finding") {
       return toggleDisclosure(button, true);
+    }
+    // The code block's own controls. They move and reclass rows that are
+    // already in the page, so none of them redraws the screen.
+    if (action === "code-view-previous") {
+      return global.MacroStudioCodeView.jump(
+        button.getAttribute("data-code-view"), -1);
+    }
+    if (action === "code-view-next") {
+      return global.MacroStudioCodeView.jump(
+        button.getAttribute("data-code-view"), 1);
+    }
+    if (action === "code-view-matches") {
+      return global.MacroStudioCodeView.toggleMatchesOnly(
+        button.getAttribute("data-code-view"));
+    }
+    if (action === "code-view-expand") {
+      return global.MacroStudioCodeView.expand(button);
     }
     if (action === "copy-diagnosis-prompt") {
       copyStagePrompt("diagnose"); return true;

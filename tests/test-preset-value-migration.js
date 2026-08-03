@@ -44,7 +44,7 @@ Object.assign(windowObject, {
 });
 
 var diagnoseFile = "01_診断\\01_動作環境の事実監査.md";
-var repairFile = "02_改修\\04_自分で改修内容を書く.md";
+var repairFile = "02_改修\\06_自分で改修内容を書く.md";
 var diagnoseRaw = {
   file: diagnoseFile,
   content: readUtf8(path.join(root, "presets", "01_診断",
@@ -53,7 +53,7 @@ var diagnoseRaw = {
 var repairRaw = {
   file: repairFile,
   content: readUtf8(path.join(root, "presets", "02_改修",
-    "04_自分で改修内容を書く.md"))
+    "06_自分で改修内容を書く.md"))
 };
 var diagnoseTemplate = readUtf8(path.join(root, "templates",
   "diagnose-template.txt"));

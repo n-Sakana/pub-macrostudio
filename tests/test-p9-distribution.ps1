@@ -165,6 +165,11 @@ Assert-True (
 try {
     [IO.Directory]::CreateDirectory($stageRoot) | Out-Null
 
+    # exports / temp are one run's output, never part of what is
+    # distributed, and a working tree that has been used carries them.
+    # They also cannot always be copied: a run that exercised the
+    # reserved-name refusal leaves a file called CON.xlsm behind, and
+    # Windows will not let anything copy that name.
     $excludedNames = @{
         '.git' = $true
         'testdata' = $true
@@ -173,6 +178,10 @@ try {
         'tests' = $true
         '_audit' = $true
         '.playwright-mcp' = $true
+        'exports' = $true
+        'temp' = $true
+        'qa' = $true
+        'audit-results' = $true
     }
     foreach ($item in Get-ChildItem -LiteralPath $repoRoot -Force) {
         if ($excludedNames.ContainsKey($item.Name)) {

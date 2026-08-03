@@ -30,6 +30,10 @@
   var NO_FINDING_REASONS = ["SCOPE_CLEAR", "INSUFFICIENT"];
   var CANONICAL_NUMBER = /^(0|[1-9][0-9]*)$/;
   var DIGITS = /^\d+$/;
+  // The four texts of a finding in the short form. They are plain lines,
+  // not sentinels: the tag is the whole of the scaffolding.
+  var COMPACT_TEXT_TAG =
+    /(?:^|[\s　])(TITLE|CONDITION|IMPACT|EVIDENCE)[\s　]*[:：][\s　]*/g;
   var VBA_IDENTIFIER = /^[A-Za-z\u00c0-\uffff][A-Za-z0-9_\u00c0-\uffff]{0,254}$/;
   var PRODUCT_RESULTS = new WeakSet();
 
@@ -59,6 +63,62 @@
       "同じ番号の返答が前と異なるため、診断結果を最初から取り込み直してください。"
   };
 
+  // Why the reply was refused, in the reader's words.
+  //
+  // The check number was only ever written to the log, so the screen said
+  // "取り込めませんでした" and nothing else - and the same paste failed
+  // again, and again, because nobody could see which line was wrong. Each
+  // entry names the thing that did not hold. It is a statement of fact
+  // about the reply, never a quotation of it (SPEC 8.4).
+  var DETAILS = {
+    D01: "この返答は別の依頼に対するものです。" +
+      "いま画面にある依頼番号と一致していません。",
+    D02: "先頭の DIAG BEGIN と末尾の DIAG END が対になっていません。" +
+      "返答が途中で切れているか、コードブロックの一部だけをコピーしています。",
+    D03: "DIAG BEGIN のうしろが件数になっていません。",
+    D04: "PURPOSE / FLOW / DEPENDENCY / ENVIRONMENT の4つの節が、" +
+      "1つずつ本文付きで揃っていません。",
+    D05: "知らない節の名前があります。" +
+      "節は PURPOSE / FLOW / DEPENDENCY / ENVIRONMENT の4つだけです。",
+    D06: "指摘の開始行と終了行が対になっていません。",
+    D07: "同じ番号の指摘が2つ以上あります。",
+    D08: "指摘に META の行がないか、2つ以上あります。",
+    D09: "META は CLASS CONFIDENCE MODULE PROC LINES ENVKEY の" +
+      "6つを、この順番で書く必要があります。",
+    D10: "CLASS または CONFIDENCE に、決まっていない値が書かれています。",
+    D11: "CONFIDENCE=UNVERIFIED は BLOCKER・DEFECT と組み合わせられません。",
+    D12: "CLASS=BLOCKER の指摘には ENVKEY が必要です。",
+    D13: "このブックに無いモジュール名が書かれています。" +
+      "依頼文の【対象モジュール】にある名前だけが使えます。",
+    D14: "想定動作環境に無い環境キーが書かれています。",
+    D15: "LINES の書き方が違います。" +
+      "8 / 8,21 / 42-47 のような形にしてください。",
+    D16: "TITLE / CONDITION / IMPACT / EVIDENCE の4つが、" +
+      "1つずつ本文付きで揃っていません。",
+    D17: "知らない TEXT の名前があります。",
+    D18: "DIAG COMPLETE のうしろが件数になっていません。",
+    D19: "DIAG COMPLETE の件数と、実際に書かれた指摘の数が違います。",
+    D20: "指摘が0件のときは DIAG NOFINDING SCOPE_CLEAR または " +
+      "DIAG NOFINDING INSUFFICIENT を1行だけ書く必要があります。",
+    D21: "指摘があるのに DIAG NOFINDING が書かれています。",
+    D22: "DIAG BEGIN より前、または DIAG END より後に区切り行があります。" +
+      "コードブロックを2つに分けて返していないか確認してください。",
+    D23: "MODULE を名乗らずに PROC だけを書くことはできません。",
+    D24: "MODULE を名乗らずに LINES だけを書くことはできません。",
+    D25: "LINES が、そのモジュールに実在しない行を指しています。" +
+      "添付ファイル全体の通し行番号ではなく、" +
+      "モジュールごとの行番号を使ってください。",
+    D26: "CLASS=BLOCKER に、動作を止めない環境キーが結び付いています。",
+    D27: "TITLE が1行に収まっていないか、120文字を超えています。",
+    D28: "指摘の番号が 1 2 3 … の形になっていません。",
+    D29: "DIAG BEGIN の件数と、実際に書かれた指摘の数が違います。",
+    DP01: "分割返答の PART 行がないか、2つ以上あります。",
+    DP02: "PART 行の書き方が違います。",
+    DP03: "まだ届いていない番号があります。",
+    DP04: "前に取り込んだ返答と、全体の個数が違います。",
+    DP05: "同じ番号の返答が、前に取り込んだものと内容が違います。"
+  };
+
   function failure(validationId, reason, message) {
     return brand({
       ok: false,
@@ -66,6 +126,7 @@
       validationId: validationId,
       reason: reason || "malformed",
       message: message || MESSAGES.malformed,
+      detail: DETAILS[validationId] || "",
       diagnosis: null
     });
   }
@@ -91,6 +152,110 @@
       .replace(/\r\n/g, "\n")
       .replace(/\r/g, "\n")
       .split("\n");
+  }
+
+  // ---- what a chat client does to a reply on the way out ----
+  //
+  // Some clients hand back exactly what the answer said. Others wrap the
+  // block in a quotation, turn it into a bullet, HTML-escape it, or swap
+  // the apostrophe for a typographic one. None of that is the answer
+  // being wrong, and none of it can be fixed by asking again - which is
+  // what made the same paste fail over and over.
+  //
+  // So the decoration is taken off mechanically, and only where it turns
+  // a line that was not a sentinel into one. Body text is never touched:
+  // if the repair does not produce a sentinel, the original line is kept
+  // exactly as it arrived.
+  var ENTITIES = {
+    "&lt;": "<",
+    "&gt;": ">",
+    "&quot;": "\"",
+    "&apos;": "'",
+    "&#39;": "'",
+    "&#x27;": "'",
+    "&nbsp;": " ",
+    "&amp;": "&"
+  };
+  var FENCE = /^[\s　]*(?:`{3,}|~{3,})[A-Za-z0-9_+#-]*[\s　]*$/;
+  var QUOTED = /^[\s　]*>[\s　]?/;
+
+  function unescapeEntities(value) {
+    return String(value).replace(
+      /&(?:lt|gt|quot|apos|nbsp|amp|#39|#x27);/gi,
+      function (found) {
+        var key = found.toLowerCase();
+
+        return Object.prototype.hasOwnProperty.call(ENTITIES, key)
+          ? ENTITIES[key]
+          : found;
+      });
+  }
+
+  function isSentinelLine(value) {
+    return trimSpace(value).indexOf(MARKER) === 0;
+  }
+
+  function repairSentinelLine(line) {
+    var value = trimSpace(line);
+
+    value = value.replace(/^(?:>[\s　]*)+/, "");
+    value = value.replace(/^(?:[-*+]|\d+[.)])[\s　]+/, "");
+    value = value.replace(/<\/?(?:code|pre|span|p|div|strong|em|b|i)>/gi, "");
+    value = value.replace(/^`+/, "").replace(/`+$/, "");
+    value = unescapeEntities(value);
+    value = trimSpace(value);
+    // A typographic or full-width apostrophe, or none at all because the
+    // renderer ate it. The marker is the one place this is safe: nothing
+    // else in a reply begins with @MACROSTUDIO.
+    value = value.replace(/^[‘’‛ʼ´＇`]/, "'");
+    value = value.replace(/^'＠/, "'@");
+    value = value.replace(/^＠/, "@");
+    if (value.indexOf("@MACROSTUDIO") === 0) {
+      value = "'" + value;
+    }
+    return value;
+  }
+
+  // A reply the client quoted in full: every line carries the marker, so
+  // one level comes off the whole thing rather than line by line.
+  function unquoteAll(lines) {
+    var meaningful = lines.filter(function (line) {
+      return trimSpace(line) !== "";
+    });
+
+    if (meaningful.length === 0 ||
+        !meaningful.every(function (line) {
+          return QUOTED.test(line);
+        })) {
+      return lines;
+    }
+    return lines.map(function (line) {
+      return line.replace(QUOTED, "");
+    });
+  }
+
+  // A fence is not part of the reply, so it goes first: leaving it in
+  // would make an otherwise fully quoted reply look partly quoted.
+  var QUOTED_TAG =
+    /^[\s　]*>[\s　]?(?=(?:TITLE|CONDITION|IMPACT|EVIDENCE)[\s　]*[:：])/;
+
+  function normalizeLines(lines) {
+    return unquoteAll(lines.filter(function (line) {
+      return !FENCE.test(line);
+    })).map(function (line) {
+      var repaired;
+
+      if (isSentinelLine(line)) {
+        return line;
+      }
+      repaired = repairSentinelLine(line);
+      if (isSentinelLine(repaired)) {
+        return repaired;
+      }
+      // Only some lines quoted: the tagged body lines of a short-form
+      // finding still have to be readable as tags.
+      return line.replace(QUOTED_TAG, "");
+    });
   }
 
   // A chat client that renders the reply as Markdown body text folds the
@@ -129,8 +294,15 @@
     if (directive === "PART") {
       return 5;
     }
-    if (directive === "SECTION" || directive === "FINDING" ||
-        directive === "TEXT") {
+    // The short forms carry their own payload on the sentinel: a SECTION
+    // is followed by its body, a FINDING by the six META pairs.
+    if (directive === "SECTION") {
+      return second === "BEGIN" || second === "END" ? 4 : 3;
+    }
+    if (directive === "FINDING") {
+      return second === "BEGIN" || second === "END" ? 4 : 9;
+    }
+    if (directive === "TEXT") {
       return 4;
     }
     if (directive === "DIAG") {
@@ -211,6 +383,53 @@
       directive: (parts[1] || "").toUpperCase(),
       parts: parts
     };
+  }
+
+  // One plain line of a short-form finding, cut into the tagged parts it
+  // carries. Normally that is one tag and its sentence. A chat client
+  // that folded the line breaks away hands all four back run together,
+  // and they are separated here rather than landing in TITLE as one blob.
+  function splitCompactTexts(line) {
+    var pattern = new RegExp(COMPACT_TEXT_TAG.source, "g");
+    var parts = [];
+    var current = null;
+    var last = 0;
+    var match;
+
+    while ((match = pattern.exec(line)) !== null) {
+      if (current === null) {
+        if (trimSpace(line.slice(last, match.index)) !== "") {
+          parts.push({ name: null, body: line.slice(last, match.index) });
+        }
+      } else {
+        current.body = line.slice(last, match.index);
+        parts.push(current);
+      }
+      current = { name: match[1].toUpperCase(), body: "" };
+      last = pattern.lastIndex;
+    }
+    if (current !== null) {
+      current.body = line.slice(last);
+      parts.push(current);
+    } else if (parts.length === 0) {
+      parts.push({ name: null, body: line });
+    }
+    return parts;
+  }
+
+  // The raw text of a sentinel line after its first `count` words, with
+  // the writer's own spacing inside it kept. A compact SECTION carries
+  // its body here.
+  function sentinelTail(token, count) {
+    var rest = token.trimmed.slice(MARKER.length).replace(/^\s+/, "");
+    var offset = 0;
+    var index;
+
+    for (index = 0; index < count && index < token.parts.length; index += 1) {
+      offset = rest.indexOf(token.parts[index], offset) +
+        token.parts[index].length;
+    }
+    return trimSpace(rest.slice(offset));
   }
 
   function readTokens(lines) {
@@ -537,15 +756,44 @@
     var openSection = null;
     var openFinding = null;
     var openText = null;
+    // The short form of a finding: one sentinel carrying the whole META,
+    // then four tagged lines. Eleven sentinel lines per finding, each
+    // repeating a 36-character request id, was more scaffolding than
+    // diagnosis - and every one of them was a line an AI could get wrong.
+    // Both forms parse into the same shape and share every check below.
+    var openCompact = null;
+    // A short-form SECTION normally carries its body on the same line.
+    // When a chat client folds the reply into one paragraph the body
+    // lands on the next line instead, so it is collected either way and
+    // the emptiness check below is what decides.
+    var openCompactSection = null;
     var index;
     var line;
     var token;
     var action;
     var name;
+    var body;
+    var tag;
+    var tags;
+    var tagIndex;
     var normalizedNumber;
     var validated = [];
     var check;
     var complete;
+
+    function closeCompact() {
+      openCompactSection = null;
+      if (openCompact === null) {
+        return;
+      }
+      findings.push({
+        number: openCompact.number,
+        meta: openCompact.meta,
+        texts: openCompact.texts,
+        textOrder: openCompact.textOrder
+      });
+      openCompact = null;
+    }
 
     for (index = envelope.begin.index + 1;
         index < envelope.end.index;
@@ -557,17 +805,55 @@
           openFinding.texts[openText].push(line);
         } else if (openSection !== null) {
           sectionBodies[openSection].push(line);
+        } else if (openCompactSection !== null) {
+          sectionBodies[openCompactSection].push(line);
+        } else if (openCompact !== null) {
+          tags = splitCompactTexts(line);
+          for (tagIndex = 0; tagIndex < tags.length; tagIndex += 1) {
+            tag = tags[tagIndex];
+            if (tag.name === null) {
+              if (openCompact.field !== null) {
+                openCompact.texts[openCompact.field].push(tag.body);
+              } else if (trimSpace(tag.body) !== "") {
+                return failure("D16", "textShape");
+              }
+              continue;
+            }
+            if (Object.prototype.hasOwnProperty.call(
+              openCompact.texts,
+              tag.name)) {
+              return failure("D16", "textCardinality");
+            }
+            openCompact.texts[tag.name] = [tag.body];
+            openCompact.textOrder.push(tag.name);
+            openCompact.field = tag.name;
+          }
         }
         continue;
       }
+      closeCompact();
       if (token.directive === "PART") {
         continue;
       }
       if (token.directive === "SECTION") {
         action = (token.parts[2] || "").toUpperCase();
         name = (token.parts[3] || "").toUpperCase();
-        if (token.parts.length !== 4 ||
-            (action !== "BEGIN" && action !== "END")) {
+        // The short form: SECTION <name> <body, on this line>.
+        if (action !== "BEGIN" && action !== "END") {
+          if (SECTION_NAMES.indexOf(action) < 0) {
+            return failure("D05", "unknownSection");
+          }
+          if (openSection !== null || openFinding !== null ||
+              Object.prototype.hasOwnProperty.call(sectionBodies, action)) {
+            return failure("D04", "sectionCardinality");
+          }
+          body = sentinelTail(token, 3);
+          sectionBodies[action] = body === "" ? [] : [body];
+          sectionOrder.push(action);
+          openCompactSection = action;
+          continue;
+        }
+        if (token.parts.length !== 4) {
           return failure("D04", "sectionShape");
         }
         if (SECTION_NAMES.indexOf(name) < 0) {
@@ -592,8 +878,41 @@
       if (token.directive === "FINDING") {
         action = (token.parts[2] || "").toUpperCase();
         name = token.parts[3] || "";
-        if (token.parts.length !== 4 ||
-            (action !== "BEGIN" && action !== "END")) {
+        // The short form: FINDING <number> followed by the six META
+        // pairs on the same line, then TITLE: / CONDITION: / IMPACT: /
+        // EVIDENCE: on four plain lines.
+        if (action !== "BEGIN" && action !== "END") {
+          if (token.parts.length !== 9) {
+            return failure("D06", "findingShape");
+          }
+          name = token.parts[2];
+          if (!DIGITS.test(name)) {
+            return failure("D07", "findingDigits");
+          }
+          normalizedNumber = normalizeDecimal(name);
+          if (Object.prototype.hasOwnProperty.call(
+            findingNumbers,
+            normalizedNumber)) {
+            return failure("D07", "findingDuplicate");
+          }
+          if (openSection !== null) {
+            return failure("D06", "findingNested");
+          }
+          findingNumbers[normalizedNumber] = true;
+          openCompact = {
+            number: name,
+            // The same eight-word shape parseMeta reads from a META
+            // line, so both forms are validated by one function.
+            meta: [{
+              parts: [token.parts[0], "META"].concat(token.parts.slice(3))
+            }],
+            texts: {},
+            textOrder: [],
+            field: null
+          };
+          continue;
+        }
+        if (token.parts.length !== 4) {
           return failure("D06", "findingShape");
         }
         if (action === "BEGIN") {
@@ -680,6 +999,7 @@
       return failure("D02", "unknownSentinel");
     }
 
+    closeCompact();
     if (openSection !== null) {
       return failure("D04", "sectionPair");
     }
@@ -775,12 +1095,13 @@
   }
 
   function parseCore(text, options, requirePart) {
-    return parseLines(
-      splitLines(text === undefined || text === null ? "" : text),
-      text,
-      options,
-      requirePart,
-      false);
+    var lines = normalizeLines(
+      splitLines(text === undefined || text === null ? "" : text));
+
+    // Recovery works on the same text the checks saw, so a reply that
+    // needed both the decoration taken off and its line breaks put back
+    // still lands on one diagnosis.
+    return parseLines(lines, lines.join("\n"), options, requirePart, false);
   }
 
   function parseLines(lines, text, options, requirePart, recovered) {

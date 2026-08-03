@@ -178,9 +178,12 @@ Add-Type -TypeDefinition $source -ReferencedAssemblies @(
 $runFolders = @()
 $sourceHash = (Get-FileHash -LiteralPath $resolvedBookPath `
     -Algorithm SHA256).Hash
+# 置換の欄へ打ち込む試験なので、本物の固定パスが 1 つあるブックを使う。
+# input_monthly_report.xlsm には固定パスが無く、以前候補が出ていたのは
+# 旧規則が日付書式を「場所」と呼んでいたからである（2026-08-03）。
 $mappingBook = (Resolve-Path (
     Join-Path $PSScriptRoot `
-        '..\testdata\input_monthly_report.xlsm')).Path
+        '..\testdata\guide-samples\S01_fixed_drive.xlsm')).Path
 $mappingHash = (Get-FileHash -LiteralPath $mappingBook `
     -Algorithm SHA256).Hash
 try {

@@ -51,7 +51,7 @@ macrostudio/
 │   └── 09_BookInventory.cs  # コードの外にある事実（参照設定・クエリ・外部リンク・ActiveX・フォント・署名・ハッシュ）
 ├── assets/                  # UI 実体
 │   ├── fonts/               # Noto Sans JP / UDEV Gothic の TTF と OFL
-│   ├── css/                 # variables / layout / flow / module-list / diff / path-map
+│   ├── css/                 # variables / layout / flow / module-list / diff / findings / path-map / code-view
 │   └── js/                  # 画面・状態・契約・lexer・決定的 path mapping
 ├── environment/             # 想定動作環境のJSON正本と出典・改訂履歴
 ├── presets/                 # 01_診断（singleton）/ 02_改修（選択肢）の依頼正本
@@ -126,9 +126,14 @@ macrostudio/
   前回の置換結果を基準にすると、値を直して置き換え直す操作が必ず E-MAP-02 になる。
   `app.js` に lexer、分類、置換の第 2 実装を置かず、任意文字列の全置換 API を公開しない。
   **何を候補として拾うかは `path-map.js` が決めない**。ひな形の
-  `## 置換の候補`（`- 呼び方 | 正規表現 | 既定で選ぶ`）を `detect(modules, rules)` へ
+  `## 置換の候補`（`- 呼び方 | 正規表現 | 既定で選ぶ | 場所を選ぶ |
+  拾わない文脈 | 拾う文脈`）を `detect(modules, rules)` へ
   渡し、上から順に当てはめて最初に一致した行の呼び方になる。どの規則にも当たらない
   文字列は候補にしない。読み取りが安全でない行は規則を当てず一律に伏せる。
+  5 列目と 6 列目はどちらもリテラルの直前のコードに当て、前者は「当たったら
+  名乗らない」、後者は「当たらなければ名乗らない」。字面だけでは決まらないもの
+  （ProgID と本物のファイル名、プリンタ名と普通の文字列）を分けるのはこの 2 つで、
+  分類そのものは規則を書いた側の判断である。
   置き換え後の値の「形」は検査しない（それは人の判断）。
 - **1 回の実行は 3 経路のどれかになる**（SPEC §7.2）。AI だけ・対応表だけ・両方。
   両方のときは**機械的置換が先**で、画面 4 が 2 段になる（画面は増えない）。
@@ -171,6 +176,21 @@ macrostudio/
   `app.js` の `describeReadResult` だけが持つ。**新しい警告条件を足すときは、
   どちらの段階に属するかを必ず決めること**（増やして一括警告へ戻さない）。
   外部リンク等 VBA 以外のパートは読まないので、この記録には現れない。
+- **コードに印を付けて見せるのは `assets/js/code-view.js` だけが持つ**。
+  置換画面（印は lexer が記録したスパン）と診断結果（印は指摘が名乗った行）は
+  同じ部品を描く。モジュール全文は畳んだ状態で page に入れ、
+  「該当箇所のみ」「前へ」「次へ」「…N 行を表示」は class を付け替えるだけで、
+  再描画しない。**開かれるまで組み立てない**（`createDisclosure` に関数を
+  渡すと遅延になる）。候補 40 件のブックで、値の欄を 1 打鍵するたびに全候補の
+  全モジュールを作り直して固まったのがこの経路である。
+  色付けは `highlight: true` を渡したときだけで、**置換側は渡さない**。
+  置き換えるスパンを表示専用の tokenizer に決めさせないため
+  （`tests\test-path-map.js` と `tests\test-code-view.js` が門番）。
+- **診断結果の「要改修 / 要確認 / 改修不要」は 2 つの事実だけから決まる**。
+  改修ひな形の `## 推奨条件` がその環境キーを名乗っているか、
+  そして AI が付けた CLASS が INFO かどうか。前者は ★推奨 と同じ規則なので、
+  画面 2 の判定と画面 3 の推奨が食い違うことはない。
+  アプリはここで独自の良し悪しを持たない（`tests\test-verdict-result.js`）。
 - **差分 HTML は確認画面の閲覧専用版で、画面と同じ実装を同梱する**（SPEC §13.11）。
   `diff.js` / `vba-highlight.js` / `diff-view.js` と `variables.css` / `flow.css` /
   `module-list.css` / `diff.css` を無加工でインラインし（`@font-face` の除去だけが
@@ -285,8 +305,10 @@ node tests\test-back-and-forth.js
 node tests\test-both-route-preset.js
 node tests\test-build-payload.js
 node tests\test-change-source.js
+node tests\test-code-view.js
 node tests\test-contract-singleton.js
 node tests\test-diagnose-flow.js
+node tests\test-diagnosis-compact.js
 node tests\test-diagnosis-headline.js
 node tests\test-diagnosis-package.js
 node tests\test-diagnosis-preset-cardinality.js
@@ -329,6 +351,7 @@ node tests\test-three-routes.js
 node tests\test-target-environment.js
 node tests\test-vba-highlight.js
 node tests\test-vba-lexer.js
+node tests\test-verdict-result.js
 ```
 
 回帰の見張り番:
@@ -336,6 +359,22 @@ node tests\test-vba-lexer.js
 - `tests\test-diagnosis-package.js` … 同梱診断ひな形の実ファイルから完全記入例を
   抽出し、依頼 ID だけを差し込んで製品 parser へ通す。D01〜D28 は通る fixture と
   落ちる fixture の両方を持ち、失敗側の `validationId` まで固定する。
+- `tests\test-diagnosis-compact.js` … 短い出力様式（FINDING 1 行 +
+  TITLE / CONDITION / IMPACT / EVIDENCE の 4 行）と、旧様式との混在。
+  併せて、チャットが付けた装飾（```text フェンス、引用の `>`、箇条書き、
+  バッククォート、`&#39;`、曲がったアポストロフィ、全角 `＠`、`<code>`）を
+  機械的に落としても、別依頼 ID と途中切れは拒否のままであることを固定する。
+  **拒否したときに理由の文が付くこと**もここで見る。`failure("Dxx"` で
+  返せる検査番号すべてに読み手向けの一文があることを走査で確認するので、
+  検査を足したら文も足さないと落ちる。
+- `tests\test-verdict-result.js` … 診断結果の「要改修 / 要確認 / 改修不要」。
+  判定はひな形の `## 推奨条件` と AI の CLASS だけから決まり、★推奨と
+  同じ規則であること、0 件のときに同じ文を 2 回出さないこと、指摘から
+  コードが開けること、画面 4 が同じ並びになることを固定する。
+- `tests\test-code-view.js` … 置換画面と診断結果が共有するコード表示部品。
+  モジュール全文が畳まれた状態で page に在ること、該当箇所のみ／前へ／次へ、
+  受け取ったスパンだけを `<mark>` にすること、色付けが opt-in であること
+  （置換側は色を付けない）を固定する。
 - `tests\test-diagnosis-split.js` … 診断 part の欠番、合計不一致、同番号の
   冪等再送／異内容拒否、part 00 の SECTION 所有、全体検証、0 件を検査し、統合結果が
   一括受理と同一の内部形式になることを固定する。

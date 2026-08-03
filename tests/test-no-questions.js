@@ -156,8 +156,10 @@ expectQuestionRefused([].concat(
 // ---- the request says so, in every template that sends one ----
 
 ["01_Win32 API を使わない形へ直す.md",
-  "03_VBAリファクター（動きを変えずに整理・改善する）.md",
-  "04_自分で改修内容を書く.md"].forEach(function (name) {
+  "03_OSや外部プログラムへの依存を減らす.md",
+  "04_新しい保存先で成り立つファイル操作へ直す.md",
+  "05_VBAリファクター（動きを変えずに整理・改善する）.md",
+  "06_自分で改修内容を書く.md"].forEach(function (name) {
   var parsed = presets.parse(
     readUtf8(path.join(root, "presets", "02_改修", name)),
     "repair");

@@ -117,14 +117,25 @@ assert(occurrences.length === 5,
 // more things to open, so the detail is simply there.
 var details = occurrences[0].querySelector(".finding-detail");
 var detailText = dom.text(details);
+var occurrenceText = dom.text(occurrences[0]);
 assert(details.hidden !== true &&
   detailText.indexOf("成立条件") >= 0 &&
   detailText.indexOf("影響") >= 0 &&
-  detailText.indexOf("該当箇所") >= 0 &&
   detailText.indexOf("根拠") >= 0 &&
-  detailText.indexOf("Excel は 64 bit") >= 0,
+  detailText.indexOf("excel-bitness") >= 0 &&
+  occurrenceText.indexOf("module: Main") >= 0,
 "Inside the box a place shows its condition, impact, location, evidence " +
-  "and the referenced environment constraint without a second click.");
+  "and the environment key it rests on without a second click.");
+// Each of those facts once. The location was printed at the head of the
+// row and again under 該当箇所, and the constraint's title - which is the
+// name of the group this row is already inside - was printed a second
+// time next to its key.
+assert(occurrenceText.split("module: Main").length === 2,
+  "The location must appear once in a place, not twice.");
+assert(detailText.indexOf("Excel は 64 bit") < 0 &&
+  dom.text(groupRows[0].querySelector(".group-title")) === "Excel は 64 bit",
+"The constraint's title is the group's name and is not repeated inside " +
+  "every place under it.");
 assert(dom.collect(groupRows[0], function (node) {
   return node.classList && node.classList.contains("occurrence-toggle");
 }).length === 0,
@@ -211,11 +222,16 @@ var orderedTitles = dom.collect(
   return dom.text(node);
 });
 
-assert(orderedTitles.length === 4 &&
+// Named work first, in the order the improvement guide lists it, then
+// the general one, then the reader's own words. The file's leading
+// number is the whole of the ordering rule.
+assert(orderedTitles.length === 6 &&
   orderedTitles[0].indexOf("Win32") >= 0 &&
   orderedTitles[1].indexOf("固定パス") >= 0 &&
-  orderedTitles[2].indexOf("リファクター") >= 0 &&
-  orderedTitles[3].indexOf("自分で") >= 0,
+  orderedTitles[2].indexOf("外部プログラム") >= 0 &&
+  orderedTitles[3].indexOf("保存先") >= 0 &&
+  orderedTitles[4].indexOf("リファクター") >= 0 &&
+  orderedTitles[5].indexOf("自分で") >= 0,
 "The templates must be offered in the fixed order: " +
   JSON.stringify(orderedTitles));
 
@@ -241,7 +257,7 @@ var cards = dom.collect(
     return node.classList && node.classList.contains("choice-card");
   });
 
-assert(cards.length === 4, "Every template must still be offered.");
+assert(cards.length === 6, "Every template must still be offered.");
 cards.forEach(function (card) {
   assert(card.getAttribute("role") === "checkbox" &&
     card.getAttribute("aria-checked") !== null,

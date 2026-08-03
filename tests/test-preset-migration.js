@@ -70,8 +70,8 @@ var template = readUtf8(
   path.join(root, "templates", "request-template.txt"));
 
 assert(
-  diagnosisPresets.length === 1 && repairPresets.length === 4,
-  "The shipped folders must contain one diagnosis and four repair presets.");
+  diagnosisPresets.length === 1 && repairPresets.length === 6,
+  "The shipped folders must contain one diagnosis and six repair presets.");
 
 // ---- every shipped preset is a self-contained request ----
 
@@ -117,8 +117,8 @@ assert(
     }),
   "Folder membership must be the only source of the preset stage.");
 assert(
-  refactorEntries.length === 3 && pathEntries.length === 1,
-  "Repair presets must expose three chat routes and one that asks for " +
+  refactorEntries.length === 5 && pathEntries.length === 1,
+  "Repair presets must expose five chat routes and one that asks for " +
     "the replacement table.");
 assert(
   pathEntries[0].instruction === null && pathEntries[0].output === null,

@@ -59,6 +59,7 @@
     (Array.isArray(rules) ? rules : []).forEach(function (rule, index) {
       var pattern;
       var contextExclude = null;
+      var contextInclude = null;
 
       if (!rule || !rule.label || !rule.pattern) {
         return;
@@ -75,12 +76,20 @@
           return;
         }
       }
+      if (rule.contextInclude) {
+        try {
+          contextInclude = new RegExp(String(rule.contextInclude));
+        } catch (error) {
+          return;
+        }
+      }
       compiled.push({
         index: index,
         className: "rule-" + index,
         label: String(rule.label),
         pattern: pattern,
         contextExclude: contextExclude,
+        contextInclude: contextInclude,
         selectedByDefault: rule.selectedByDefault === true,
         picksLocation: rule.picksLocation === true
       });
@@ -119,7 +128,8 @@
   //
   // before: the code standing in front of the literal on its line. A
   // rule that named a context it does not want simply does not match
-  // there, and the rules after it still get their turn.
+  // there, and the rules after it still get their turn. A rule that
+  // named the only context it does want matches nowhere else.
   function classifyOccurrence(value, compiled, unsafe, before) {
     var index;
     var rule;
@@ -141,6 +151,10 @@
       rule = compiled[index];
       if (rule.contextExclude &&
           rule.contextExclude.test(String(before || ""))) {
+        continue;
+      }
+      if (rule.contextInclude &&
+          !rule.contextInclude.test(String(before || ""))) {
         continue;
       }
       rule.pattern.lastIndex = 0;

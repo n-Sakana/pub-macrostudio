@@ -182,9 +182,18 @@ try {
     # trusted origin and its host requests are still answered.
     Assert-True ($startPage -ceq 'https://macrostudio.local/index.html') `
         ("The app did not load from the trusted origin: " + $startPage)
-    Assert-True ($trustedRequest.presets -eq 5) `
+    # What matters here is that the host answered at all, so the count is
+    # read off the files rather than written down. Shipping one more
+    # template is not a security regression.
+    $shippedPresetCount = @(
+        Get-ChildItem -LiteralPath (Join-Path $repoRoot 'presets') `
+            -Filter '*.md' -File -Recurse
+    ).Count
+    Assert-True ($shippedPresetCount -gt 0) `
+        'No shipped presets were found to compare against.'
+    Assert-True ($trustedRequest.presets -eq $shippedPresetCount) `
         ("A trusted host request stopped working: presets=" +
-            $trustedRequest.presets)
+            $trustedRequest.presets + " on disk=" + $shippedPresetCount)
     Assert-True (
         -not [string]::IsNullOrEmpty([string]$trustedRequest.version)) `
         'A trusted host request returned no app version.'

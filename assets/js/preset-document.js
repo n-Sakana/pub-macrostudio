@@ -76,13 +76,16 @@
       "ひな形の段階が分かりません。診断または改修のフォルダから読み込んでください。",
     invalidReplaceRule:
       "「## " + REPLACE_TITLE +
-      "」は「- 呼び方 | 正規表現 | 既定で選ぶ | 場所を選ぶ | 拾わない文脈」の形で" +
-      "書いてください。3 つ目から 5 つ目は省けます。",
+      "」は「- 呼び方 | 正規表現 | 既定で選ぶ | 場所を選ぶ | 拾わない文脈" +
+      " | 拾う文脈」の形で書いてください。3 つ目から 6 つ目は省けます。",
     invalidReplacePattern:
       "「## " + REPLACE_TITLE + "」の正規表現が読み取れません: {title}",
     invalidReplaceContext:
       "「## " + REPLACE_TITLE +
       "」の「拾わない文脈」の正規表現が読み取れません: {title}",
+    invalidReplaceInclude:
+      "「## " + REPLACE_TITLE +
+      "」の「拾う文脈」の正規表現が読み取れません: {title}",
     repairOnlySection:
       "「## {title}」は改修ひな形だけで使えます。",
     diagnoseOnlySection:
@@ -255,6 +258,7 @@
       var label;
       var pattern;
       var context;
+      var include;
 
       if (trimSpace(line) === "" || invalid) {
         return;
@@ -294,6 +298,16 @@
           return;
         }
       }
+      include = parts.length > 5 ? parts[5] : "";
+      if (include !== "") {
+        try {
+          include = new RegExp(include);
+        } catch (error) {
+          invalid = true;
+          message = format(MESSAGES.invalidReplaceInclude, label);
+          return;
+        }
+      }
       items.push({
         label: label,
         pattern: parts[1],
@@ -307,6 +321,15 @@
         // nothing here reads exactly as it did before.
         contextExclude: parts.length > 4 && parts[4] !== ""
           ? parts[4]
+          : null,
+        // The mirror of the column above: this rule claims a literal
+        // ONLY where the code in front of it matches. Some things are
+        // named by where they are used and nothing else - a printer name
+        // is any string at all until you see that it was assigned to
+        // ActivePrinter. Without this the rule would have to match every
+        // literal in the workbook.
+        contextInclude: parts.length > 5 && parts[5] !== ""
+          ? parts[5]
           : null
       });
     });
