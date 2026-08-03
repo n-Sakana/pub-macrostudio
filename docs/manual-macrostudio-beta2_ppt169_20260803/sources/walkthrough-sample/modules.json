@@ -1,0 +1,77 @@
+{
+    "book":  {
+                 "name":  "sample_share_and_win32.xlsm",
+                 "path":  "C:\\repos\\pub\\macrostudio\\docs\\manual-macrostudio-beta2_ppt169_20260803\\sources\\walkthrough-sample\\sample_share_and_win32.xlsm",
+                 "ext":  ".xlsm",
+                 "totalLines":  188,
+                 "warning":  false
+             },
+    "modules":  [
+                    {
+                        "name":  "Sheet1",
+                        "type":  "document",
+                        "typeLabel":  "繝峨く繝･繝｡繝ｳ繝医Δ繧ｸ繝･繝ｼ繝ｫ",
+                        "ext":  "cls",
+                        "lineCount":  0,
+                        "code":  "",
+                        "attributes":  "Attribute VB_Name = \"Sheet1\"\r\nAttribute VB_Base = \"0{00020820-0000-0000-C000-000000000046}\"\r\nAttribute VB_GlobalNameSpace = False\r\nAttribute VB_Creatable = False\r\nAttribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nAttribute VB_TemplateDerived = False\r\nAttribute VB_Customizable = True\r\n"
+                    },
+                    {
+                        "name":  "Sheet2",
+                        "type":  "document",
+                        "typeLabel":  "繝峨く繝･繝｡繝ｳ繝医Δ繧ｸ繝･繝ｼ繝ｫ",
+                        "ext":  "cls",
+                        "lineCount":  0,
+                        "code":  "",
+                        "attributes":  "Attribute VB_Name = \"Sheet2\"\r\nAttribute VB_Base = \"0{00020820-0000-0000-C000-000000000046}\"\r\nAttribute VB_GlobalNameSpace = False\r\nAttribute VB_Creatable = False\r\nAttribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nAttribute VB_TemplateDerived = False\r\nAttribute VB_Customizable = True\r\n"
+                    },
+                    {
+                        "name":  "Sheet3",
+                        "type":  "document",
+                        "typeLabel":  "繝峨く繝･繝｡繝ｳ繝医Δ繧ｸ繝･繝ｼ繝ｫ",
+                        "ext":  "cls",
+                        "lineCount":  0,
+                        "code":  "",
+                        "attributes":  "Attribute VB_Name = \"Sheet3\"\r\nAttribute VB_Base = \"0{00020820-0000-0000-C000-000000000046}\"\r\nAttribute VB_GlobalNameSpace = False\r\nAttribute VB_Creatable = False\r\nAttribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nAttribute VB_TemplateDerived = False\r\nAttribute VB_Customizable = True\r\n"
+                    },
+                    {
+                        "name":  "ThisWorkbook",
+                        "type":  "document",
+                        "typeLabel":  "繝峨く繝･繝｡繝ｳ繝医Δ繧ｸ繝･繝ｼ繝ｫ",
+                        "ext":  "cls",
+                        "lineCount":  0,
+                        "code":  "",
+                        "attributes":  "Attribute VB_Name = \"ThisWorkbook\"\r\nAttribute VB_Base = \"0{00020819-0000-0000-C000-000000000046}\"\r\nAttribute VB_GlobalNameSpace = False\r\nAttribute VB_Creatable = False\r\nAttribute VB_PredeclaredId = True\r\nAttribute VB_Exposed = True\r\nAttribute VB_TemplateDerived = False\r\nAttribute VB_Customizable = True\r\n"
+                    },
+                    {
+                        "name":  "BillingReport",
+                        "type":  "standard",
+                        "typeLabel":  "讓呎ｺ悶Δ繧ｸ繝･繝ｼ繝ｫ",
+                        "ext":  "bas",
+                        "lineCount":  69,
+                        "code":  "Option Explicit\r\n\r\n\u0027============================================================\r\n\u0027 請求データの月次集計\r\n\u0027\r\n\u0027 2017/04  初版\r\n\u0027 2020/11  返品行の扱いを分けた\r\n\u0027 2023/08  共有フォルダへの控え出力を追加\r\n\u0027\r\n\u0027 入口は RunBilling。シートの中だけで完結します。\r\n\u0027 控えの書き出し（ShareExport）は入口からは呼びません。\r\n\u0027============================================================\r\n\r\nPrivate Const SHEET_WORK As String = \"作業\"\r\nPrivate Const SHEET_CONF As String = \"設定\"\r\nPrivate Const SHEET_DATA As String = \"明細\"\r\n\r\n\u0027 入口。集計して、作業シートへ結果を書きます。\r\nPublic Sub RunBilling()\r\n    Dim ws As Worksheet\r\n    Dim conf As Worksheet\r\n    Dim data As Worksheet\r\n    Dim r As Long\r\n    Dim lastRow As Long\r\n    Dim billed As Long\r\n    Dim total As Double\r\n\r\n    Set ws = ThisWorkbook.Worksheets(SHEET_WORK)\r\n    Set conf = ThisWorkbook.Worksheets(SHEET_CONF)\r\n    Set data = ThisWorkbook.Worksheets(SHEET_DATA)\r\n\r\n    \u0027 集計前に画面を落ち着かせるための待機です。\r\n    TimerUtils.WaitBeforeRead\r\n\r\n    lastRow = data.Cells(data.Rows.Count, 2).End(xlUp).Row\r\n    billed = 0\r\n    total = 0\r\n    For r = 3 To lastRow\r\n        If Len(Trim$(CStr(data.Cells(r, 2).Value))) \u003e 0 Then\r\n            If CStr(data.Cells(r, 5).Value) \u003c\u003e \"返品\" Then\r\n                billed = billed + 1\r\n                total = total + CDbl(data.Cells(r, 4).Value)\r\n            End If\r\n        End If\r\n    Next r\r\n\r\n    ws.Range(\"B3\").Value = billed\r\n    ws.Range(\"B4\").Value = total\r\n    ws.Range(\"B5\").Value = conf.Range(\"B2\").Value\r\n\r\n    \u0027 集計結果を書いたあと、後続処理のために少し待ちます。\r\n    TimerUtils.WaitAfterWrite\r\n\r\n    ws.Range(\"B2\").Value = \"集計済み\"\r\nEnd Sub\r\n\r\n\u0027 対象年月の表示用文字列。入口から呼びます。\r\nPublic Function TargetMonthLabel() As String\r\n    Dim conf As Worksheet\r\n    Dim monthText As String\r\n\r\n    Set conf = ThisWorkbook.Worksheets(SHEET_CONF)\r\n    monthText = CStr(conf.Range(\"B2\").Value)\r\n    If Len(monthText) = 6 Then\r\n        TargetMonthLabel = Left$(monthText, 4) \u0026 \"/\" \u0026 Right$(monthText, 2)\r\n    Else\r\n        TargetMonthLabel = monthText\r\n    End If\r\nEnd Function\r\n",
+                        "attributes":  "Attribute VB_Name = \"BillingReport\"\r\n"
+                    },
+                    {
+                        "name":  "ShareExport",
+                        "type":  "standard",
+                        "typeLabel":  "讓呎ｺ悶Δ繧ｸ繝･繝ｼ繝ｫ",
+                        "ext":  "bas",
+                        "lineCount":  76,
+                        "code":  "Option Explicit\r\n\r\n\u0027============================================================\r\n\u0027 控えの書き出しと、ひな形の取り込み\r\n\u0027\r\n\u0027 2018/06  初版\r\n\u0027 2021/02  ひな形をファイルサーバーから取るようにした\r\n\u0027 2023/08  手元の控えフォルダを追加\r\n\u0027\r\n\u0027 保存先はコードに直書きしています。端末が変わると成り立ちません。\r\n\u0027 ここの手続きは入口（BillingReport.RunBilling）からは呼びません。\r\n\u0027============================================================\r\n\r\n\u0027 営業所の共有ドライブ。端末に S: が割り当てられている前提です。\r\nPrivate Const EXPORT_ROOT As String = \"S:\\keiri\\seikyu\\\"\r\n\r\n\u0027 請求書のひな形。ファイルサーバーの名前を直書きしています。\r\nPrivate Const TEMPLATE_DIR As String = \"\\\\fileserver\\keiri\\hinagata\\\"\r\nPrivate Const TEMPLATE_FILE As String = \"seikyu_hinagata.xlsx\"\r\n\r\n\u0027 手元に残す控え。環境変数を含む形で書いています。\r\nPrivate Const LOCAL_BACKUP As String = \"%USERPROFILE%\\Documents\\keiri\\\"\r\n\r\nPrivate Const SHEET_WORK As String = \"作業\"\r\n\r\n\u0027 共有フォルダへ控えを書き出します。入口からは呼びません。\r\nPublic Sub ExportToShare()\r\n    Dim yearFolder As String\r\n    Dim filePath As String\r\n    Dim fileNo As Integer\r\n    Dim ws As Worksheet\r\n\r\n    Set ws = ThisWorkbook.Worksheets(SHEET_WORK)\r\n\r\n    \u0027 年度フォルダを文字列連結で組み立てています。\r\n    yearFolder = EXPORT_ROOT \u0026 Format$(Date, \"yyyy\") \u0026 \"\\\"\r\n    If Dir(yearFolder, vbDirectory) = \"\" Then\r\n        MkDir yearFolder\r\n    End If\r\n\r\n    filePath = yearFolder \u0026 \"seikyu_\" \u0026 Format$(Date, \"yyyymmdd\") \u0026 \".csv\"\r\n    fileNo = FreeFile\r\n    Open filePath For Output As #fileNo\r\n    Print #fileNo, \"件数,\" \u0026 CStr(ws.Range(\"B3\").Value)\r\n    Print #fileNo, \"合計,\" \u0026 CStr(ws.Range(\"B4\").Value)\r\n    Close #fileNo\r\n\r\n    ws.Range(\"B6\").Value = filePath\r\nEnd Sub\r\n\r\n\u0027 手元の控えフォルダへ同じものを置きます。入口からは呼びません。\r\nPublic Sub CopyToLocalBackup()\r\n    Dim fso As Object\r\n    Dim srcPath As String\r\n    Dim dstPath As String\r\n\r\n    \u0027 ここは場所ではなく、部品の名前です。\r\n    Set fso = CreateObject(\"Scripting.FileSystemObject\")\r\n\r\n    srcPath = EXPORT_ROOT \u0026 \"control\\\" \u0026 TEMPLATE_FILE\r\n    dstPath = LOCAL_BACKUP \u0026 \"\\backup\\\" \u0026 TEMPLATE_FILE\r\n\r\n    If fso.FileExists(srcPath) Then\r\n        fso.CopyFile srcPath, dstPath, True\r\n    End If\r\nEnd Sub\r\n\r\n\u0027 ひな形の場所を返します。入口からは呼びません。\r\nPublic Function TemplatePath() As String\r\n    TemplatePath = TEMPLATE_DIR \u0026 TEMPLATE_FILE\r\nEnd Function\r\n\r\n\u0027 既定の保存先を返します。ここも同じ前提です。\r\nPublic Function DefaultExportFolder() As String\r\n    DefaultExportFolder = EXPORT_ROOT\r\nEnd Function\r\n",
+                        "attributes":  "Attribute VB_Name = \"ShareExport\"\r\n"
+                    },
+                    {
+                        "name":  "TimerUtils",
+                        "type":  "standard",
+                        "typeLabel":  "讓呎ｺ悶Δ繧ｸ繝･繝ｼ繝ｫ",
+                        "ext":  "bas",
+                        "lineCount":  43,
+                        "code":  "Option Explicit\r\n\r\n\u0027============================================================\r\n\u0027 待ち時間の処理\r\n\u0027\r\n\u0027 2017/04  初版\r\n\u0027 2019/10  VBA7 の分岐を足した（64bit の端末が出たため）\r\n\u0027\r\n\u0027 待機はすべて kernel32 の Sleep を直に呼んでいます。\r\n\u0027 共通のラッパーは作っていません。\r\n\u0027============================================================\r\n\r\n#If VBA7 Then\r\nPrivate Declare PtrSafe Sub Sleep Lib \"kernel32\" (ByVal ms As LongPtr)\r\n#Else\r\nPrivate Declare Sub Sleep Lib \"kernel32\" (ByVal ms As Long)\r\n#End If\r\n\r\n\u0027 読み取り前の待機。入口から呼びます。\r\nPublic Sub WaitBeforeRead()\r\n    Sleep 120\r\nEnd Sub\r\n\r\n\u0027 書き込み後の待機。入口から呼びます。\r\nPublic Sub WaitAfterWrite()\r\n    Sleep 80\r\n    Sleep 80\r\nEnd Sub\r\n\r\n\u0027 共有フォルダの応答を待つつもりの固定待機。入口からは呼びません。\r\nPublic Sub WaitForShare()\r\n    Dim i As Long\r\n\r\n    For i = 1 To 3\r\n        Sleep 250\r\n    Next i\r\nEnd Sub\r\n\r\n\u0027 印刷完了の待ち合わせ。入口からは呼びません。\r\nPublic Sub WaitForSpooler()\r\n    Sleep 500\r\n    Sleep 500\r\nEnd Sub\r\n",
+                        "attributes":  "Attribute VB_Name = \"TimerUtils\"\r\n"
+                    }
+                ],
+    "hasReadWarnings":  false,
+    "sourceDoubt":  false,
+    "codePage":  932
+}

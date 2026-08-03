@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background"/>
+  <rect id="page-rule" x="0" y="0" width="1280" height="6" fill="#24507F" data-pptx-role="decoration"/>
+
+  <g id="page-head" data-pptx-bounds="64 44 1152 140">
+    <rect x="64" y="52" width="150" height="28" rx="14" fill="#24507F"/>
+    <text x="80" y="72" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="15" fill="#FFFFFF">手順 3 ・ 画面 2</text>
+    <text x="64" y="128" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="40" font-weight="700" fill="#1F2A37">指摘の中身を見ます</text>
+    <text x="64" y="164" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" fill="#5D6B7A">分類は問題の種類、確度は AI がコードを読んだ結果の確からしさで、別のものです。</text>
+    <rect x="64" y="180" width="1152" height="1" fill="#CFD7DE"/>
+  </g>
+
+  <g id="shot-open" data-pptx-bounds="64 200 660 400">
+    <rect x="64" y="200" width="660" height="372" rx="12" fill="#FAFBFC" stroke="#E2E7EC" stroke-width="1"/>
+    <image x="80" y="216" width="628" height="353" href="images/09-findings-open.png" preserveAspectRatio="xMidYMid meet"/>
+    <text x="64" y="594" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#5D6B7A">「このマクロの詳細」を開いたところ。指摘の行も同じ形で開きます。</text>
+  </g>
+
+  <g id="class-table" data-pptx-bounds="756 200 460 200">
+    <text x="756" y="228" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#24507F">分類（問題の種類）</text>
+    <text x="756" y="264" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#C25560">阻害<tspan x="756" dy="28" fill="#1F2A37">不具合</tspan><tspan x="756" dy="28" fill="#1F2A37">条件付き</tspan><tspan x="756" dy="28" fill="#1F2A37">前提</tspan><tspan x="756" dy="28" fill="#5D6B7A">補助</tspan></text>
+    <text x="864" y="264" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">対象環境では動かない<tspan x="864" dy="28">確定的な不具合・データ損失</tspan><tspan x="864" dy="28">条件が揃うと起きる</tspan><tspan x="864" dy="28">人に聞かないと分からない前提</tspan><tspan x="864" dy="28">補助情報（既定で畳まれている）</tspan></text>
+  </g>
+
+  <g id="confidence-table" data-pptx-bounds="756 416 460 204">
+    <text x="756" y="444" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#24507F">確度（読み取りの確からしさ）</text>
+    <text x="756" y="480" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#1F2A37">確認済み<tspan x="756" dy="28">可能性高</tspan><tspan x="756" dy="28">未確認</tspan></text>
+    <text x="864" y="480" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">コードを読んで確かめた<tspan x="864" dy="28">そうである可能性が高い</tspan><tspan x="864" dy="28">確かめていない</tspan></text>
+    <text x="756" y="562" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#5D6B7A">指摘の行を開くと 成立条件 / 影響 / 該当箇所 / 根拠 /<tspan x="756" dy="24">参照した環境制約 が出ます。環境の前提が実測でない</tspan><tspan x="756" dy="24">指摘には、その旨が添えられます。</tspan></text>
+  </g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 1152 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P12</text>
+    <text x="1216" y="676" text-anchor="end" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">通しの作業事例</text>
+  </g>
+</svg>

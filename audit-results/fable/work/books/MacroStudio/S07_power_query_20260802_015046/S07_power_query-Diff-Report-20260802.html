@@ -1,0 +1,4421 @@
+﻿<!doctype html>
+<html lang="ja" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="MacroStudio">
+<title>
+S07_power_query.xlsm
+ 改修差分</title>
+<style>
+:root {
+  color-scheme: light;
+
+  --l-gray-0: #FFFFFF;
+  --l-gray-1: #FAFBFC;
+  --l-gray-2: #F4F6F8;
+  --l-gray-3: #ECEFF2;
+  --l-gray-4: #E2E7EC;
+  --l-gray-5: #CFD7DE;
+  --l-gray-6: #B4BFCA;
+  --l-gray-7: #9FACB9;
+  --l-gray-8: #5D6B7A;
+  --l-gray-9: #3C4B5C;
+  --l-gray-10: #1F2A37;
+  --l-gray-code: #FBFCFD;
+  --l-indigo-0: #F2F6FB;
+  --l-indigo-1: #E5EDF7;
+  --l-indigo-2: #9DBBDE;
+  --l-indigo-3: #2B5C96;
+  --l-indigo-4: #234C7D;
+  --l-indigo-5: #24507F;
+  --l-green-0: #E4F1E4;
+  --l-green-1: #EAF5E7;
+  --l-green-2: #C9E7C0;
+  --l-green-3: #4C9155;
+  --l-green-4: #3A7A47;
+  --l-green-5: #2F6339;
+  --l-red-0: #FBE9EA;
+  --l-red-1: #FBEDEE;
+  --l-red-2: #F3CDD1;
+  --l-red-3: #C25560;
+  --l-red-4: #B03E48;
+  --l-red-5: #93343C;
+  --l-amber-4: #A2701C;
+  --l-amber-5: #7A5314;
+  --l-syn-keyword: #2C5EA8;
+  --l-syn-comment: #567545;
+  --l-syn-string: #A0582C;
+  --l-syn-number: #6E4FA5;
+  --l-syn-plain: #24313F;
+  --l-guide-halo: rgba(43, 92, 150, .14);
+  --l-shadow-1: 0 1px 2px rgba(23, 32, 44, .06);
+  --l-shadow-2:
+    0 2px 6px rgba(23, 32, 44, .08),
+    0 12px 28px rgba(23, 32, 44, .10);
+  --l-overlay: rgba(31, 42, 55, .42);
+
+  --d-gray-0: #101317;
+  --d-gray-1: #14171B;
+  --d-gray-2: #191E24;
+  --d-gray-3: #1C2127;
+  --d-gray-4: #232931;
+  --d-gray-5: #272E37;
+  --d-gray-6: #333B45;
+  --d-gray-7: #46515D;
+  --d-gray-8: #5C6874;
+  --d-gray-9: #6B7683;
+  --d-gray-10: #97A3B1;
+  --d-gray-11: #C2CBD6;
+  --d-gray-12: #E9EDF2;
+  --d-indigo-0: #1E2A3A;
+  --d-indigo-1: #223650;
+  --d-indigo-2: #79A9DC;
+  --d-indigo-3: #3D72B4;
+  --d-indigo-4: #4A80C4;
+  --d-indigo-5: #8FB8E8;
+  --d-indigo-6: #6FA3DC;
+  --d-green-0: #22321F;
+  --d-green-1: #1F2E20;
+  --d-green-2: #375139;
+  --d-green-3: #63A56F;
+  --d-green-4: #37804A;
+  --d-green-5: #8FCB99;
+  --d-green-unchanged: #83BD8F;
+  --d-red-0: #3A2226;
+  --d-red-1: #362026;
+  --d-red-2: #59323B;
+  --d-red-3: #C96A75;
+  --d-red-4: #C25560;
+  --d-red-5: #ED9AA3;
+  --d-amber-4: #B58A3C;
+  --d-amber-5: #E4C179;
+  --d-syn-keyword: #82B3E8;
+  --d-syn-comment: #94B37E;
+  --d-syn-string: #D19A72;
+  --d-syn-number: #B79BE3;
+  --d-syn-plain: #D6DEE7;
+  --d-guide-halo: rgba(111, 163, 220, .20);
+  --d-shadow-1: 0 1px 2px rgba(0, 0, 0, .45);
+  --d-shadow-2:
+    0 2px 8px rgba(0, 0, 0, .50),
+    0 16px 32px rgba(0, 0, 0, .45);
+  --d-overlay: rgba(0, 0, 0, .62);
+
+  --surface-canvas: var(--l-gray-2);
+  --surface: var(--l-gray-0);
+  --surface-sunken: var(--l-gray-3);
+  --surface-hover: var(--l-gray-1);
+  --surface-selected: var(--l-indigo-0);
+  --surface-code: var(--l-gray-code);
+  --text: var(--l-gray-10);
+  --text-sub: var(--l-gray-9);
+  --text-muted: var(--l-gray-8);
+  --text-disabled: var(--l-gray-7);
+  --text-on-accent: var(--l-gray-0);
+  --border: var(--l-gray-5);
+  --border-subtle: var(--l-gray-4);
+  --border-strong: var(--l-gray-6);
+  --accent: var(--l-indigo-3);
+  --accent-hover: var(--l-indigo-4);
+  --accent-soft: var(--l-indigo-1);
+  --accent-text: var(--l-indigo-5);
+  --state-pending: var(--l-gray-7);
+  --state-staged: var(--l-indigo-3);
+  --state-unchanged: var(--l-green-5);
+  --state-excluded: var(--l-gray-7);
+  --state-written: var(--l-green-4);
+  --diff-removed-bg: var(--l-red-1);
+  --diff-removed-mark: var(--l-red-2);
+  --diff-removed-rail: var(--l-red-3);
+  --diff-added-bg: var(--l-green-1);
+  --diff-added-mark: var(--l-green-2);
+  --diff-added-rail: var(--l-green-3);
+  --diff-empty-bg: var(--l-gray-3);
+  --diff-gap-bg: var(--l-gray-3);
+  --syn-keyword: var(--l-syn-keyword);
+  --syn-comment: var(--l-syn-comment);
+  --syn-string: var(--l-syn-string);
+  --syn-number: var(--l-syn-number);
+  --syn-plain: var(--l-syn-plain);
+  --danger: var(--l-red-4);
+  --danger-text: var(--l-red-5);
+  --danger-soft: var(--l-red-0);
+  --caution: var(--l-amber-4);
+  --caution-text: var(--l-amber-5);
+  --success: var(--l-green-4);
+  --success-text: var(--l-green-5);
+  --success-soft: var(--l-green-0);
+  --ring-inset: var(--l-gray-0);
+  --focus-color: var(--l-indigo-2);
+  --guide-color: var(--l-indigo-3);
+  --guide-halo: var(--l-guide-halo);
+  --shadow-1: var(--l-shadow-1);
+  --shadow-2: var(--l-shadow-2);
+  --overlay: var(--l-overlay);
+
+  --focus-ring:
+    0 0 0 2px var(--ring-inset),
+    0 0 0 4px var(--focus-color);
+  --guide-ring:
+    0 0 0 2px var(--ring-inset),
+    0 0 0 4px var(--guide-color);
+
+  --font-ui:
+    "Noto Sans JP", "Yu Gothic UI", "Yu Gothic", Meiryo,
+    "Segoe UI", sans-serif;
+  --font-code:
+    "UDEV Gothic", Consolas, "Cascadia Mono", "Courier New",
+    monospace;
+
+  --type-title-size: 17px;
+  --type-title-line: 1.4;
+  --type-title-weight: 700;
+  --type-section-size: 14px;
+  --type-section-line: 1.5;
+  --type-section-weight: 600;
+  --type-body-size: 14px;
+  --type-body-line: 1.65;
+  --type-body-weight: 400;
+  --type-label-size: 13px;
+  --type-label-line: 1.5;
+  --type-label-weight: 500;
+  --type-meta-size: 12px;
+  --type-meta-line: 1.5;
+  --type-meta-weight: 400;
+  --type-micro-size: 11px;
+  --type-micro-line: 1.3;
+  --type-micro-weight: 600;
+  --type-num-size: 22px;
+  --type-num-line: 1.1;
+  --type-num-weight: 700;
+  --type-code-size: 13px;
+  --type-code-line: 20px;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  --space-half: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 999px;
+
+  --topbar-h: 48px;
+  --screen-header-h: 52px;
+  --actionbar-h: 68px;
+  --progress-track-h: 4px;
+  --brand-w: 188px;
+  --brand-mark-size: 28px;
+  --progress-step-h: 36px;
+  --progress-mark-size: 22px;
+  --module-width: 25%;
+  --module-min-width: 220px;
+  --module-pane-w: 250px;
+  --nav-button-w: 114px;
+  --row-h: 40px;
+  --btn-h: 40px;
+  --btn-h-lg: 40px;
+  --btn-h-sm: 34px;
+  --toolbar-btn-h: 34px;
+  --card-min-h: 82px;
+  --preset-min-h: 68px;
+  --handoff-number-size: 24px;
+  --intake-step-number-size: 22px;
+  --stat-card-w: 116px;
+  --file-kind-size: 28px;
+  --success-icon-size: 46px;
+  --build-bar-h: 6px;
+  --content-flow-w: 880px;
+  --content-flow-wide-w: 1120px;
+  --context-dot-size: 7px;
+  --editor-min-h: 240px;
+  --step-done-bar-h: 44px;
+  --diff-toolbar-h: 44px;
+  --pane-header-h: 28px;
+  --diff-line-h: 20px;
+  --line-number-w: 46px;
+  --diff-marker-w: 20px;
+  --diff-code-min-w: 420px;
+  --diff-toggle-box: 14px;
+  --jump-rail-w: 4px;
+  --theme-button-size: 28px;
+  --theme-area-w: 60px;
+  --progress-number-size: 24px;
+  --progress-connector-h: 2px;
+  --status-button-size: 22px;
+  --badge-h: 20px;
+  --badge-min-w: 28px;
+  --module-icon-size: 18px;
+  --module-header-h: 64px;
+  --book-summary-h: 34px;
+  --guide-halo-size: 8px;
+  --preset-h: 32px;
+  --icon-xs: 12px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+  --icon-xl: 28px;
+  --icon-hero: 54px;
+  --spinner-size: 15px;
+  --rail-w: 3px;
+  --bead-size: 30px;
+  --bead-line-h: 2px;
+  --drop-border-w: 1.5px;
+  --content-request-w: 860px;
+  --content-empty-w: 620px;
+  --content-dialog-w: 600px;
+  --content-modal-w: 420px;
+  --toast-w: 440px;
+  --module-name-max-w: 190px;
+  --textarea-min-h: 160px;
+  --textarea-max-h: 250px;
+  --drop-zone-min-h: 152px;
+  --drop-zone-compact-h: 40px;
+  --build-table-max-h: 220px;
+  --progress-spinner-size: 32px;
+  --status-icon-size: 42px;
+  --control-min-w: 160px;
+  --spinner-border-w: 2px;
+  --opacity-disabled: .45;
+  --opacity-unavailable: .4;
+  /* One curve for everything that moves: quick to start, settling at
+     the end, so nothing snaps into place. */
+  --ease-out: cubic-bezier(.22, .61, .36, 1);
+  --ease-in-out: cubic-bezier(.4, 0, .2, 1);
+  --transition-fast: 140ms var(--ease-out);
+  --transition-normal: 220ms var(--ease-out);
+  --transition-slow: 320ms var(--ease-in-out);
+  --guide-duration: 1.2s;
+
+  /* Transitional aliases used by components while they adopt semantic names. */
+  --color-canvas: var(--surface-canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-hover);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-selected);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-text: var(--text);
+  --color-text-secondary: var(--text-sub);
+  --color-text-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-focus: var(--focus-color);
+  --color-error: var(--danger-text);
+  --color-error-soft: var(--danger-soft);
+  --color-success: var(--success-text);
+  --color-success-soft: var(--success-soft);
+  --color-badge-pending: var(--state-pending);
+  --color-badge-changed: var(--state-staged);
+  --color-badge-unchanged: var(--state-unchanged);
+  --color-badge-excluded: var(--state-excluded);
+  --color-badge-written: var(--state-written);
+  --color-diff-removed: var(--diff-removed-rail);
+  --color-diff-removed-bg: var(--diff-removed-bg);
+  --color-diff-added: var(--diff-added-rail);
+  --color-diff-added-bg: var(--diff-added-bg);
+  --color-diff-empty-bg: var(--diff-empty-bg);
+  --font-size-xs: var(--type-micro-size);
+  --font-size-sm: var(--type-meta-size);
+  --font-size-md: var(--type-body-size);
+  --font-size-lg: var(--type-title-size);
+  --font-size-xl: var(--type-num-size);
+  --progress-height: var(--topbar-h);
+  --shadow-panel: var(--shadow-2);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --surface-canvas: var(--d-gray-1);
+  --surface: var(--d-gray-3);
+  --surface-sunken: var(--d-gray-0);
+  --surface-hover: var(--d-gray-4);
+  --surface-selected: var(--d-indigo-0);
+  --surface-code: var(--d-gray-2);
+  --text: var(--d-gray-12);
+  --text-sub: var(--d-gray-11);
+  --text-muted: var(--d-gray-10);
+  --text-disabled: var(--d-gray-8);
+  --text-on-accent: var(--l-gray-0);
+  --border: var(--d-gray-6);
+  --border-subtle: var(--d-gray-5);
+  --border-strong: var(--d-gray-7);
+  --accent: var(--d-indigo-3);
+  --accent-hover: var(--d-indigo-4);
+  --accent-soft: var(--d-indigo-1);
+  --accent-text: var(--d-indigo-5);
+  --state-pending: var(--d-gray-9);
+  --state-staged: var(--d-indigo-3);
+  --state-unchanged: var(--d-green-unchanged);
+  --state-excluded: var(--d-gray-9);
+  --state-written: var(--d-green-4);
+  --diff-removed-bg: var(--d-red-1);
+  --diff-removed-mark: var(--d-red-2);
+  --diff-removed-rail: var(--d-red-3);
+  --diff-added-bg: var(--d-green-1);
+  --diff-added-mark: var(--d-green-2);
+  --diff-added-rail: var(--d-green-3);
+  --diff-empty-bg: var(--d-gray-1);
+  --diff-gap-bg: var(--d-gray-4);
+  --syn-keyword: var(--d-syn-keyword);
+  --syn-comment: var(--d-syn-comment);
+  --syn-string: var(--d-syn-string);
+  --syn-number: var(--d-syn-number);
+  --syn-plain: var(--d-syn-plain);
+  --danger: var(--d-red-4);
+  --danger-text: var(--d-red-5);
+  --danger-soft: var(--d-red-0);
+  --caution: var(--d-amber-4);
+  --caution-text: var(--d-amber-5);
+  --success: var(--d-green-4);
+  --success-text: var(--d-green-5);
+  --success-soft: var(--d-green-0);
+  --ring-inset: var(--d-gray-3);
+  --focus-color: var(--d-indigo-2);
+  --guide-color: var(--d-indigo-6);
+  --guide-halo: var(--d-guide-halo);
+  --shadow-1: var(--d-shadow-1);
+  --shadow-2: var(--d-shadow-2);
+  --overlay: var(--d-overlay);
+}
+
+.screen {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: var(--screen-header-h) minmax(0, 1fr);
+}
+
+.screen-enter-forward {
+  animation: screen-enter-forward var(--transition-slow) both;
+}
+
+.screen-enter-back {
+  animation: screen-enter-back var(--transition-slow) both;
+}
+
+@keyframes screen-enter-forward {
+  from {
+    opacity: 0;
+    transform: translateX(var(--space-4));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes screen-enter-back {
+  from {
+    opacity: 0;
+    transform: translateX(calc(-1 * var(--space-4)));
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.screen-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  padding: 0 var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+  gap: var(--space-4);
+}
+
+.step-tag {
+  flex: 0 0 auto;
+  color: var(--accent-text);
+  font-size: var(--type-micro-size);
+  font-weight: var(--weight-bold);
+  letter-spacing: .03em;
+}
+
+.screen-title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  line-height: var(--type-title-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.screen-meta {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  white-space: nowrap;
+}
+
+.workspace {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--space-6);
+}
+
+.workspace.screen-body {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.screen-body .task {
+  max-height: none;
+}
+
+.workspace--centered {
+  display: grid;
+  align-items: start;
+  justify-items: center;
+}
+
+.workspace--code {
+  display: block;
+}
+
+/* The intake and review screens fill the height: the module pane and
+   the code panel both scroll inside themselves. */
+.workspace-code {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  gap: var(--space-3);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.workspace-code .task-intro {
+  margin: 0;
+}
+
+.task {
+  display: flex;
+  width: min(var(--content-flow-w), 100%);
+  max-height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.task--wide {
+  width: min(var(--content-flow-wide-w), 100%);
+}
+
+/* Nothing in the flow is allowed to push the screen sideways. A long
+   identifier, a long path or a long Japanese sentence wraps in place.
+   break-word, not anywhere: the shortest line a box may be squeezed to
+   stays the longest word, so a box can never end up one glyph wide. */
+.task p,
+.task li,
+.task span,
+.task strong,
+.task code,
+.task h2,
+.task h3,
+.task label {
+  overflow-wrap: break-word;
+}
+
+.task--fill {
+  height: 100%;
+}
+
+.task-intro {
+  margin: 0 0 var(--space-4);
+  color: var(--text-sub);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.task-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+.panel {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.panel-header {
+  display: flex;
+  height: var(--row-h);
+  align-items: center;
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-sub);
+  font-size: var(--type-label-size);
+  font-weight: var(--weight-semibold);
+  gap: var(--space-2);
+}
+
+.toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+/* ---- buttons: one normal size and one compact size ---- */
+
+.button {
+  display: inline-flex;
+  height: var(--btn-h);
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-sub);
+  font-size: var(--type-label-size);
+  font-weight: var(--weight-semibold);
+  gap: var(--space-2);
+}
+
+/* Colour, lift and shadow move together, so a press reads as a press
+   instead of a colour flicker. */
+.button {
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+  will-change: transform;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-hover);
+  box-shadow: var(--shadow-1);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.button:active:not(:disabled) {
+  box-shadow: none;
+  transform: translateY(1px);
+  transition-duration: 60ms;
+}
+
+.button--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.button--primary:hover:not(:disabled) {
+  border-color: var(--accent-hover);
+  background: var(--accent-hover);
+  box-shadow: var(--shadow-2);
+  color: var(--text-on-accent);
+}
+
+.button--danger {
+  border-color: var(--danger);
+  background: transparent;
+  color: var(--danger-text);
+}
+
+.button--danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+.button--compact {
+  height: var(--btn-h-sm);
+  padding: 0 var(--space-3);
+  font-size: var(--type-meta-size);
+}
+
+.button:disabled {
+  border-color: var(--border-subtle);
+  background: var(--surface-sunken);
+  box-shadow: none;
+  color: var(--text-disabled);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.button.is-done {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+.flow-icon {
+  display: inline-grid;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.flow-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.flow-icon--small {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.loading-spinner {
+  width: var(--spinner-size);
+  height: var(--spinner-size);
+  flex: 0 0 auto;
+  border: var(--spinner-border-w) solid var(--border);
+  border-radius: var(--radius-pill);
+  border-top-color: var(--accent);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- screen 0 / 1: the workbook ---- */
+
+.drop-zone {
+  display: grid;
+  min-height: var(--editor-min-h);
+  flex: 1 1 auto;
+  place-items: center;
+  padding: var(--space-7);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  text-align: center;
+}
+
+.drop-zone:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--surface-selected);
+}
+
+.drop-zone h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-title-size);
+  font-weight: var(--weight-bold);
+}
+
+.drop-zone p,
+.paste-target p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+}
+
+.drop-icon {
+  display: grid;
+  width: var(--success-icon-size);
+  height: var(--success-icon-size);
+  margin: 0 auto var(--space-3);
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--accent-text);
+}
+
+.drop-icon svg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.loaded-zone {
+  display: flex;
+  min-height: var(--editor-min-h);
+  align-items: center;
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  gap: var(--space-4);
+}
+
+.loaded-zone .drop-icon {
+  margin: 0;
+}
+
+.loaded-zone-details {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.loaded-zone h2 {
+  margin: 0;
+  font-size: var(--type-title-size);
+}
+
+.loaded-zone-path {
+  margin: var(--space-1) 0 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inline-error-card {
+  margin-bottom: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+}
+
+.inline-error-code {
+  color: var(--danger-text);
+  font-family: var(--font-code);
+  font-size: var(--type-micro-size);
+}
+
+.inline-error-card h2 {
+  margin: var(--space-1) 0;
+  font-size: var(--type-section-size);
+}
+
+.inline-error-card p {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+}
+
+.book-panel {
+  overflow: hidden;
+}
+
+.book-main {
+  display: grid;
+  align-items: stretch;
+  padding: var(--space-4);
+  gap: var(--space-3);
+  grid-template-columns:
+    minmax(0, 1fr)
+    repeat(3, var(--stat-card-w));
+}
+
+.file-card,
+.stat-card {
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.file-name {
+  display: flex;
+  align-items: center;
+  color: var(--text);
+  font-weight: var(--weight-bold);
+  gap: var(--space-2);
+}
+
+.file-kind {
+  display: grid;
+  width: var(--file-kind-size);
+  height: var(--file-kind-size);
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--success-soft);
+  color: var(--success-text);
+  font-size: var(--type-micro-size);
+}
+
+.file-path {
+  margin-top: var(--space-2);
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stat-label {
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+}
+
+.stat-value {
+  margin-top: var(--space-1);
+  color: var(--text);
+  font-size: var(--type-num-size);
+  font-weight: var(--weight-bold);
+}
+
+.module-strip {
+  display: grid;
+  padding: 0 var(--space-4) var(--space-4);
+  gap: var(--space-2);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.module-chip {
+  min-width: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-sub);
+  font-family: var(--font-code);
+  font-size: var(--type-meta-size);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- screen 2 / 3: how the request is written ---- */
+
+.choice-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+/* Four columns, each sized for what it holds: the checkbox, the icon,
+   the words, and the mark. The mark column takes its own width, so a
+   label in it cannot be pushed past the card's edge. */
+.choice-card {
+  display: grid;
+  width: 100%;
+  min-height: var(--card-min-h);
+  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  gap: var(--space-3);
+  grid-template-columns: auto var(--icon-xl) minmax(0, 1fr) auto;
+  text-align: left;
+}
+
+.choice-card {
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-normal),
+    transform var(--transition-normal);
+}
+
+.choice-card:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  box-shadow: var(--shadow-1);
+  transform: translateY(-1px);
+}
+
+.choice-card:active:not(:disabled) {
+  box-shadow: none;
+  transform: translateY(0);
+  transition-duration: 60ms;
+}
+
+.choice-card.is-selected {
+  border-color: var(--accent);
+  background: var(--surface-selected);
+  box-shadow: inset var(--rail-w) 0 0 var(--accent);
+}
+
+/* The check does not pop in: it grows into place. */
+.choice-card.is-selected .choice-state .flow-icon {
+  animation: choice-check var(--transition-normal) both;
+}
+
+@keyframes choice-check {
+  from {
+    opacity: 0;
+    transform: scale(.7);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.choice-card .choice-icon {
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.choice-card:hover:not(:disabled) .choice-icon,
+.choice-card.is-selected .choice-icon {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.choice-icon {
+  display: grid;
+  width: var(--icon-xl);
+  height: var(--icon-xl);
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--accent-text);
+}
+
+.choice-title {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--text);
+  font-weight: var(--weight-bold);
+}
+
+.choice-description {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  line-height: var(--type-label-line);
+}
+
+/* A card cannot hold a real input, so the box is drawn. It has to read
+   as the same control as every other checkbox in the flow, because it
+   is the same decision: this one, and possibly that one too. */
+.choice-checkbox {
+  display: grid;
+  width: var(--intake-step-number-size);
+  height: var(--intake-step-number-size);
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-on-accent);
+}
+
+.choice-card.is-selected .choice-checkbox {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.choice-card:hover:not(:disabled) .choice-checkbox {
+  border-color: var(--accent);
+}
+
+.choice-state,
+.preset-check {
+  display: grid;
+  place-items: center;
+  color: var(--accent-text);
+}
+
+.is-selected .choice-state,
+.is-selected .preset-check {
+  animation: check-in var(--transition-fast) both;
+}
+
+@keyframes check-in {
+  from {
+    opacity: 0;
+    transform: scale(.7);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.preset-list {
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: auto;
+}
+
+.preset {
+  display: grid;
+  width: 100%;
+  min-height: var(--preset-min-h);
+  align-items: center;
+  padding: var(--space-3);
+  border: 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) var(--icon-xl);
+  text-align: left;
+}
+
+.preset:last-child {
+  border-bottom: 0;
+}
+
+.preset:hover:not(:disabled) {
+  background: var(--surface-selected);
+}
+
+.preset.is-selected {
+  background: var(--surface-selected);
+}
+
+.preset-name {
+  display: block;
+  margin-bottom: var(--space-half);
+  color: var(--text);
+  font-weight: var(--weight-semibold);
+}
+
+.preset-note {
+  display: block;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preset-empty {
+  margin: 0;
+  padding: var(--space-5);
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+}
+
+.preset-invalid {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px dashed var(--danger);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+}
+
+.preset-invalid-label {
+  margin: 0;
+  color: var(--danger-text);
+  font-size: var(--type-meta-size);
+}
+
+.preset-invalid-list {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+}
+
+.preset-invalid-file {
+  margin-right: var(--space-2);
+  color: var(--text);
+  font-family: var(--font-code);
+}
+
+/* ---- screen 4: the request editor ---- */
+
+.editor-panel {
+  display: grid;
+  flex: 1 1 auto;
+  overflow: hidden;
+  grid-template-rows: var(--row-h) minmax(0, 1fr);
+}
+
+.editor-meta {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+  font-weight: var(--weight-regular);
+}
+
+.request-editor {
+  width: 100%;
+  height: 100%;
+  min-height: var(--editor-min-h);
+  padding: var(--space-4);
+  border: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  outline: 0;
+  resize: none;
+}
+
+.editor-note {
+  margin: var(--space-3) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+}
+
+.output-rules-details {
+  margin-top: var(--space-3);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.output-rules-summary {
+  display: flex;
+  min-height: var(--btn-h-sm);
+  align-items: center;
+  padding: 0 var(--space-3);
+  color: var(--text-sub);
+  cursor: pointer;
+  font-size: var(--type-meta-size);
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.output-rules-summary::-webkit-details-marker {
+  display: none;
+}
+
+.output-rules-summary::after {
+  margin-left: auto;
+  color: var(--text-muted);
+  content: "⌄";
+}
+
+.output-rules-body {
+  max-height: var(--textarea-max-h);
+  padding: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  margin: 0;
+  overflow: auto;
+  color: var(--text-sub);
+  font-family: var(--font-code);
+  font-size: var(--type-code-size);
+  line-height: var(--type-code-line);
+  white-space: pre-wrap;
+}
+
+.output-rules-note {
+  margin: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+}
+
+/* ---- screen 5: hand over to the chat ---- */
+
+.handoff {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.handoff-card {
+  min-width: 0;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.handoff-card.is-done {
+  border-color: var(--success);
+}
+
+.handoff-number {
+  display: grid;
+  width: var(--handoff-number-size);
+  height: var(--handoff-number-size);
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+  font-weight: var(--weight-bold);
+}
+
+.handoff-card.is-done .handoff-number {
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+.handoff-card h2 {
+  margin: var(--space-3) 0 var(--space-2);
+  font-size: var(--type-section-size);
+  font-weight: var(--weight-bold);
+}
+
+.handoff-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  line-height: var(--type-label-line);
+}
+
+.file-pill {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-sub);
+  font-family: var(--font-code);
+  font-size: var(--type-meta-size);
+}
+
+.inline-actions {
+  display: flex;
+  margin-top: var(--space-3);
+}
+
+.inline-actions .button {
+  min-width: var(--control-min-w);
+}
+
+.folder-contract {
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.folder-contract-title {
+  display: flex;
+  align-items: center;
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+  font-weight: var(--weight-semibold);
+  gap: var(--space-2);
+}
+
+.folder-path {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font-family: var(--font-code);
+  font-size: var(--type-meta-size);
+  overflow-wrap: anywhere;
+}
+
+.artifact-chips {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+  gap: var(--space-2);
+}
+
+.artifact-chip {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font-family: var(--font-code);
+  font-size: var(--type-micro-size);
+}
+
+/* ---- screens 6 / 7: intake and review ---- */
+
+.code-layout {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  gap: var(--space-3);
+  grid-template-columns: var(--module-pane-w) minmax(0, 1fr);
+}
+
+.paste-panel {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: var(--row-h) minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.intake-body {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  padding: var(--space-4);
+  gap: var(--space-4);
+  overflow: auto;
+}
+
+.intake-guide {
+  display: grid;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.intake-step {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3);
+  border-right: 1px solid var(--border-subtle);
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+  gap: var(--space-2);
+}
+
+.intake-step:last-child {
+  border-right: 0;
+}
+
+.intake-step-number {
+  display: grid;
+  width: var(--intake-step-number-size);
+  height: var(--intake-step-number-size);
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--type-micro-size);
+  font-weight: var(--weight-bold);
+}
+
+.intake-step-text strong {
+  color: var(--text);
+}
+
+/* What has arrived so far when the answer comes one module at a time. */
+
+.intake-parts {
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.intake-part-count {
+  color: var(--text);
+  font-size: var(--type-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+.intake-part-list {
+  display: grid;
+  margin-top: var(--space-2);
+  gap: var(--space-1);
+}
+
+.intake-part-row {
+  display: flex;
+  align-items: center;
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+  gap: var(--space-2);
+}
+
+.intake-part-number {
+  color: var(--text-muted);
+  font-family: var(--font-code);
+}
+
+.intake-part-missing {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+}
+
+.paste-target {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: var(--space-6);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.paste-target h2 {
+  margin: 0;
+  font-size: var(--type-section-size);
+  font-weight: var(--weight-bold);
+}
+
+.paste-target-state {
+  display: inline-flex;
+  height: var(--badge-h);
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: 1px dashed var(--state-excluded);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+  font-weight: var(--type-micro-weight);
+}
+
+.diff-review-column {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  gap: var(--space-3);
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.review-decision {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  gap: var(--space-2);
+}
+
+.review-decision-note {
+  flex: 1 1 auto;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+}
+
+.new-module-intake {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  gap: var(--space-3);
+}
+
+.new-module-field label {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+  font-weight: var(--weight-semibold);
+}
+
+.new-module-input,
+.text-input {
+  width: 100%;
+  height: var(--btn-h);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-code);
+  font-size: var(--type-body-size);
+}
+
+.new-module-input:focus,
+.text-input:focus {
+  border-color: var(--focus-color);
+  outline: none;
+}
+
+.new-module-input[aria-invalid="true"],
+.text-input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.new-module-hint {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+}
+
+.new-module-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.region-kicker {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+  font-weight: var(--weight-semibold);
+}
+
+/* ---- screens 8 / 9: what will be built ---- */
+
+.summary-grid {
+  display: grid;
+  margin-bottom: var(--space-3);
+  gap: var(--space-3);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.summary-card {
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.table-wrap {
+  max-height: var(--build-table-max-h);
+  overflow: auto;
+}
+
+.flow-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-meta-size);
+}
+
+.flow-table th,
+.flow-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+.flow-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+  font-weight: var(--weight-semibold);
+}
+
+.flow-table-name code {
+  font-family: var(--font-code);
+}
+
+.flow-table-lines {
+  font-family: var(--font-code);
+  font-variant-numeric: tabular-nums;
+}
+
+.flow-table-empty {
+  color: var(--text-muted);
+}
+
+.new-badge,
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-half) var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--type-micro-size);
+  gap: var(--space-1);
+}
+
+.new-badge {
+  margin-left: var(--space-2);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.status-badge {
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+.output-panel {
+  padding: var(--space-4);
+}
+
+.field-label {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--text-sub);
+  font-size: var(--type-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+.field-help {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+}
+
+/* An optional choice on the request screen. It sits beside the main
+   path, never in it: leaving it alone is the normal way through. */
+
+.option-row {
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.option-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  gap: var(--space-2);
+}
+
+.option-checkbox {
+  width: var(--intake-step-number-size);
+  height: var(--intake-step-number-size);
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.option-text {
+  color: var(--text);
+  font-size: var(--type-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+.option-help {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+}
+
+/* ---- screen 10 / 11: build and result ---- */
+
+.build-progress {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  padding: var(--space-8) var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.spinner {
+  width: var(--progress-spinner-size);
+  height: var(--progress-spinner-size);
+  border: var(--spinner-border-w) solid var(--border);
+  border-radius: var(--radius-pill);
+  border-top-color: var(--accent);
+  animation: spin 1s linear infinite;
+}
+
+.build-progress h2 {
+  margin: 0;
+  font-size: var(--type-title-size);
+}
+
+.build-progress p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+}
+
+.build-bar {
+  width: 100%;
+  height: var(--build-bar-h);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+}
+
+.build-bar span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: var(--accent);
+  animation: build-move 1.4s ease-in-out infinite;
+}
+
+@keyframes build-move {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.success-panel,
+.failure-panel {
+  padding: var(--space-6);
+  text-align: center;
+}
+
+.failure-panel {
+  text-align: left;
+}
+
+.success-icon {
+  display: grid;
+  width: var(--success-icon-size);
+  height: var(--success-icon-size);
+  margin: 0 auto var(--space-3);
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+.success-icon svg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
+
+.success-panel h2 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-title-size);
+}
+
+.success-panel p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+}
+
+.completion-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-4);
+}
+
+.result-list {
+  margin-top: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+
+.result-row {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+  gap: var(--space-2);
+}
+
+.result-row:first-child {
+  border-top: 0;
+}
+
+.result-row .flow-icon {
+  color: var(--success-text);
+}
+
+.result-row code {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-family: var(--font-code);
+}
+
+/* The short way in sits under the two main choices, at the far end of
+   the row, so it is available without competing with them. */
+.simple-start {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+.result-note {
+  margin: var(--space-3) 0 0;
+  color: var(--danger-text);
+  font-size: var(--type-meta-size);
+}
+
+.failure-message {
+  margin: 0 0 var(--space-3);
+  color: var(--danger-text);
+  font-size: var(--type-label-size);
+}
+
+.build-result-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-meta-size);
+}
+
+.build-result-table th,
+.build-result-table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+}
+
+.build-status-icon {
+  display: inline-grid;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  place-items: center;
+}
+
+.build-status-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+.build-status-icon--success {
+  color: var(--success-text);
+}
+
+.build-status-icon--error {
+  color: var(--danger-text);
+}
+
+.build-status-icon--muted {
+  color: var(--text-muted);
+}
+
+@media (max-width: 61.25em) {
+  .handoff,
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .module-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .book-main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---- progressive disclosure ---- */
+
+.disclosure {
+  margin-top: var(--space-3);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.disclosure-trigger {
+  display: flex;
+  width: 100%;
+  min-height: var(--btn-h);
+  align-items: center;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--text-sub);
+  font-size: var(--type-label-size);
+  font-weight: var(--weight-semibold);
+  gap: var(--space-2);
+  text-align: left;
+}
+
+.disclosure-trigger:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.disclosure-chevron {
+  color: var(--text-muted);
+  transition: transform var(--transition-normal);
+}
+
+.disclosure[data-open="true"] .disclosure-chevron {
+  transform: rotate(90deg);
+}
+
+.disclosure-note {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+  font-weight: var(--weight-regular);
+}
+
+/* A row that opens onto a text field. It carries a pencil instead of a
+   chevron, and while it is closed it wears the same inset the textarea
+   inside it wears, so it reads as somewhere to write rather than as one
+   more thing to read. */
+.disclosure--writein > .disclosure-trigger {
+  background: var(--surface-sunken);
+  color: var(--text-sub);
+  font-weight: var(--weight-regular);
+}
+
+.disclosure--writein[data-open="true"] > .disclosure-trigger {
+  background: transparent;
+  font-weight: var(--weight-semibold);
+}
+
+.disclosure-pencil {
+  color: var(--text-muted);
+}
+
+/* The body grows in place instead of the page jumping. */
+.disclosure-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--transition-slow);
+}
+
+.disclosure[data-open="true"] .disclosure-body {
+  grid-template-rows: 1fr;
+}
+
+/* Closed content stays out of the tab order and the reading order. */
+.disclosure-inner {
+  min-height: 0;
+  overflow: hidden;
+  transition: visibility var(--transition-slow);
+  visibility: hidden;
+}
+
+.disclosure[data-open="true"] .disclosure-inner {
+  border-top: 1px solid var(--border-subtle);
+  visibility: visible;
+}
+
+.disclosure--fill {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.disclosure--fill .disclosure-body {
+  min-height: 0;
+  transition: none;
+}
+
+.disclosure[data-open="true"].disclosure--fill {
+  flex: 1 1 auto;
+}
+
+.disclosure[data-open="true"].disclosure--fill .disclosure-body {
+  min-height: 0;
+  flex: 1 1 auto;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.disclosure--fill .disclosure-inner {
+  min-height: 0;
+  padding: var(--space-3);
+}
+
+.disclosure--fill .code-layout {
+  height: 100%;
+  min-height: 0;
+}
+
+/* ---- headline summaries ---- */
+
+.headline-card {
+  display: grid;
+  align-items: center;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  gap: 0 var(--space-3);
+  grid-template-columns: var(--icon-xl) minmax(0, 1fr);
+}
+
+.headline-icon {
+  display: grid;
+  width: var(--icon-xl);
+  height: var(--icon-xl);
+  place-items: center;
+  border-radius: var(--radius-pill);
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+.headline-text {
+  color: var(--text);
+  font-size: var(--type-section-size);
+  font-weight: var(--weight-bold);
+}
+
+.headline-preview,
+.headline-note,
+.headline-warning {
+  margin: var(--space-1) 0 0;
+  grid-column: 2;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  line-height: var(--type-label-line);
+}
+
+/* Only a finding the user has to act on is coloured as a caution. A
+   read that completed keeps the ordinary muted note colour. */
+.headline-warning {
+  color: var(--caution-text);
+}
+
+.read-detail {
+  padding: var(--space-1) 0;
+}
+
+.read-note {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  line-height: var(--type-label-line);
+}
+
+.request-editor-wrap {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.request-editor-wrap .request-editor {
+  min-height: var(--editor-min-h);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.request-editor-wrap .editor-note {
+  margin: 0;
+  padding: var(--space-3);
+}
+
+.review-empty {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  margin: 0;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+}
+
+/* ---- what the answer says it did ---- */
+
+.intake-result {
+  display: flex;
+  flex-direction: column;
+}
+
+.intake-summary {
+  padding: var(--space-3);
+}
+
+.intake-summary-line {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.intake-summary-line:empty {
+  height: var(--space-2);
+}
+
+/* ---- the consult form ---- */
+
+/* One question at a time. The beads say how many questions there are,
+   which one this is, and which are answered: numbered stops on one
+   straight line. A long form keeps its ends and folds the middle. */
+.bead-rail {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-2) 0 var(--space-6);
+}
+
+.bead-track {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* One straight thread, from the first stop to the last. */
+.bead-track::before {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  right: calc(var(--bead-size) / 2);
+  left: calc(var(--bead-size) / 2);
+  height: var(--bead-line-h);
+  margin-top: calc(var(--bead-line-h) / -2);
+  background: var(--border);
+  content: "";
+}
+
+.bead {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: var(--bead-size);
+  height: var(--bead-size);
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+  font-weight: var(--weight-semibold);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-normal);
+}
+
+.bead:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-text);
+  transform: translateY(-1px);
+}
+
+.bead.is-answered {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.bead.is-current {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: var(--shadow-1);
+  color: var(--text-on-accent);
+  transform: scale(1.18);
+}
+
+/* The folded middle is simply a longer run of thread. The numbers on
+   either side already say what was skipped, so nothing is drawn. */
+.bead-gap {
+  width: calc(var(--bead-size) * 1.4);
+  height: var(--bead-size);
+  flex: 0 0 auto;
+}
+
+.question-card {
+  display: grid;
+  align-items: center;
+  gap: var(--space-4);
+  grid-template-columns: var(--btn-h) minmax(0, 1fr) var(--btn-h);
+}
+
+.question-arrow {
+  display: grid;
+  width: var(--btn-h);
+  height: var(--btn-h);
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-sub);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.question-arrow:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  color: var(--text);
+  transform: scale(1.06);
+}
+
+.question-arrow:active:not(:disabled) {
+  transform: scale(.96);
+  transition-duration: 60ms;
+}
+
+.question-arrow:disabled {
+  border-color: var(--border-subtle);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.question-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  gap: var(--space-4);
+}
+
+.question-count {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: .06em;
+}
+
+.question-text {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--type-section-size);
+  font-weight: var(--weight-bold);
+  line-height: var(--type-label-line);
+}
+
+.question-note {
+  margin: var(--space-4) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  text-align: center;
+}
+
+.form-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.form-chip {
+  display: inline-flex;
+  min-height: var(--btn-h);
+  align-items: center;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-sub);
+  font-size: var(--type-label-size);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.form-chip:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.form-chip:active:not(:disabled) {
+  transform: translateY(1px);
+  transition-duration: 60ms;
+}
+
+.form-chip.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-weight: var(--weight-semibold);
+}
+
+.form-textarea {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  resize: none;
+}
+
+.form-textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* The code is not the whole picture: this points at the data too. */
+.handoff-note {
+  margin: var(--space-4) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  line-height: var(--type-label-line);
+  text-align: center;
+}
+
+/* The module pane is the tree used by the intake and review screens. */
+.module-pane {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.module-pane-title {
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-sub);
+  font-size: var(--type-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+/* The tree is grouped by module kind, like the VBE project tree. */
+.module-group-title {
+  padding: var(--space-2) var(--space-3) 0;
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: .03em;
+}
+
+.module-list {
+  min-height: 0;
+  padding: var(--space-2);
+  margin: 0;
+  list-style: none;
+  overflow: auto;
+}
+
+.module-item {
+  display: grid;
+  width: 100%;
+  min-height: var(--row-h);
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+  gap: var(--space-2);
+  grid-template-columns: var(--space-2) minmax(0, 1fr) auto;
+  text-align: left;
+}
+
+.module-item:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.module-item.is-active {
+  background: var(--surface-selected);
+  color: var(--accent-text);
+  font-weight: var(--weight-semibold);
+}
+
+.module-dot {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--state-pending);
+}
+
+.module-dot.pending {
+  background: var(--caution);
+}
+
+.module-dot.changed {
+  background: var(--state-staged);
+}
+
+.module-dot.accepted {
+  background: var(--success);
+}
+
+.module-dot.excluded {
+  background: var(--state-excluded);
+}
+
+.module-name {
+  overflow: hidden;
+  font-family: var(--font-code);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.module-state {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+}
+
+.module-item.is-active .module-state {
+  color: var(--accent-text);
+}
+
+/* The same two numbers, in the same colours, as the diff report. */
+.module-counts {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-2);
+  font-family: var(--font-code);
+  font-size: var(--type-micro-size);
+  font-weight: var(--weight-semibold);
+}
+
+.module-count--add {
+  color: var(--success-text);
+}
+
+.module-count--del {
+  color: var(--danger-text);
+}
+
+.module-pane-footer {
+  padding: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.module-legend {
+  display: grid;
+  margin-bottom: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+  gap: var(--space-1);
+}
+
+.module-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.module-legend-item::before {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  content: "";
+}
+
+.module-legend-item:first-child::before {
+  background: var(--state-staged);
+}
+
+.module-legend-item:last-child::before {
+  background: var(--success);
+}
+
+.module-pane-footer .button {
+  width: 100%;
+}
+
+.step-three-workspace {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.step-three-workspace--diff {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-code);
+  grid-template-rows: var(--diff-toolbar-h) minmax(0, 1fr);
+}
+
+.source-table-scroller {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.source-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  color: var(--syn-plain);
+  font-family: var(--font-code);
+  font-size: var(--type-code-size);
+  line-height: var(--type-code-line);
+}
+
+.source-line-number {
+  width: var(--line-number-w);
+  min-width: var(--line-number-w);
+  padding: 0 var(--space-2);
+  border-right: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+
+.source-code {
+  min-width: var(--diff-code-min-w);
+  padding: 0 var(--space-3);
+  white-space: pre;
+}
+
+.step-three-workspace--edit {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-code);
+  grid-template-rows: var(--diff-toolbar-h) minmax(0, 1fr);
+}
+
+.code-pane {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface-code);
+}
+
+.code-pane-header {
+  display: flex;
+  min-height: var(--pane-header-h);
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-section-weight);
+}
+
+.code-pane-note {
+  color: var(--text-muted);
+  font-family: var(--font-code);
+  font-weight: var(--weight-regular);
+}
+
+.source-table-scroller {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.source-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  color: var(--syn-plain);
+  font-family: var(--font-code);
+  font-size: var(--type-code-size);
+  line-height: var(--type-code-line);
+}
+
+.source-line-number {
+  width: var(--line-number-w);
+  min-width: var(--line-number-w);
+  padding: 0 var(--space-2);
+  border-right: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+
+.source-code {
+  min-width: var(--diff-code-min-w);
+  padding: 0 var(--space-3);
+  white-space: pre;
+}
+
+.edit-workspace-panes {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border-subtle);
+}
+
+/* The manual fix uses the whole width: a half-width code column is
+   unreadable, and the original code is one press away in the diff. */
+.edit-workspace-panes--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.edit-pane {
+  min-width: 0;
+  min-height: 0;
+}
+
+.edit-mode-label {
+  display: inline-flex;
+  height: var(--badge-h);
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--type-micro-size);
+  font-weight: var(--type-micro-weight);
+}
+
+.edit-textarea {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  margin: 0;
+  background: var(--surface-code);
+  color: var(--syn-plain);
+  font-family: var(--font-code);
+  font-size: var(--type-code-size);
+  line-height: var(--type-code-line);
+  white-space: pre;
+  overflow: auto;
+  resize: none;
+  tab-size: 4;
+}
+
+.edit-textarea:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.diff-toolbar {
+  display: flex;
+  min-width: 0;
+  min-height: var(--diff-toolbar-h);
+  align-items: center;
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  gap: var(--space-3);
+  overflow-x: auto;
+}
+
+.diff-result-group,
+.diff-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Neither half gives up its width. The toolbar scrolls sideways when it
+   runs out of room, which is what its overflow-x is for. Letting this
+   group be squeezed instead does not shorten its text - the labels are
+   nowrap - it just pushes them out of their own box and under the
+   buttons, which is what an unchanged module used to look like. */
+.diff-result-group {
+  flex: 0 0 auto;
+}
+
+.diff-actions {
+  flex: 1 0 auto;
+}
+
+.diff-result {
+  display: inline-flex;
+  min-height: var(--btn-h-sm);
+  align-items: center;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--type-meta-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.diff-result--changed {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.diff-result--unchanged {
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+.diff-result-note {
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  white-space: nowrap;
+}
+
+.diff-change-counter {
+  min-width: var(--theme-button-size);
+  color: var(--text-muted);
+  font-family: var(--font-code);
+  font-size: var(--type-meta-size);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.diff-toggle::after {
+  display: inline-grid;
+  width: var(--diff-toggle-box);
+  height: var(--diff-toggle-box);
+  margin-left: var(--space-2);
+  place-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  content: "";
+  font-size: var(--type-micro-size);
+  line-height: 1;
+}
+
+.diff-toggle[aria-pressed="true"]::after {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  content: "✓";
+}
+
+.diff-actions [data-action="repaste-response"] {
+  margin-left: auto;
+}
+
+.diff-column-heading {
+  min-width: 0;
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-section-weight);
+}
+
+.diff-column-heading--line,
+.diff-column-heading--marker {
+  padding: 0 var(--space-2);
+  text-align: center;
+}
+
+.diff-column-heading--code {
+  border-left: 1px solid var(--border);
+}
+
+.diff-table-host {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.diff-table-scroller {
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.diff-table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  color: var(--syn-plain);
+  font-family: var(--font-code);
+  font-size: var(--type-code-size);
+  line-height: var(--type-code-line);
+  table-layout: auto;
+}
+
+.diff-column--line {
+  width: var(--line-number-w);
+}
+
+.diff-column--marker {
+  width: var(--diff-marker-w);
+}
+
+.diff-column--code {
+  min-width: var(--diff-code-min-w);
+}
+
+.diff-row {
+  height: var(--diff-line-h);
+}
+
+.diff-line-number {
+  width: var(--line-number-w);
+  min-width: var(--line-number-w);
+  padding: 0 var(--space-2);
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  user-select: none;
+}
+
+.diff-line-number--new {
+  border-right: 1px solid var(--border-subtle);
+}
+
+.diff-marker {
+  width: var(--diff-marker-w);
+  min-width: var(--diff-marker-w);
+  padding: 0;
+  background: var(--surface-code);
+  color: var(--text-muted);
+  text-align: center;
+  user-select: none;
+}
+
+.diff-code {
+  min-width: var(--diff-code-min-w);
+  padding: 0 var(--space-3);
+  background: var(--surface-code);
+  white-space: pre;
+}
+
+/* Unified rows: the whole row carries the state, the way a GitHub
+   diff reads top to bottom. */
+.diff-row--removed .diff-code,
+.diff-row--removed .diff-marker {
+  background: var(--diff-removed-bg);
+}
+
+.diff-row--removed .diff-marker {
+  box-shadow: inset var(--rail-w) 0 0 var(--diff-removed-rail);
+  color: var(--diff-removed-rail);
+}
+
+.diff-row--removed .diff-line-number {
+  background: var(--diff-removed-bg);
+}
+
+.diff-row--added .diff-code,
+.diff-row--added .diff-marker {
+  background: var(--diff-added-bg);
+}
+
+.diff-row--added .diff-marker {
+  box-shadow: inset var(--rail-w) 0 0 var(--diff-added-rail);
+  color: var(--diff-added-rail);
+}
+
+.diff-row--added .diff-line-number {
+  background: var(--diff-added-bg);
+}
+
+.diff-inline-mark {
+  padding: 0;
+  color: inherit;
+}
+
+.diff-inline-mark--removed {
+  background: var(--diff-removed-mark);
+}
+
+.diff-inline-mark--added {
+  background: var(--diff-added-mark);
+}
+
+.diff-row.is-jump-target .diff-marker {
+  box-shadow: inset var(--jump-rail-w) 0 0 var(--guide-color);
+}
+
+.diff-gap {
+  height: var(--pane-header-h);
+}
+
+.diff-gap-cell {
+  padding: 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--diff-gap-bg);
+  text-align: center;
+}
+
+.diff-gap-button {
+  width: 100%;
+  height: var(--pane-header-h);
+  border: 0;
+  background: transparent;
+  color: var(--accent-text);
+  font-size: var(--type-meta-size);
+  cursor: pointer;
+}
+
+.diff-gap-button:hover {
+  background: var(--surface-hover);
+  text-decoration: underline;
+}
+
+.diff-table-scroller.is-wrapped .diff-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.diff-table-scroller.is-wrapped .diff-code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.vba-token--comment {
+  color: var(--syn-comment);
+}
+
+.vba-token--string {
+  color: var(--syn-string);
+}
+
+.vba-token--keyword {
+  color: var(--syn-keyword);
+}
+
+.vba-token--number {
+  color: var(--syn-number);
+}
+
+/* A new module has no original side, so the note rides above the
+   rows instead of covering half of the table. */
+.diff-new-placeholder {
+  display: flex;
+  min-height: var(--pane-header-h);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  gap: var(--space-2);
+}
+
+.diff-new-placeholder-icon {
+  display: inline-grid;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  place-items: center;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--text-on-accent);
+  font-size: var(--type-micro-size);
+}
+
+.diff-new-placeholder p {
+  margin: 0;
+  font-size: var(--type-meta-size);
+  line-height: var(--type-meta-line);
+}
+
+@media (max-width: 56.25em) {
+  .edit-workspace-panes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .source-pane {
+    display: none;
+  }
+
+  .diff-result-note,
+  .diff-change-counter {
+    display: none;
+  }
+}
+
+/* Column headings ride with the table so they cannot drift out of
+   alignment with the columns, and stay visible while scrolling. */
+.diff-table thead th {
+  /* .diff-column-heading makes the cell a flex box, which stops it from
+     being a table cell and disables sticky positioning. */
+  display: table-cell;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: var(--pane-header-h);
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--type-note-size);
+  font-weight: 600;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.diff-table thead .code-pane-note {
+  margin-left: var(--space-2);
+}
+
+.diff-table td,
+.diff-table th {
+  vertical-align: top;
+}
+
+.diff-table thead th {
+  vertical-align: middle;
+}
+
+.diff-table-scroller.is-wrapped .diff-code {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Wrapped mode divides the visible width between the two panes instead
+   of letting the code columns claim their natural width. */
+.diff-table-scroller.is-wrapped .diff-column--code {
+  width: auto;
+  min-width: 0;
+}
+
+*{box-sizing:border-box}html,body{margin:0}body{background:var(--surface-canvas);color:var(--text);font-family:var(--font-ui);font-size:var(--type-body-size);line-height:var(--type-body-line)}button{color:inherit;font:inherit;cursor:pointer}button:focus-visible{outline:2px solid var(--focus-color);outline-offset:2px}.report-shell{padding:var(--space-5);display:grid;gap:var(--space-4)}.report-header{display:grid;gap:var(--space-2);padding:var(--space-4);border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface)}.report-kicker{margin:0;color:var(--text-muted);font-size:var(--type-micro-size);font-weight:var(--weight-semibold)}.report-header h1{margin:0;font-size:var(--type-title-size);line-height:var(--type-title-line)}.report-summary{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2) var(--space-4);margin:0;color:var(--text-sub);font-size:var(--type-meta-size)}.report-counts{display:inline-flex;gap:var(--space-2);font-family:var(--font-code);font-weight:var(--weight-semibold)}.report-count--add{color:var(--success-text)}.report-count--del{color:var(--danger-text)}.theme-icon{width:var(--icon-sm);height:var(--icon-sm);fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.5}.report-noscript{margin:0;padding:var(--space-3);border:1px solid var(--caution);border-radius:var(--radius-sm);background:var(--caution-soft);color:var(--caution-text);font-size:var(--type-meta-size)}.report-layout{display:grid;align-items:start;gap:var(--space-4);grid-template-columns:minmax(200px,260px) minmax(0,1fr)}.module-pane{position:sticky;top:var(--space-3);display:block;overflow:visible;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface)}.module-list{overflow:visible}.module-item{width:100%;cursor:pointer}.step-three-workspace,.step-three-workspace--diff{height:auto;display:block;overflow:visible}.diff-toolbar{position:sticky;top:0;z-index:3}.diff-table-host{display:block;overflow:visible}.diff-table-scroller{height:auto;overflow-x:auto;overflow-y:visible}.diff-review-column{min-width:0}@media(max-width:56.25em){.report-layout{grid-template-columns:minmax(0,1fr)}.module-pane{position:static}}@media print{.diff-actions .button{display:none}.diff-toolbar{position:static}.report-layout{grid-template-columns:minmax(0,1fr)}.module-pane{position:static}}
+</style>
+</head>
+<body>
+<div class="report-shell">
+<header class="report-header">
+<p class="report-kicker">改修差分</p>
+<h1>
+S07_power_query.xlsm
+</h1>
+<p class="report-summary">
+<span>ビルド日時: 
+2026-08-02 01:58:43
+</span>
+<span>変更モジュール: 1 / 4</span>
+</p>
+</header>
+<noscript>
+<p class="report-noscript">
+このレポートは、この 1 ファイルの中だけで差分を描画します。
+ブラウザのスクリプトを有効にしてから開いてください
+（外部との通信は行いません）。
+</p>
+</noscript>
+<div class="report-layout">
+<div id="report-modules"></div>
+<div id="report-diff" class="diff-review-column"></div>
+</div>
+</div>
+<script type="application/json" id="report-data">
+{"bookName":"S07_power_query.xlsm","buildTimestamp":"2026-08-02 01:58:43","modules":[{"name":"Sheet1","type":"document","typeLabel":"ドキュメントモジュール","isNew":false,"changed":false,"before":"","after":""},{"name":"Sheet2","type":"document","typeLabel":"ドキュメントモジュール","isNew":false,"changed":false,"before":"","after":""},{"name":"ThisWorkbook","type":"document","typeLabel":"ドキュメントモジュール","isNew":false,"changed":false,"before":"","after":""},{"name":"RefreshData","type":"standard","typeLabel":"標準モジュール","isNew":false,"changed":true,"before":"Option Explicit\r\n\r\n'============================================================\r\n' 取込データの更新と集計\r\n'\r\n' 2022/04  初版（クエリでの取り込みへ移行）\r\n' 2024/01  更新後の集計を追加\r\n'\r\n' ガイド 3.3「Power Query」の見本。\r\n' 接続先・資格情報・プライバシーレベルはブックの外にあります。\r\n'============================================================\r\n\r\nPrivate Const SHEET_WORK As String = \"作業\"\r\nPrivate Const SHEET_SRC As String = \"元データ\"\r\n\r\n' 入口。ブックの中の表だけを集計します。更新は行いません。\r\nPublic Sub RunLocalSummary()\r\n    Dim ws As Worksheet\r\n    Dim src As Worksheet\r\n    Dim r As Long\r\n    Dim last As Long\r\n    Dim total As Double\r\n\r\n    Set ws = ThisWorkbook.Worksheets(SHEET_WORK)\r\n    Set src = ThisWorkbook.Worksheets(SHEET_SRC)\r\n\r\n    last = src.Cells(src.Rows.Count, 1).End(xlUp).Row\r\n    total = 0\r\n    For r = 2 To last\r\n        total = total + CDbl(src.Cells(r, 3).Value)\r\n    Next r\r\n\r\n    ws.Range(\"B3\").Value = total\r\n    ws.Range(\"B4\").Value = last - 1\r\n    ws.Range(\"B5\").Value = ConnectionCount()\r\n    ws.Range(\"B2\").Value = \"集計済み\"\r\nEnd Sub\r\n\r\n' ブックが持つ接続の数。読むだけです。\r\nPublic Function ConnectionCount() As Long\r\n    On Error Resume Next\r\n    ConnectionCount = ThisWorkbook.Connections.Count\r\n    On Error GoTo 0\r\nEnd Function\r\n\r\n' 全更新。入口からは呼びません。接続先へ出ていきます。\r\nPublic Sub RunRefresh()\r\n    ThisWorkbook.RefreshAll\r\n    ThisWorkbook.Worksheets(SHEET_WORK).Range(\"B6\").Value = Now\r\nEnd Sub\r\n\r\n","after":"Option Explicit\r\n\r\nPublic Sub RunLocalSummary()\r\n    On Error GoTo HandleError\r\n\r\n    Dim ws As Worksheet\r\n    Set ws = ThisWorkbook.Worksheets(\"作業\")\r\n    ws.Range(\"B2\").Value = \"集計済み\"\r\n    Exit Sub\r\n\r\nHandleError:\r\n    ThisWorkbook.Worksheets(\"作業\").Range(\"B9\").Value = _\r\n        \"集計に失敗しました: \" & Err.Number & \" \" & Err.Description\r\nEnd Sub"}]}
+</script>
+<script>
+(function (global) {
+  "use strict";
+
+  var LOOKAHEAD = 100;
+
+  function toLines(value) {
+    var text = String(value === undefined || value === null ? "" : value);
+    var lines;
+
+    if (text.length === 0) {
+      return [];
+    }
+
+    lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+    if (lines.length > 0 && lines[lines.length - 1] === "") {
+      lines.pop();
+    }
+    return lines;
+  }
+
+  function getGreedyDiff(leftLines, rightLines) {
+    var left = leftLines || [];
+    var right = rightLines || [];
+    var leftCount = left.length;
+    var rightCount = right.length;
+    var result = [];
+    var leftIndex = 0;
+    var rightIndex = 0;
+    var bestLeft;
+    var bestRight;
+    var bestDistance;
+    var searchLeft;
+    var searchRight;
+    var candidateLeft;
+    var candidateRight;
+    var distance;
+    var removedCount;
+    var addedCount;
+    var pairCount;
+    var pairIndex;
+
+    while (leftIndex < leftCount || rightIndex < rightCount) {
+      if (leftIndex < leftCount &&
+          rightIndex < rightCount &&
+          left[leftIndex] === right[rightIndex]) {
+        result.push({
+          type: "equal",
+          lineA: leftIndex,
+          lineB: rightIndex,
+          textA: left[leftIndex],
+          textB: right[rightIndex]
+        });
+        leftIndex += 1;
+        rightIndex += 1;
+        continue;
+      }
+
+      bestLeft = -1;
+      bestRight = -1;
+      bestDistance = (leftCount + rightCount) * 2;
+      searchLeft = Math.min(leftIndex + LOOKAHEAD, leftCount);
+      searchRight = Math.min(rightIndex + LOOKAHEAD, rightCount);
+
+      for (candidateLeft = leftIndex;
+          candidateLeft < searchLeft;
+          candidateLeft += 1) {
+        for (candidateRight = rightIndex;
+            candidateRight < searchRight;
+            candidateRight += 1) {
+          if (left[candidateLeft] === right[candidateRight]) {
+            distance =
+              (candidateLeft - leftIndex) +
+              (candidateRight - rightIndex);
+            if (distance < bestDistance) {
+              bestDistance = distance;
+              bestLeft = candidateLeft;
+              bestRight = candidateRight;
+            }
+            break;
+          }
+        }
+      }
+
+      if (bestLeft === -1) {
+        bestLeft = leftCount;
+        bestRight = rightCount;
+      }
+
+      removedCount = bestLeft - leftIndex;
+      addedCount = bestRight - rightIndex;
+      pairCount = Math.min(removedCount, addedCount);
+
+      for (pairIndex = 0; pairIndex < pairCount; pairIndex += 1) {
+        result.push({
+          type: "changed",
+          lineA: leftIndex,
+          lineB: rightIndex,
+          textA: left[leftIndex],
+          textB: right[rightIndex]
+        });
+        leftIndex += 1;
+        rightIndex += 1;
+      }
+
+      while (leftIndex < bestLeft) {
+        result.push({
+          type: "removed",
+          lineA: leftIndex,
+          lineB: -1,
+          textA: left[leftIndex],
+          textB: ""
+        });
+        leftIndex += 1;
+      }
+
+      while (rightIndex < bestRight) {
+        result.push({
+          type: "added",
+          lineA: -1,
+          lineB: rightIndex,
+          textA: "",
+          textB: right[rightIndex]
+        });
+        rightIndex += 1;
+      }
+
+      leftIndex = bestLeft;
+      rightIndex = bestRight;
+    }
+
+    return result;
+  }
+
+  function compare(leftText, rightText) {
+    return getGreedyDiff(toLines(leftText), toLines(rightText));
+  }
+
+  function countChangedLines(rows) {
+    var count = 0;
+
+    (rows || []).forEach(function (row) {
+      if (row.type !== "equal") {
+        count += 1;
+      }
+    });
+    return count;
+  }
+
+  function assert(condition, message) {
+    if (!condition) {
+      throw new Error("MacroStudio diff self-test failed: " + message);
+    }
+  }
+
+  function runSelfTest() {
+    var rows;
+
+    rows = getGreedyDiff(["A", "B"], ["A", "X", "B"]);
+    assert(
+      rows.map(function (row) { return row.type; }).join(",") ===
+        "equal,added,equal",
+      "insertion");
+
+    rows = getGreedyDiff(["A", "X", "B"], ["A", "B"]);
+    assert(
+      rows.map(function (row) { return row.type; }).join(",") ===
+        "equal,removed,equal",
+      "deletion");
+
+    rows = getGreedyDiff(["A", "old", "B"], ["A", "new", "B"]);
+    assert(
+      rows.map(function (row) { return row.type; }).join(",") ===
+        "equal,changed,equal",
+      "replacement");
+    assert(countChangedLines(rows) === 1, "replacement count");
+
+    rows = getGreedyDiff(["A", "B"], ["X", "Y", "Z"]);
+    assert(
+      rows.map(function (row) { return row.type; }).join(",") ===
+        "changed,changed,added",
+      "all changed");
+    assert(countChangedLines(rows) === 3, "all changed count");
+
+    return true;
+  }
+
+  global.MacroStudioDiff = {
+    lookahead: LOOKAHEAD,
+    toLines: toLines,
+    getGreedyDiff: getGreedyDiff,
+    compare: compare,
+    countChangedLines: countChangedLines,
+    runSelfTest: runSelfTest
+  };
+
+  if (global.location &&
+      /(?:^\?|&)selftest=1(?:&|$)/.test(global.location.search || "")) {
+    runSelfTest();
+  }
+}(window));
+
+(function (global) {
+  "use strict";
+
+  var keywordList = [
+    "sub", "function", "end", "exit", "property", "get", "let", "set",
+    "public", "private", "friend", "static", "dim", "redim", "preserve",
+    "const", "as", "new", "nothing", "me", "mybase", "myclass",
+    "byval", "byref", "optional", "paramarray",
+    "if", "then", "else", "elseif", "select", "case",
+    "for", "to", "step", "next", "each", "in",
+    "do", "loop", "while", "wend", "until", "with",
+    "goto", "gosub", "return", "on", "error", "resume",
+    "call", "debug", "print", "stop", "type", "enum",
+    "declare", "ptrsafe", "lib", "alias", "option", "explicit",
+    "compare", "base", "implements", "event", "raiseevent", "withevents",
+    "and", "or", "not", "xor", "mod", "like", "is",
+    "true", "false", "null", "empty", "attribute",
+    "open", "close", "input", "output", "append", "binary", "random",
+    "write", "read", "seek", "lock", "unlock", "kill", "name",
+    "mkdir", "rmdir", "chdir", "chdrive", "curdir", "dir",
+    "filecopy", "filelen", "filedatetime", "freefile", "lof", "eof",
+    "erase", "lbound", "ubound", "doevents", "beep", "appactivate",
+    "shell", "sendkeys", "msgbox", "inputbox", "environ",
+    "createobject", "getobject",
+    "string", "long", "integer", "double", "single", "boolean", "date",
+    "variant", "object", "byte", "currency", "longptr", "longlong",
+    "decimal", "any", "collection", "dictionary",
+    "abs", "array", "asc", "atn", "cbool", "cbyte", "ccur", "cdate",
+    "cdbl", "cdec", "chr", "cint", "clng", "clnglng", "clngptr",
+    "cos", "csng", "cstr", "cvar", "cverr", "dateadd", "datediff",
+    "datepart", "dateserial", "datevalue", "day", "exp", "fix",
+    "format", "hex", "hour", "iif", "instr", "instrrev", "int",
+    "isarray", "isdate", "isempty", "iserror", "ismissing", "isnull",
+    "isnumeric", "isobject", "join", "lcase", "left", "len", "log",
+    "ltrim", "mid", "minute", "month", "monthname", "now", "oct",
+    "replace", "right", "rnd", "round", "rtrim", "second", "sgn",
+    "sin", "space", "split", "sqr", "str", "strcomp", "strconv",
+    "strreverse", "tan", "time", "timer", "timeserial", "timevalue",
+    "trim", "typename", "ucase", "val", "vartype",
+    "weekday", "weekdayname", "year"
+  ];
+  var keywords = {};
+
+  keywordList.forEach(function (keyword) {
+    keywords[keyword] = true;
+  });
+
+  function appendToken(tokens, type, text) {
+    var last;
+
+    if (text.length === 0) {
+      return;
+    }
+    last = tokens.length > 0 ? tokens[tokens.length - 1] : null;
+    if (last && last.type === type) {
+      last.text += text;
+    } else {
+      tokens.push({
+        type: type,
+        text: text
+      });
+    }
+  }
+
+  function readString(line, start) {
+    var index = start + 1;
+
+    while (index < line.length) {
+      if (line.charAt(index) === "\"") {
+        if (index + 1 < line.length &&
+            line.charAt(index + 1) === "\"") {
+          index += 2;
+          continue;
+        }
+        index += 1;
+        break;
+      }
+      index += 1;
+    }
+    return index;
+  }
+
+  function tokenizeLine(value) {
+    var line = String(value === undefined || value === null ? "" : value);
+    var tokens = [];
+    var index = 0;
+    var rest;
+    var match;
+    var end;
+    var word;
+
+    while (index < line.length) {
+      if (line.charAt(index) === "'") {
+        appendToken(tokens, "comment", line.substring(index));
+        break;
+      }
+
+      if (line.charAt(index) === "\"") {
+        end = readString(line, index);
+        appendToken(tokens, "string", line.substring(index, end));
+        index = end;
+        continue;
+      }
+
+      rest = line.substring(index);
+      match = /^(?:&[hH][0-9a-fA-F]+&?|&[oO][0-7]+&?|\d+\.\d*(?:[eE][\-+]?\d+)?|\d+[eE][\-+]?\d+|\d+)/.exec(rest);
+      if (match) {
+        appendToken(tokens, "number", match[0]);
+        index += match[0].length;
+        continue;
+      }
+
+      match = /^[A-Za-z_][A-Za-z0-9_]*[$%&!#@]?/.exec(rest);
+      if (match) {
+        word = match[0].replace(/[$%&!#@]$/, "");
+        if (word.toLowerCase() === "rem") {
+          appendToken(tokens, "comment", line.substring(index));
+          break;
+        }
+        appendToken(
+          tokens,
+          keywords[word.toLowerCase()] ? "keyword" : "plain",
+          match[0]);
+        index += match[0].length;
+        continue;
+      }
+
+      appendToken(tokens, "plain", line.charAt(index));
+      index += 1;
+    }
+
+    return tokens;
+  }
+
+  function appendHighlighted(container, text) {
+    var documentObject = container.ownerDocument || global.document;
+
+    tokenizeLine(text).forEach(function (token) {
+      var span;
+
+      if (token.type === "plain") {
+        container.appendChild(documentObject.createTextNode(token.text));
+      } else {
+        span = documentObject.createElement("span");
+        span.className = "vba-token vba-token--" + token.type;
+        span.textContent = token.text;
+        container.appendChild(span);
+      }
+    });
+  }
+
+  global.MacroStudioVbaHighlight = {
+    tokenizeLine: tokenizeLine,
+    appendHighlighted: appendHighlighted
+  };
+}(window));
+
+(function (global) {
+  "use strict";
+
+  var CONTEXT_LINES = 10;
+
+  function createElement(documentObject, tagName, className, text) {
+    var element = documentObject.createElement(tagName);
+    if (className) {
+      element.className = className;
+    }
+    if (text !== undefined) {
+      element.textContent = text;
+    }
+    return element;
+  }
+
+  function appendTokenText(documentObject, container, type, text) {
+    var node;
+
+    if (!text) {
+      return;
+    }
+    if (type === "plain") {
+      node = documentObject.createTextNode(text);
+    } else {
+      node = createElement(
+        documentObject,
+        "span",
+        "vba-token vba-token--" + type,
+        text);
+    }
+    container.appendChild(node);
+  }
+
+  function appendTokenRange(
+    documentObject,
+    container,
+    tokens,
+    start,
+    end,
+    showWhitespace
+  ) {
+    var offset = 0;
+
+    tokens.forEach(function (token) {
+      var tokenStart = offset;
+      var tokenEnd = offset + token.text.length;
+      var from = Math.max(start, tokenStart);
+      var to = Math.min(end, tokenEnd);
+      var text;
+
+      offset = tokenEnd;
+      if (from >= to) {
+        return;
+      }
+      text = token.text.substring(
+        from - tokenStart,
+        to - tokenStart);
+      if (showWhitespace) {
+        text = text.replace(/\t/g, "\u2192").replace(/ /g, "\u00B7");
+      }
+      appendTokenText(
+        documentObject,
+        container,
+        token.type,
+        text);
+    });
+  }
+
+  function appendCode(cell, text, markStart, markEnd, markClass) {
+    var documentObject = cell.ownerDocument || global.document;
+    var value = String(text || "");
+    var tokens = global.MacroStudioVbaHighlight.tokenizeLine(value);
+    var mark;
+
+    cell.setAttribute("title", value);
+    if (value.length === 0) {
+      cell.appendChild(documentObject.createTextNode(" "));
+      return;
+    }
+    if (markStart === undefined ||
+        markEnd === undefined ||
+        markStart >= markEnd) {
+      appendTokenRange(
+        documentObject,
+        cell,
+        tokens,
+        0,
+        value.length,
+        false);
+      return;
+    }
+
+    appendTokenRange(
+      documentObject,
+      cell,
+      tokens,
+      0,
+      markStart,
+      false);
+    mark = createElement(
+      documentObject,
+      "mark",
+      "diff-inline-mark " + markClass);
+    appendTokenRange(
+      documentObject,
+      mark,
+      tokens,
+      markStart,
+      markEnd,
+      true);
+    cell.appendChild(mark);
+    appendTokenRange(
+      documentObject,
+      cell,
+      tokens,
+      markEnd,
+      value.length,
+      false);
+  }
+
+  function getInlineDifference(leftText, rightText) {
+    var left = String(leftText || "");
+    var right = String(rightText || "");
+    var start = 0;
+    var leftEnd = left.length;
+    var rightEnd = right.length;
+
+    while (start < leftEnd &&
+        start < rightEnd &&
+        left.charAt(start) === right.charAt(start)) {
+      start += 1;
+    }
+    while (leftEnd > start &&
+        rightEnd > start &&
+        left.charAt(leftEnd - 1) === right.charAt(rightEnd - 1)) {
+      leftEnd -= 1;
+      rightEnd -= 1;
+    }
+    return {
+      leftStart: start,
+      leftEnd: leftEnd,
+      rightStart: start,
+      rightEnd: rightEnd
+    };
+  }
+
+  // One compared line becomes one inline row, except a changed line,
+  // which becomes the removed row followed by the added row. This is
+  // the unified layout: two line-number gutters, a marker column and
+  // one code column.
+  function expandRow(row) {
+    var inline;
+
+    if (row.type === "removed") {
+      return [{
+        kind: "removed",
+        marker: "-",
+        oldNumber: row.lineA >= 0 ? String(row.lineA + 1) : "",
+        newNumber: "",
+        text: row.textA,
+        changeBlock: row.changeBlock
+      }];
+    }
+    if (row.type === "added") {
+      return [{
+        kind: "added",
+        marker: "+",
+        oldNumber: "",
+        newNumber: row.lineB >= 0 ? String(row.lineB + 1) : "",
+        text: row.textB,
+        changeBlock: row.changeBlock
+      }];
+    }
+    if (row.type === "changed") {
+      inline = getInlineDifference(row.textA, row.textB);
+      return [
+        {
+          kind: "removed",
+          marker: "-",
+          oldNumber: row.lineA >= 0 ? String(row.lineA + 1) : "",
+          newNumber: "",
+          text: row.textA,
+          markStart: inline.leftStart,
+          markEnd: inline.leftEnd,
+          markClass: "diff-inline-mark--removed",
+          changeBlock: row.changeBlock
+        },
+        {
+          kind: "added",
+          marker: "+",
+          oldNumber: "",
+          newNumber: row.lineB >= 0 ? String(row.lineB + 1) : "",
+          text: row.textB,
+          markStart: inline.rightStart,
+          markEnd: inline.rightEnd,
+          markClass: "diff-inline-mark--added",
+          changeBlock: row.changeBlock
+        }
+      ];
+    }
+    return [{
+      kind: "equal",
+      marker: "",
+      oldNumber: row.lineA >= 0 ? String(row.lineA + 1) : "",
+      newNumber: row.lineB >= 0 ? String(row.lineB + 1) : "",
+      text: row.textA,
+      changeBlock: row.changeBlock
+    }];
+  }
+
+  function expandRows(rows) {
+    var expanded = [];
+
+    (rows || []).forEach(function (row) {
+      expandRow(row).forEach(function (inlineRow) {
+        expanded.push(inlineRow);
+      });
+    });
+    return expanded;
+  }
+
+  function createInlineRow(documentObject, inlineRow) {
+    var tableRow = createElement(
+      documentObject,
+      "tr",
+      "diff-row diff-row--" + inlineRow.kind);
+    var oldNumber = createElement(
+      documentObject,
+      "td",
+      "diff-line-number diff-line-number--old",
+      inlineRow.oldNumber);
+    var newNumber = createElement(
+      documentObject,
+      "td",
+      "diff-line-number diff-line-number--new",
+      inlineRow.newNumber);
+    var marker = createElement(
+      documentObject,
+      "td",
+      "diff-marker",
+      inlineRow.marker);
+    var code = createElement(documentObject, "td", "diff-code");
+
+    oldNumber.setAttribute("aria-hidden", "true");
+    newNumber.setAttribute("aria-hidden", "true");
+    marker.setAttribute("aria-hidden", "true");
+    if (inlineRow.changeBlock !== undefined &&
+        inlineRow.changeBlock !== null) {
+      tableRow.setAttribute(
+        "data-change-block",
+        String(inlineRow.changeBlock));
+    }
+    appendCode(
+      code,
+      inlineRow.text,
+      inlineRow.markStart,
+      inlineRow.markEnd,
+      inlineRow.markClass);
+    tableRow.appendChild(oldNumber);
+    tableRow.appendChild(newNumber);
+    tableRow.appendChild(marker);
+    tableRow.appendChild(code);
+    return tableRow;
+  }
+
+  function appendComparedRow(documentObject, container, row) {
+    expandRow(row).forEach(function (inlineRow) {
+      container.appendChild(
+        createInlineRow(documentObject, inlineRow));
+    });
+  }
+
+  function createGapRow(documentObject, hiddenRows) {
+    var row = createElement(documentObject, "tr", "diff-gap");
+    var cell = createElement(documentObject, "td", "diff-gap-cell");
+    var button = createElement(
+      documentObject,
+      "button",
+      "diff-gap-button",
+      "\u2026" + hiddenRows.length + " 行を表示");
+
+    button.type = "button";
+    button.addEventListener("click", function () {
+      var fragment = documentObject.createDocumentFragment();
+
+      hiddenRows.forEach(function (hiddenRow) {
+        appendComparedRow(documentObject, fragment, hiddenRow);
+      });
+      row.parentNode.replaceChild(fragment, row);
+    });
+    cell.colSpan = 4;
+    cell.appendChild(button);
+    row.appendChild(cell);
+    return row;
+  }
+
+  function assignChangeBlocks(rows) {
+    var block = -1;
+    var inChange = false;
+
+    (rows || []).forEach(function (row) {
+      if (row.type === "equal") {
+        inChange = false;
+        row.changeBlock = null;
+        return;
+      }
+      if (!inChange) {
+        block += 1;
+        inChange = true;
+      }
+      row.changeBlock = block;
+    });
+    return block + 1;
+  }
+
+  function getVisibleRows(rows, contextOnly) {
+    var visible = [];
+    var include = [];
+    var index;
+    var start;
+    var end;
+    var gapRows = [];
+
+    assignChangeBlocks(rows);
+    if (!contextOnly) {
+      return rows.slice();
+    }
+
+    for (index = 0; index < rows.length; index += 1) {
+      include[index] = false;
+    }
+
+    rows.forEach(function (row, rowIndex) {
+      if (row.type !== "equal") {
+        start = Math.max(0, rowIndex - CONTEXT_LINES);
+        end = Math.min(rows.length - 1, rowIndex + CONTEXT_LINES);
+        for (index = start; index <= end; index += 1) {
+          include[index] = true;
+        }
+      }
+    });
+
+    for (index = 0; index < rows.length; index += 1) {
+      if (include[index]) {
+        if (gapRows.length > 0) {
+          visible.push({
+            type: "gap",
+            count: gapRows.length,
+            rows: gapRows
+          });
+          gapRows = [];
+        }
+        visible.push(rows[index]);
+      } else {
+        gapRows.push(rows[index]);
+      }
+    }
+
+    if (gapRows.length > 0) {
+      visible.push({
+        type: "gap",
+        count: gapRows.length,
+        rows: gapRows
+      });
+    }
+
+    return visible;
+  }
+
+  function hasWhitespaceOnlyChange(rows) {
+    return (rows || []).some(function (row) {
+      return row.type === "changed" &&
+        row.textA !== row.textB &&
+        row.textA.replace(/\s/g, "") ===
+          row.textB.replace(/\s/g, "");
+    });
+  }
+
+  function createHeaderCell(
+    documentObject,
+    className,
+    title,
+    note
+  ) {
+    var cell = createElement(
+      documentObject,
+      "th",
+      "diff-column-heading " + className);
+
+    cell.scope = "col";
+    cell.appendChild(
+      createElement(documentObject, "span", "", title));
+    if (note) {
+      cell.appendChild(
+        createElement(documentObject, "span", "code-pane-note", note));
+    }
+    return cell;
+  }
+
+  // What the two sides are called. On the review screen the comparison
+  // is between the workbook as it stands and the text that was just
+  // pasted in; a written report is read after the fact, where the same
+  // two sides are the original code and the code that replaced it. The
+  // caller says which reading applies.
+  var DEFAULT_LABELS = {
+    caption: "現在のコードと貼り付けたコードのインライン比較",
+    codeNote: "− 現在のコード / ＋ 貼り付けたコード"
+  };
+
+  function resolveLabels(labels) {
+    if (!labels) {
+      return DEFAULT_LABELS;
+    }
+    return {
+      caption: labels.caption || DEFAULT_LABELS.caption,
+      codeNote: labels.codeNote || DEFAULT_LABELS.codeNote
+    };
+  }
+
+  function createHeader(documentObject, labels) {
+    var head = documentObject.createElement("thead");
+    var row = documentObject.createElement("tr");
+
+    row.appendChild(createHeaderCell(
+      documentObject,
+      "diff-column-heading--line",
+      "前"));
+    row.appendChild(createHeaderCell(
+      documentObject,
+      "diff-column-heading--line",
+      "後"));
+    row.appendChild(createHeaderCell(
+      documentObject,
+      "diff-column-heading--marker",
+      ""));
+    row.appendChild(createHeaderCell(
+      documentObject,
+      "diff-column-heading--code",
+      "コード",
+      labels.codeNote));
+    head.appendChild(row);
+    return head;
+  }
+
+  function renderDiff(container, rows, contextOnly, wrapLines, labels) {
+    var documentObject = container.ownerDocument || global.document;
+    var text = resolveLabels(labels);
+    var scroller = createElement(
+      documentObject,
+      "div",
+      "diff-table-scroller");
+    var table = createElement(documentObject, "table", "diff-table");
+    var caption = createElement(
+      documentObject,
+      "caption",
+      "visually-hidden",
+      text.caption);
+    var columns = documentObject.createElement("colgroup");
+    var body = documentObject.createElement("tbody");
+
+    [
+      "diff-column--line",
+      "diff-column--line",
+      "diff-column--marker",
+      "diff-column--code"
+    ].forEach(function (className) {
+      columns.appendChild(
+        createElement(documentObject, "col", className));
+    });
+
+    getVisibleRows(rows, contextOnly).forEach(function (row) {
+      if (row.type === "gap") {
+        body.appendChild(createGapRow(documentObject, row.rows));
+        return;
+      }
+      appendComparedRow(documentObject, body, row);
+    });
+
+    table.appendChild(caption);
+    table.appendChild(columns);
+    // The column headings live inside the table so they always line up
+    // with the columns they name and stay visible while scrolling.
+    table.appendChild(createHeader(documentObject, text));
+    table.appendChild(body);
+    scroller.appendChild(table);
+    scroller.classList.toggle("is-wrapped", wrapLines === true);
+    container.textContent = "";
+    container.appendChild(scroller);
+    container.setAttribute(
+      "data-change-block-count",
+      String(assignChangeBlocks(rows)));
+    container.setAttribute("data-current-change-block", "0");
+    return table;
+  }
+
+  function jumpToChange(container, direction, counter) {
+    var rows = container.querySelectorAll(
+      ".diff-row[data-change-block]");
+    var blockCount = Number(
+      container.getAttribute("data-change-block-count")) || 0;
+    var current = Number(
+      container.getAttribute("data-current-change-block")) || 0;
+    var target;
+    var targetRows;
+
+    if (blockCount === 0 || rows.length === 0) {
+      return false;
+    }
+    target = Math.max(
+      0,
+      Math.min(blockCount - 1, current + direction));
+    container.setAttribute(
+      "data-current-change-block",
+      String(target));
+    targetRows = container.querySelectorAll(
+      '.diff-row[data-change-block="' + target + '"]');
+    Array.prototype.forEach.call(rows, function (row) {
+      row.classList.remove("is-jump-target");
+    });
+    Array.prototype.forEach.call(targetRows, function (row) {
+      row.classList.add("is-jump-target");
+    });
+    if (targetRows.length > 0) {
+      targetRows[0].scrollIntoView({
+        block: "center",
+        inline: "nearest"
+      });
+    }
+    if (counter) {
+      counter.textContent = (target + 1) + "/" + blockCount;
+    }
+    global.setTimeout(function () {
+      Array.prototype.forEach.call(targetRows, function (row) {
+        row.classList.remove("is-jump-target");
+      });
+    }, 1000);
+    return true;
+  }
+
+  function createSourceView(documentObject, text) {
+    var pane = createElement(
+      documentObject,
+      "section",
+      "code-pane source-pane");
+    var header = createElement(
+      documentObject,
+      "header",
+      "code-pane-header");
+    var tableScroller = createElement(
+      documentObject,
+      "div",
+      "source-table-scroller");
+    var table = createElement(documentObject, "table", "source-table");
+    var caption = createElement(
+      documentObject,
+      "caption",
+      "visually-hidden",
+      "現在のコード");
+    var body = documentObject.createElement("tbody");
+    var lines = global.MacroStudioDiff.toLines(text);
+
+    header.appendChild(
+      createElement(documentObject, "span", "", "現在のコード"));
+
+    lines.forEach(function (line, index) {
+      var row = documentObject.createElement("tr");
+      var lineNumber = createElement(
+        documentObject,
+        "td",
+        "source-line-number",
+        String(index + 1));
+      var code = createElement(documentObject, "td", "source-code");
+
+      lineNumber.setAttribute("aria-hidden", "true");
+      global.MacroStudioVbaHighlight.appendHighlighted(code, line);
+      row.appendChild(lineNumber);
+      row.appendChild(code);
+      body.appendChild(row);
+    });
+
+    table.appendChild(caption);
+    table.appendChild(body);
+    tableScroller.appendChild(table);
+    pane.appendChild(header);
+    pane.appendChild(tableScroller);
+    return pane;
+  }
+
+  global.MacroStudioDiffView = {
+    contextLines: CONTEXT_LINES,
+    assignChangeBlocks: assignChangeBlocks,
+    getVisibleRows: getVisibleRows,
+    expandRow: expandRow,
+    expandRows: expandRows,
+    getInlineDifference: getInlineDifference,
+    hasWhitespaceOnlyChange: hasWhitespaceOnlyChange,
+    renderDiff: renderDiff,
+    jumpToChange: jumpToChange,
+    createSourceView: createSourceView
+  };
+}(window));
+
+(function () {
+  "use strict";
+
+  var GROUPS = [
+    { type: "standard", title: "標準モジュール" },
+    { type: "class", title: "クラスモジュール" },
+    { type: "form", title: "フォームモジュール" },
+    { type: "document", title: "ドキュメントモジュール" }
+  ];
+  var THEME_KEY = "macrostudio.theme";
+  var LABELS = {
+    caption: "元のコードと改修後のコードのインライン比較",
+    codeNote: "− 元のコード / ＋ 改修後のコード"
+  };
+  var THEME_ICONS =
+    '<svg class="theme-icon theme-icon--moon" viewBox="0 0 20 20" aria-hidden="true">' +
+    '<path d="M15.5 12.5A6.5 6.5 0 0 1 7.5 4.5a6 6 0 1 0 8 8Z"></path></svg>' +
+    '<svg class="theme-icon theme-icon--sun" viewBox="0 0 20 20" aria-hidden="true" hidden>' +
+    '<circle cx="10" cy="10" r="3.25"></circle>' +
+    '<path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.35 4.35l1.4 1.4M14.25 14.25l1.4 1.4M15.65 4.35l-1.4 1.4M5.75 14.25l-1.4 1.4"></path></svg>';
+  var data = JSON.parse(
+    document.getElementById("report-data").textContent);
+  var modules = data.modules;
+  var selected = 0;
+  var listHost;
+  var diffHost;
+
+  function element(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) {
+      node.className = className;
+    }
+    if (text !== undefined) {
+      node.textContent = text;
+    }
+    return node;
+  }
+
+  // One compare per module, by the shared engine, kept for the
+  // list counts and every redraw of the same module.
+  function rowsOf(module) {
+    if (!module.rows) {
+      module.rows = MacroStudioDiff.compare(
+        module.before,
+        module.after);
+      module.counts = { added: 0, removed: 0 };
+      module.rows.forEach(function (row) {
+        if (row.type === "added" || row.type === "changed") {
+          module.counts.added += 1;
+        }
+        if (row.type === "removed" || row.type === "changed") {
+          module.counts.removed += 1;
+        }
+      });
+      module.changedLines = MacroStudioDiff.countChangedLines(
+        module.rows);
+      module.blocks = MacroStudioDiffView.assignChangeBlocks(
+        module.rows);
+      // Same starting point as the screen: a long module opens on
+      // its changes, a short one opens in full.
+      if (module.changesOnly === undefined) {
+        module.changesOnly = Math.max(
+          MacroStudioDiff.toLines(module.before).length,
+          MacroStudioDiff.toLines(module.after).length) > 200;
+        module.wrap = true;
+      }
+    }
+    return module.rows;
+  }
+
+  function counterText(module) {
+    return module.blocks > 0
+      ? "1/" + module.blocks
+      : "0/0";
+  }
+
+  function buildList() {
+    var pane = element("aside", "panel module-pane");
+
+    pane.appendChild(element(
+      "div",
+      "module-pane-title",
+      "モジュール（" + modules.length + "）"));
+    GROUPS.forEach(function (group) {
+      var list;
+
+      if (!modules.some(function (module) {
+        return module.type === group.type;
+      })) {
+        return;
+      }
+      pane.appendChild(element(
+        "div",
+        "module-group-title",
+        group.title));
+      list = element("ul", "module-list");
+      modules.forEach(function (module, index) {
+        var row;
+
+        if (module.type !== group.type) {
+          return;
+        }
+        row = element("li", "module-row");
+        row.appendChild(buildItem(module, index));
+        list.appendChild(row);
+      });
+      pane.appendChild(list);
+    });
+    listHost.textContent = "";
+    listHost.appendChild(pane);
+  }
+
+  function buildItem(module, index) {
+    var item = element("button", "module-item");
+    var counts = element("span", "module-counts");
+
+    item.type = "button";
+    item.setAttribute("data-module-index", String(index));
+    item.classList.toggle("is-active", index === selected);
+    item.setAttribute(
+      "aria-pressed",
+      index === selected ? "true" : "false");
+    rowsOf(module);
+    item.appendChild(element(
+      "span",
+      "module-dot " + (module.changed ? "changed" : ""),
+      ""));
+    item.appendChild(element("span", "module-name", module.name));
+    counts.appendChild(element(
+      "span",
+      "module-count--add",
+      "+" + module.counts.added));
+    counts.appendChild(element(
+      "span",
+      "module-count--del",
+      "\u2212" + module.counts.removed));
+    item.appendChild(counts);
+    item.addEventListener("click", function () {
+      selected = index;
+      buildList();
+      renderModule();
+    });
+    return item;
+  }
+
+  function toggleButton(label, pressed, title, onClick) {
+    var button = element(
+      "button",
+      "button button--compact diff-toggle");
+
+    button.type = "button";
+    button.setAttribute("aria-pressed", pressed ? "true" : "false");
+    if (title) {
+      button.title = title;
+    }
+    button.appendChild(element("span", "button-label", label));
+    button.addEventListener("click", onClick);
+    return button;
+  }
+
+  function actionButton(label, onClick, disabled) {
+    var button = element("button", "button button--compact");
+
+    button.type = "button";
+    button.disabled = disabled === true;
+    button.appendChild(element("span", "button-label", label));
+    button.addEventListener("click", onClick);
+    return button;
+  }
+
+  function renderModule() {
+    var module = modules[selected];
+    var rows = rowsOf(module);
+    var workspace = element(
+      "div",
+      "step-three-workspace step-three-workspace--diff");
+    var toolbar = element("div", "diff-toolbar");
+    var resultGroup = element("div", "diff-result-group");
+    var actions = element("div", "diff-actions");
+    var tableHost = element("div", "diff-table-host");
+    var result = element(
+      "span",
+      "diff-result diff-result--" +
+        (module.changed ? "changed" : "unchanged"),
+      module.changed
+        ? "変更 " + module.changedLines + " 行"
+        : "変更なし");
+    var counter = element(
+      "span",
+      "diff-change-counter",
+      counterText(module));
+    var placeholder;
+
+    result.setAttribute("role", "status");
+    result.title = "追加・削除・変更された行の合計です";
+    resultGroup.appendChild(result);
+    resultGroup.appendChild(element(
+      "span",
+      "diff-result-note",
+      module.typeLabel));
+    if (!module.changed) {
+      resultGroup.appendChild(element(
+        "span",
+        "diff-result-note",
+        "このモジュールは変更していません"));
+    } else if (MacroStudioDiffView.hasWhitespaceOnlyChange(rows)) {
+      resultGroup.appendChild(element(
+        "span",
+        "diff-result-note",
+        "空白のみの変更を含む"));
+    }
+
+    actions.appendChild(actionButton(
+      "\u2191 前の変更",
+      function () {
+        MacroStudioDiffView.jumpToChange(tableHost, -1, counter);
+      },
+      module.blocks === 0));
+    actions.appendChild(actionButton(
+      "\u2193 次の変更",
+      function () {
+        MacroStudioDiffView.jumpToChange(tableHost, 1, counter);
+      },
+      module.blocks === 0));
+    actions.appendChild(counter);
+    actions.appendChild(toggleButton(
+      "変更箇所のみ",
+      module.changesOnly === true,
+      "変更のない行を畳んで、変更箇所だけを表示します",
+      function () {
+        module.changesOnly = module.changesOnly !== true;
+        renderModule();
+      }));
+    actions.appendChild(toggleButton(
+      "折り返し",
+      module.wrap !== false,
+      "長い行を折り返して全文を表示します",
+      function () {
+        module.wrap = module.wrap === false;
+        renderModule();
+      }));
+    actions.appendChild(themeButton());
+
+    toolbar.appendChild(resultGroup);
+    toolbar.appendChild(actions);
+    workspace.appendChild(toolbar);
+    workspace.appendChild(tableHost);
+    MacroStudioDiffView.renderDiff(
+      tableHost,
+      rows,
+      module.changesOnly === true,
+      module.wrap !== false,
+      LABELS);
+    if (module.isNew) {
+      placeholder = element("div", "diff-new-placeholder");
+      placeholder.appendChild(element(
+        "span",
+        "diff-new-placeholder-icon",
+        "\uFF0B"));
+      placeholder.appendChild(element(
+        "p",
+        "",
+        "新規モジュール — 元のコードはありません。" +
+          "全行が追加行になります。"));
+      tableHost.insertBefore(placeholder, tableHost.firstChild);
+    }
+    diffHost.textContent = "";
+    diffHost.appendChild(workspace);
+  }
+
+  function currentTheme() {
+    return document.documentElement.getAttribute("data-theme") ===
+      "dark" ? "dark" : "light";
+  }
+
+  function syncThemeButton(button, theme) {
+    var label = "テーマを切り替える（現在: " +
+      (theme === "dark" ? "ダーク" : "ライト") + "）";
+
+    if (!button) {
+      return;
+    }
+    button.querySelector(".theme-icon--moon").hidden =
+      theme === "dark";
+    button.querySelector(".theme-icon--sun").hidden =
+      theme !== "dark";
+    button.setAttribute("aria-label", label);
+    button.title = label;
+  }
+
+  function themeButton() {
+    var button = element(
+      "button",
+      "button button--compact button--icon report-theme");
+
+    button.type = "button";
+    button.id = "report-theme-toggle";
+    button.innerHTML = THEME_ICONS;
+    button.addEventListener("click", function () {
+      applyTheme(currentTheme() === "dark" ? "light" : "dark");
+    });
+    syncThemeButton(button, currentTheme());
+    return button;
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    syncThemeButton(
+      document.getElementById("report-theme-toggle"),
+      theme);
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch (error) {
+      /* The choice still applies to this page. */
+    }
+  }
+
+  // The report opens on the first module that changed, the way the
+  // review screen opens on what came in.
+  function firstChangedIndex() {
+    var index;
+
+    for (index = 0; index < modules.length; index += 1) {
+      if (modules[index].changed) {
+        return index;
+      }
+    }
+    return 0;
+  }
+
+  function start() {
+    listHost = document.getElementById("report-modules");
+    diffHost = document.getElementById("report-diff");
+    modules.forEach(function (module) {
+      rowsOf(module);
+    });
+    selected = firstChangedIndex();
+    // The switch is part of the toolbar, so it is built with every
+    // redraw and binds its own click there.
+    applyTheme(currentTheme());
+    buildList();
+    renderModule();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", start);
+  } else {
+    start();
+  }
+}());
+</script>
+</body>
+</html>

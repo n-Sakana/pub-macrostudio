@@ -1,0 +1,18 @@
+'@MACROSTUDIO 3c2aaac4-38cc-4ef0-9ad4-3f4fba3435dc DIAG BEGIN 1
+'@MACROSTUDIO 3c2aaac4-38cc-4ef0-9ad4-3f4fba3435dc SECTION BEGIN PURPOSE
+シート「作業」に集計結果を書き込むマクロです。データの取得はブック側のクエリが行います。
+'@MACROSTUDIO 3c2aaac4-38cc-4ef0-9ad4-3f4fba3435dc SECTION END PURPOSE
+'@MACROSTUDIO 3c2aaac4-38cc-4ef0-9ad4-3f4fba3435dc SECTION BEGIN FLOW
+RefreshData.RunLocalSummary が入口で、シート上の値を読んで集計し、結果を書き戻します。
+'@MACROSTUDIO 3c2aaac4-38cc-4ef0-9ad4-3f4fba3435dc SECTION END FLOW
+'@MACROSTUDIO 3c2aaac4-38cc-4ef0-9ad4-3f4fba3435dc SECTION BEGIN DEPENDENCY
+VBA コードの中には、外部ファイル、Win32 API、外部プログラム、参照ライブラリへの
+依存は見当たりません。データの取得先はコードの外にあります。
+'@MACROSTUDIO 3c2aaac4-38cc-4ef0-9ad4-3f4fba3435dc SECTION END DEPENDENCY
+'@MACROSTUDIO 3c2aaac4-38cc-4ef0-9ad4-3f4fba3435dc SECTION BEGIN ENVIRONMENT
+渡された VBA コードの範囲では、提示された環境で動作を妨げる要因を確認できませんでした。
+ただし、データの取得先や接続の設定はコードに現れないため、この範囲では判断できません。
+'@MACROSTUDIO 3c2aaac4-38cc-4ef0-9ad4-3f4fba3435dc SECTION END ENVIRONMENT
+'@MACROSTUDIO 3c2aaac4-38cc-4ef0-9ad4-3f4fba3435dc DIAG NOFINDING SCOPE_CLEAR
+'@MACROSTUDIO 3c2aaac4-38cc-4ef0-9ad4-3f4fba3435dc DIAG COMPLETE 0
+'@MACROSTUDIO 3c2aaac4-38cc-4ef0-9ad4-3f4fba3435dc DIAG END

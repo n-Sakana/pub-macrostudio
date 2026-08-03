@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background"/>
+  <rect id="page-rule" x="0" y="0" width="1280" height="6" fill="#24507F" data-pptx-role="decoration"/>
+
+  <g id="page-head" data-pptx-bounds="64 60 1152 116">
+    <text x="64" y="108" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="40" font-weight="700" fill="#1F2A37">4 つの手順と、10 の画面</text>
+    <text x="64" y="148" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" fill="#5D6B7A">進捗は常に 4 手順で固定です。用途によって変わりません。</text>
+    <rect x="64" y="168" width="1152" height="1" fill="#CFD7DE"/>
+  </g>
+
+  <g id="flow-band" data-pptx-bounds="64 188 1152 104">
+    <rect x="64" y="192" width="264" height="88" rx="10" fill="#24507F"/>
+    <text x="88" y="228" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#FFFFFF">手順 1</text>
+    <text x="88" y="258" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#FFFFFF">ブックを読み込む</text>
+    <rect x="360" y="192" width="264" height="88" rx="10" fill="#2B5C96"/>
+    <text x="384" y="228" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#FFFFFF">手順 2</text>
+    <text x="384" y="258" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#FFFFFF">診断する</text>
+    <rect x="656" y="192" width="264" height="88" rx="10" fill="#2B5C96"/>
+    <text x="680" y="228" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#FFFFFF">手順 3</text>
+    <text x="680" y="258" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#FFFFFF">改修を決めて実行する</text>
+    <rect x="952" y="192" width="264" height="88" rx="10" fill="#24507F"/>
+    <text x="976" y="228" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#FFFFFF">手順 4</text>
+    <text x="976" y="258" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#FFFFFF">ブックを作る</text>
+    <path d="M 336 236 L 352 236 M 346 230 L 352 236 L 346 242" fill="none" stroke="#5D6B7A" stroke-width="2"/>
+    <path d="M 632 236 L 648 236 M 642 230 L 648 236 L 642 242" fill="none" stroke="#5D6B7A" stroke-width="2"/>
+    <path d="M 928 236 L 944 236 M 938 230 L 944 236 L 938 242" fill="none" stroke="#5D6B7A" stroke-width="2"/>
+  </g>
+
+  <g id="screen-table" data-pptx-bounds="64 308 1152 300">
+    <rect x="64" y="308" width="1152" height="36" fill="#F2F6FB"/>
+    <text x="88" y="333" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#24507F">画面</text>
+    <text x="184" y="333" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#24507F">名前</text>
+    <text x="560" y="333" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#24507F">この画面で決めること</text>
+    <text x="88" y="371" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">0<tspan x="88" dy="26">1</tspan><tspan x="88" dy="26">2</tspan><tspan x="88" dy="26">3</tspan><tspan x="88" dy="26">4</tspan><tspan x="88" dy="26">5</tspan><tspan x="88" dy="26">6</tspan><tspan x="88" dy="26">7</tspan><tspan x="88" dy="26">8</tspan><tspan x="88" dy="26">9</tspan></text>
+    <text x="184" y="371" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#1F2A37">Excelブックを読み込みます<tspan x="184" dy="26">AIに診断してもらいます</tspan><tspan x="184" dy="26">診断結果を確認します</tspan><tspan x="184" dy="26">次にすることを選びます</tspan><tspan x="184" dy="26">改修する内容を決めます</tspan><tspan x="184" dy="26">AIに改修してもらいます</tspan><tspan x="184" dy="26">取り込んだ変更を確認します</tspan><tspan x="184" dy="26">作成する改修済みブックを確認します</tspan><tspan x="184" dy="26">改修済みブックをビルドしています</tspan><tspan x="184" dy="26">改修済みブックを作成しました</tspan></text>
+    <text x="560" y="371" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">対象のブック<tspan x="560" dy="26">診断依頼の受け渡しと、診断結果の取り込み</tspan><tspan x="560" dy="26">診断結果を読む（要約・概要・見つかった事実）</tspan><tspan x="560" dy="26">次にすること（ひな形。複数選べる）</tspan><tspan x="560" dy="26">置き換える内容と、改修する指摘の確認</tspan><tspan x="560" dy="26">改修依頼の受け渡しと、改修返答の取り込み</tspan><tspan x="560" dy="26">変更内容の確認（差分）</tspan><tspan x="560" dy="26">出力ファイル名</tspan><tspan x="560" dy="26">（自動）</tspan><tspan x="560" dy="26">出力フォルダを開く／完了</tspan></text>
+  </g>
+
+  <g id="branch-note" data-pptx-bounds="64 612 1152 40">
+    <text x="64" y="642" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">分岐は 2 か所だけです。どちらも画面は増えず、前へ進むボタンはどの画面でも［次へ］です。</text>
+  </g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 1152 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P04</text>
+    <text x="1216" y="676" text-anchor="end" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">このツールがすること</text>
+  </g>
+</svg>

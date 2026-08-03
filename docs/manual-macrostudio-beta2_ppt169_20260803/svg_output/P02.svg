@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background"/>
+  <rect id="page-rule" x="0" y="0" width="1280" height="6" fill="#24507F" data-pptx-role="decoration"/>
+
+  <g id="page-head" data-pptx-bounds="64 60 1152 120">
+    <text x="64" y="112" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="40" font-weight="700" fill="#1F2A37">この本の読み方</text>
+    <text x="64" y="154" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" fill="#5D6B7A">引用した画面の見出し・ボタン名・案内文は、実際の表示と同一です。</text>
+    <rect x="64" y="176" width="1152" height="1" fill="#CFD7DE"/>
+  </g>
+
+  <g id="read-ways" data-pptx-bounds="64 200 560 400">
+    <text x="64" y="228" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#24507F">どこから読むか</text>
+    <rect x="64" y="248" width="560" height="104" rx="10" fill="#F2F6FB"/>
+    <text x="88" y="284" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" font-weight="700" fill="#1F2A37">はじめて使う</text>
+    <text x="88" y="316" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">P04 の全体像から順に読みます。P06 からは<tspan x="88" dy="24">一件を通した作業例が続きます。</tspan></text>
+    <rect x="64" y="368" width="560" height="80" rx="10" fill="#F2F6FB"/>
+    <text x="88" y="404" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" font-weight="700" fill="#1F2A37">画面で迷った</text>
+    <text x="88" y="432" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">P04 の画面一覧から、その画面のページを引きます。</text>
+    <rect x="64" y="464" width="560" height="80" rx="10" fill="#F2F6FB"/>
+    <text x="88" y="500" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" font-weight="700" fill="#1F2A37">何を確かめるか知りたい</text>
+    <text x="88" y="528" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">P20 と P21 を読みます。</text>
+  </g>
+
+  <g id="book-rules" data-pptx-bounds="656 200 560 400">
+    <text x="656" y="228" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#24507F">この本の約束</text>
+    <rect x="656" y="248" width="560" height="296" rx="10" fill="none" stroke="#E2E7EC" stroke-width="1"/>
+    <text x="680" y="292" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" fill="#1F2A37">画面写真はすべて、現行版の実画面です。</text>
+    <rect x="680" y="316" width="512" height="1" fill="#E2E7EC"/>
+    <text x="680" y="356" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" fill="#1F2A37">ボタン名と案内文は、実装の文字列と同一です。</text>
+    <rect x="680" y="380" width="512" height="1" fill="#E2E7EC"/>
+    <text x="680" y="420" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" fill="#1F2A37">このツールが検証する範囲と、利用者が確かめる<tspan x="680" dy="26">範囲を分けて書きます。</tspan></text>
+    <rect x="680" y="470" width="512" height="1" fill="#E2E7EC"/>
+    <text x="680" y="510" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" fill="#1F2A37">連絡先や運用規程は扱いません。</text>
+  </g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 1152 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P02</text>
+    <text x="1216" y="676" text-anchor="end" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">このツールがすること</text>
+  </g>
+</svg>

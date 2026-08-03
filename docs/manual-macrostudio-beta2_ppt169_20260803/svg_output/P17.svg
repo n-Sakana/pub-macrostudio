@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background"/>
+  <rect id="page-rule" x="0" y="0" width="1280" height="6" fill="#24507F" data-pptx-role="decoration"/>
+
+  <g id="page-head" data-pptx-bounds="64 44 1152 140">
+    <rect x="64" y="52" width="150" height="28" rx="14" fill="#24507F"/>
+    <text x="80" y="72" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="15" fill="#FFFFFF">手順 3 ・ 画面 6</text>
+    <text x="64" y="128" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="40" font-weight="700" fill="#1F2A37">取り込んだ変更を確認します</text>
+    <text x="64" y="164" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" fill="#5D6B7A">差分は経路によらず、元のコードから最終形までを見せます。</text>
+    <rect x="64" y="180" width="1152" height="1" fill="#CFD7DE"/>
+  </g>
+
+  <g id="shot-review" data-pptx-bounds="64 200 700 448">
+    <rect x="64" y="200" width="700" height="420" rx="12" fill="#FAFBFC" stroke="#E2E7EC" stroke-width="1"/>
+    <image x="80" y="216" width="668" height="376" href="images/17-review.png" preserveAspectRatio="xMidYMid meet"/>
+    <text x="64" y="640" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#5D6B7A">左にモジュール一覧、右に差分。追加行と削除行は色で分かれます。</text>
+  </g>
+
+  <g id="merged-note" data-pptx-bounds="796 200 420 216">
+    <rect x="796" y="200" width="420" height="196" rx="10" fill="#F2F6FB"/>
+    <text x="820" y="238" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#24507F">2 つの作業が 1 つの差分に</text>
+    <text x="820" y="272" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#1F2A37">手元で行った置き換えと、AI が返した<tspan x="820" dy="26">改修は、1 つの差分にまとまります。</tspan><tspan x="820" dy="26">この画面から先は、変更がどちらから</tspan><tspan x="820" dy="26">来たかを区別しません。</tspan></text>
+  </g>
+
+  <g id="redo-note" data-pptx-bounds="796 432 420 216">
+    <rect x="796" y="432" width="420" height="196" rx="10" fill="#FFFFFF" stroke="#CFD7DE" stroke-width="1"/>
+    <rect x="796" y="432" width="5" height="196" rx="2.5" fill="#C05B21"/>
+    <text x="824" y="470" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#C05B21">想定外の変更や不足があるとき</text>
+    <text x="824" y="504" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#1F2A37">［戻る］で依頼をやり直せます。<tspan x="824" dy="26">取り込み直すと、それに基づく下流</tspan><tspan x="824" dy="26">（差分・出力名）はすべて捨てられ</tspan><tspan x="824" dy="26">ます。中途半端には残りません。</tspan></text>
+  </g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 1152 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P17</text>
+    <text x="1216" y="676" text-anchor="end" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">通しの作業事例</text>
+  </g>
+</svg>

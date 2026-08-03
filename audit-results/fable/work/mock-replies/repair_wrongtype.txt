@@ -1,0 +1,43 @@
+お待たせしました。ご依頼の改修が完了しましたので、以下のコードブロックをお使いください。
+
+```vba
+'@MACROSTUDIO 1bc0a25c-8855-4b1c-a12a-574070365da8 SUMMARY BEGIN
+TimerUtils から Windows の Sleep 関数への依存を取り除きました。
+待ち時間の処理は、新しい標準モジュール WaitSupport に VBA の標準機能だけで
+作った WaitMilliseconds へ置き換えています。経過時間の計算結果は変わりません。
+ほかのモジュールは変更していません。
+'@MACROSTUDIO 1bc0a25c-8855-4b1c-a12a-574070365da8 SUMMARY END
+'@MACROSTUDIO 1bc0a25c-8855-4b1c-a12a-574070365da8 BEGIN class TimerUtils
+Option Explicit
+
+Public Function ElapsedSeconds(ByVal startedAt As Date, _
+    ByVal finishedAt As Date) As Double
+    WaitSupport.WaitMilliseconds 15
+    ElapsedSeconds = (finishedAt - startedAt) * 86400#
+    If ElapsedSeconds < 0 Then ElapsedSeconds = 0
+End Function
+'@MACROSTUDIO 1bc0a25c-8855-4b1c-a12a-574070365da8 END class TimerUtils
+'@MACROSTUDIO 1bc0a25c-8855-4b1c-a12a-574070365da8 BEGIN standard WaitSupport
+Option Explicit
+
+' Win32 API を使わずに待つための共通モジュールです。
+' Timer はその日の 0 時からの秒数を返すため、日付をまたいだ場合は
+' 待ちを打ち切って安全側に倒します。
+Public Sub WaitMilliseconds(ByVal milliseconds As Long)
+    Dim startAt As Double
+    Dim finishAt As Double
+
+    If milliseconds <= 0 Then Exit Sub
+    startAt = Timer
+    finishAt = startAt + (milliseconds / 1000#)
+    Do While Timer < finishAt
+        DoEvents
+        If Timer < startAt Then Exit Do
+    Loop
+End Sub
+'@MACROSTUDIO 1bc0a25c-8855-4b1c-a12a-574070365da8 END standard WaitSupport
+'@MACROSTUDIO 1bc0a25c-8855-4b1c-a12a-574070365da8 COMPLETE 2
+```
+
+以上です。ほかにもお手伝いできることがあれば教えてください。
+

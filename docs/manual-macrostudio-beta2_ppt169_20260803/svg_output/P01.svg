@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="cover">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background"/>
+  <rect id="page-rule" x="0" y="0" width="1280" height="8" fill="#24507F" data-pptx-role="decoration"/>
+
+  <g id="cover-title" data-pptx-bounds="64 120 1152 240">
+    <rect x="64" y="140" width="56" height="5" rx="2.5" fill="#C05B21"/>
+    <text x="64" y="216" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="54" font-weight="700" fill="#1F2A37">MacroStudio</text>
+    <text x="64" y="288" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="54" font-weight="700" fill="#24507F">βv2.00 操作マニュアル</text>
+    <text x="64" y="340" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="26" fill="#5D6B7A">Excel マクロを、新しい環境で動く形へ直す</text>
+  </g>
+
+  <g id="cover-claim" data-pptx-bounds="64 396 576 128">
+    <rect x="64" y="396" width="560" height="118" rx="10" fill="#F2F6FB"/>
+    <text x="88" y="438" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#24507F">何をするかは、マクロを見てから決める。</text>
+    <text x="88" y="474" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">読み込む → 診断する →<tspan x="88" dy="24">改修を決めて実行する → ブックを作る</tspan></text>
+  </g>
+
+  <g id="cover-meta" data-pptx-bounds="64 540 576 96">
+    <rect x="64" y="546" width="560" height="1" fill="#CFD7DE"/>
+    <text x="64" y="580" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#5D6B7A">beta 2.0.0<tspan x="64" dy="24">2026-08-03</tspan></text>
+  </g>
+
+  <g id="cover-shot" data-pptx-bounds="660 372 556 300">
+    <rect x="660" y="372" width="556" height="292" rx="14" fill="#FAFBFC"/>
+    <rect x="660" y="372" width="556" height="292" rx="14" fill="none" stroke="#E2E7EC" stroke-width="1"/>
+    <image x="676" y="388" width="524" height="295" href="images/21-done.png" preserveAspectRatio="xMidYMid meet"/>
+  </g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 560 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P01</text>
+  </g>
+</svg>

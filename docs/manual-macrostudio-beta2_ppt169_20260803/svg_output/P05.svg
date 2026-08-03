@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background"/>
+  <rect id="page-rule" x="0" y="0" width="1280" height="6" fill="#24507F" data-pptx-role="decoration"/>
+
+  <g id="page-head" data-pptx-bounds="64 60 1152 116">
+    <text x="64" y="108" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="40" font-weight="700" fill="#1F2A37">用意するものと、できるもの</text>
+    <text x="64" y="148" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" fill="#5D6B7A">元のブックのファイルには、どの作業でも書き込みません。</text>
+    <rect x="64" y="168" width="1152" height="1" fill="#CFD7DE"/>
+  </g>
+
+  <g id="prepare" data-pptx-bounds="64 192 552 260">
+    <text x="64" y="220" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#24507F">用意するもの</text>
+    <rect x="64" y="236" width="544" height="212" rx="10" fill="#F2F6FB"/>
+    <text x="88" y="276" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#1F2A37">対象のブック</text>
+    <text x="88" y="304" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">.xlsm / .xlam / .xlsb / .xls</text>
+    <text x="88" y="348" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#1F2A37">業務で使えるチャット AI</text>
+    <text x="88" y="376" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">依頼文を貼り、ファイルを添付できるもの</text>
+    <text x="88" y="420" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#1F2A37">Excel</text>
+  </g>
+
+  <g id="outputs" data-pptx-bounds="640 192 576 260">
+    <text x="640" y="220" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#24507F">作業のあとに増えるファイル</text>
+    <rect x="640" y="236" width="576" height="212" rx="10" fill="none" stroke="#E2E7EC" stroke-width="1"/>
+    <text x="664" y="272" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="18" fill="#1F2A37">改修済みブック（別名の新しいファイル）<tspan x="664" dy="28">差分の確認レポート（HTML）</tspan><tspan x="664" dy="28">result.md（改修の概要メモ）</tspan><tspan x="664" dy="28">diagnose-request.md / repair-request.md</tspan><tspan x="664" dy="28">source-code.md / diagnosis.md</tspan><tspan x="664" dy="28">run-manifest.json</tspan></text>
+  </g>
+
+  <g id="folder-note" data-pptx-bounds="64 470 1152 96">
+    <rect x="64" y="470" width="1152" height="88" rx="10" fill="#FFFFFF" stroke="#CFD7DE" stroke-width="1"/>
+    <rect x="64" y="470" width="5" height="88" rx="2.5" fill="#3A7A47"/>
+    <text x="92" y="506" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#1F2A37">増えるファイルは、すべて 1 つの実行フォルダの中にまとまります。</text>
+    <text x="92" y="538" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">元のブックと同じ場所に、ブック名と日時からできたフォルダが作られます。散らばりません。</text>
+  </g>
+
+  <g id="unchanged-note" data-pptx-bounds="64 578 1152 68">
+    <rect x="64" y="578" width="1152" height="64" rx="10" fill="#F2F6FB"/>
+    <text x="92" y="618" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" fill="#1F2A37">元のブックは、読み取るだけで変更しません。作業をやり直しても、元のファイルは同じままです。</text>
+  </g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 1152 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P05</text>
+    <text x="1216" y="676" text-anchor="end" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">このツールがすること</text>
+  </g>
+</svg>

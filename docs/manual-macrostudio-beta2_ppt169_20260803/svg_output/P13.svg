@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background"/>
+  <rect id="page-rule" x="0" y="0" width="1280" height="6" fill="#24507F" data-pptx-role="decoration"/>
+
+  <g id="page-head" data-pptx-bounds="64 44 1152 140">
+    <rect x="64" y="52" width="150" height="28" rx="14" fill="#24507F"/>
+    <text x="80" y="72" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="15" fill="#FFFFFF">手順 3 ・ 画面 3</text>
+    <text x="64" y="128" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="40" font-weight="700" fill="#1F2A37">次にすることを選びます</text>
+    <text x="64" y="164" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" fill="#5D6B7A">ひな形は複数選べます。選んだ順ではなく、並んでいる順で 1 通の依頼にまとまります。</text>
+    <rect x="64" y="180" width="1152" height="1" fill="#CFD7DE"/>
+  </g>
+
+  <g id="shot-cards" data-pptx-bounds="64 200 560 384">
+    <rect x="64" y="200" width="560" height="336" rx="12" fill="#FAFBFC" stroke="#E2E7EC" stroke-width="1"/>
+    <image x="80" y="216" width="528" height="297" href="images/10-nextstep.png" preserveAspectRatio="xMidYMid meet"/>
+    <text x="64" y="566" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">画面に着いた時点で、推奨のひな形は既に選ばれています。</text>
+  </g>
+
+  <g id="shot-both" data-pptx-bounds="656 200 560 384">
+    <rect x="656" y="200" width="560" height="336" rx="12" fill="#FAFBFC" stroke="#E2E7EC" stroke-width="1"/>
+    <image x="672" y="216" width="528" height="297" href="images/11-nextstep-both.png" preserveAspectRatio="xMidYMid meet"/>
+    <text x="656" y="566" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">2 枚目を足したところ。右肩に両方の名前が並びます。</text>
+  </g>
+
+  <g id="page-note" data-pptx-bounds="64 596 1152 52">
+    <rect x="64" y="596" width="1152" height="48" rx="10" fill="#F2F6FB"/>
+    <text x="92" y="626" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="18" fill="#1F2A37">★ 推奨 は、そのひな形が挙げている環境の前提を、受理した診断が名指ししているときだけ出ます。根拠のない推奨は出ません。</text>
+  </g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 1152 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P13</text>
+    <text x="1216" y="676" text-anchor="end" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">通しの作業事例</text>
+  </g>
+</svg>

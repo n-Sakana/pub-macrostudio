@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background" />
+  <rect id="page-rule" x="0" y="0" width="1280" height="6" fill="#C05B21" data-pptx-role="decoration" />
+
+  <g id="page-head" data-pptx-bounds="64 60 1152 116">
+    <text x="64" y="108" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="40" font-weight="700" fill="#1F2A37">例に使うブックと、この 1 回で行うこと</text>
+    <text x="64" y="148" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" fill="#5D6B7A">ひな形は複数選べるので、種類の違う作業を 1 回の実行でまとめて行えます。</text>
+    <rect x="64" y="168" width="1152" height="1" fill="#CFD7DE" />
+  </g>
+
+  <g id="book-facts" data-pptx-bounds="64 192 552 300">
+    <text x="64" y="220" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#24507F">sample_share_and_win32.xlsm</text>
+    <text x="64" y="248" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">経理課の請求データ月次集計マクロ。コードは 3 モジュール・188 行</text>
+    <rect x="64" y="266" width="544" height="36" fill="#F2F6FB" />
+    <text x="88" y="291" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#24507F">モジュール</text>
+    <text x="256" y="291" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#24507F">行</text>
+    <text x="312" y="291" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#24507F">何を持っているか</text>
+    <text font-size="17" fill="#1F2A37" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="88" y="330">BillingReport</text><text font-size="17" fill="#1F2A37" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="88" y="382">TimerUtils</text><text font-size="17" fill="#1F2A37" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="88" y="434">ShareExport</text><text font-size="17" fill="#5D6B7A" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="256" y="330">69</text><text font-size="17" fill="#5D6B7A" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="256" y="382">43</text><text font-size="17" fill="#5D6B7A" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="256" y="434">76</text><text font-size="17" fill="#5D6B7A" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="312" y="330">入口。明細を集計する</text><text font-size="17" fill="#5D6B7A" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="312" y="382">Windows の関数を直接呼ぶ待機</text><text font-size="17" fill="#5D6B7A" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="312" y="434">固定の保存先。入口からは呼ばない</text></g>
+
+  <g id="two-jobs" data-pptx-bounds="640 192 576 300">
+    <text x="640" y="220" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#24507F">この 1 回で行うこと</text>
+    <rect x="640" y="240" width="576" height="120" rx="10" fill="#F2F6FB" />
+    <text x="664" y="278" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" font-weight="700" fill="#1F2A37">1. 固定パスを新しい場所へ置き換える</text>
+    <text font-size="17" fill="#5D6B7A" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="664" y="310">対応表に新しい値を入れて実行します。</text><text font-size="17" fill="#5D6B7A" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="664" y="334">手元で完結し、AI へは渡しません。</text><rect x="640" y="376" width="576" height="120" rx="10" fill="#F2F6FB" />
+    <text x="664" y="414" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" font-weight="700" fill="#1F2A37">2. Win32 API を使わない形へ直す</text>
+    <text font-size="17" fill="#5D6B7A" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="664" y="446">依頼文とコードをチャット AI へ渡し、</text><text font-size="17" fill="#5D6B7A" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="664" y="470">返ってきたコードを取り込みます。</text></g>
+
+  <g id="order-note" data-pptx-bounds="64 512 1152 128">
+    <rect x="64" y="512" width="1152" height="120" rx="10" fill="#FFFFFF" stroke="#CFD7DE" stroke-width="1" />
+    <rect x="64" y="512" width="5" height="120" rx="2.5" fill="#C05B21" />
+    <text x="92" y="550" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" font-weight="700" fill="#C05B21">順序は決まっています。置き換えが先です。</text>
+    <text font-size="18" fill="#1F2A37" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="92" y="584">置き換える予定の行を含んだコードを AI へ渡すと、返ってきたコードに古い値が残ります。</text><text font-size="18" fill="#1F2A37" font-family="'Yu Gothic UI','Segoe UI',sans-serif" x="92" y="612">そこで画面 4 が 2 段になり、先に置き換えてから、その結果のコードを AI へ渡します。画面は増えません。</text></g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 1152 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P06</text>
+    <text x="1216" y="676" text-anchor="end" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">通しの作業事例</text>
+  </g>
+</svg>

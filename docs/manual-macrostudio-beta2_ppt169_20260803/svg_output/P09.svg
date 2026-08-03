@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background"/>
+  <rect id="page-rule" x="0" y="0" width="1280" height="6" fill="#2B5C96" data-pptx-role="decoration"/>
+
+  <g id="page-head" data-pptx-bounds="64 44 1152 140">
+    <rect x="64" y="52" width="150" height="28" rx="14" fill="#2B5C96"/>
+    <text x="80" y="72" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="15" fill="#FFFFFF">手順 2 ・ 画面 1</text>
+    <text x="64" y="128" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="40" font-weight="700" fill="#1F2A37">AIに診断してもらいます</text>
+    <text x="64" y="164" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" fill="#5D6B7A">この段階では直し方を決めません。何が起きるかの事実を確かめるだけです。</text>
+    <rect x="64" y="180" width="1152" height="1" fill="#CFD7DE"/>
+  </g>
+
+  <g id="shot-request" data-pptx-bounds="64 200 560 384">
+    <rect x="64" y="200" width="560" height="336" rx="12" fill="#FAFBFC" stroke="#E2E7EC" stroke-width="1"/>
+    <image x="80" y="216" width="528" height="297" href="images/04-diagnose-request.png" preserveAspectRatio="xMidYMid meet"/>
+    <text x="64" y="566" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">渡すことと取り込むことが、同じ画面にあります。</text>
+  </g>
+
+  <g id="shot-environment" data-pptx-bounds="656 200 560 384">
+    <rect x="656" y="200" width="560" height="336" rx="12" fill="#FAFBFC" stroke="#E2E7EC" stroke-width="1"/>
+    <image x="672" y="216" width="528" height="297" href="images/05-diagnose-environment.png" preserveAspectRatio="xMidYMid meet"/>
+    <text x="656" y="566" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">「この診断が前提にしている環境」を開いたところ。</text>
+  </g>
+
+  <g id="page-note" data-pptx-bounds="64 596 1152 52">
+    <rect x="64" y="596" width="1152" height="48" rx="10" fill="#F2F6FB"/>
+    <text x="92" y="626" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="18" fill="#1F2A37">［依頼文をコピー］で AI へ貼り付け、［ファイルの場所を開く］で開いたフォルダの source-code-for-ai.md を添付します。</text>
+  </g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 1152 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P09</text>
+    <text x="1216" y="676" text-anchor="end" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">通しの作業事例</text>
+  </g>
+</svg>

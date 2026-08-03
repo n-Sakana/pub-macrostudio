@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background"/>
+  <rect id="page-rule" x="0" y="0" width="1280" height="6" fill="#C05B21" data-pptx-role="decoration"/>
+
+  <g id="page-head" data-pptx-bounds="64 44 1152 140">
+    <rect x="64" y="52" width="176" height="28" rx="14" fill="#C05B21"/>
+    <text x="80" y="72" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="15" fill="#FFFFFF">ここから先は人の作業</text>
+    <text x="64" y="128" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="40" font-weight="700" fill="#1F2A37">Excelで動作を確認します</text>
+    <text x="64" y="164" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" fill="#5D6B7A">このツールはマクロを実行しません。照合するのは書き込みの正確さだけです。</text>
+    <rect x="64" y="180" width="1152" height="1" fill="#CFD7DE"/>
+  </g>
+
+  <g id="shot-followup" data-pptx-bounds="64 200 620 406">
+    <rect x="64" y="200" width="620" height="372" rx="12" fill="#FAFBFC" stroke="#E2E7EC" stroke-width="1"/>
+    <image x="80" y="216" width="588" height="331" href="images/22-done-followup.png" preserveAspectRatio="xMidYMid meet"/>
+    <text x="64" y="596" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#5D6B7A">完了画面の「このあと人が確かめること」を開いたところ。</text>
+  </g>
+
+  <g id="check-steps" data-pptx-bounds="716 200 500 268">
+    <text x="716" y="228" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" font-weight="700" fill="#24507F">確認の手順</text>
+    <rect x="716" y="244" width="500" height="212" rx="10" fill="#F2F6FB"/>
+    <text x="740" y="282" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="18" fill="#1F2A37">1. 出力フォルダの改修済みブックを<tspan x="740" dy="26">　Excel で開く</tspan><tspan x="740" dy="34">2. マクロを有効にする</tspan><tspan x="740" dy="34">3. いつも使う入口のマクロを実行する</tspan><tspan x="740" dy="34">4. 結果がこれまでと同じか確かめる</tspan></text>
+  </g>
+
+  <g id="signature-note" data-pptx-bounds="716 470 500 180">
+    <rect x="716" y="470" width="500" height="178" rx="10" fill="#FFFFFF" stroke="#CFD7DE" stroke-width="1"/>
+    <rect x="716" y="470" width="5" height="178" rx="2.5" fill="#C05B21"/>
+    <text x="744" y="506" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#C05B21">署名は外れます</text>
+    <text x="744" y="540" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#1F2A37">元のブックにコード署名があった場合、<tspan x="744" dy="24">改修済みブックには付いていません。</tspan><tspan x="744" dy="24">コードを書き換えたため、元の署名は</tspan><tspan x="744" dy="24">内容と一致しなくなります。配布する</tspan><tspan x="744" dy="24">前に署名し直してください。</tspan></text>
+  </g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 1152 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P20</text>
+    <text x="1216" y="676" text-anchor="end" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">確かめること・別の進め方</text>
+  </g>
+</svg>

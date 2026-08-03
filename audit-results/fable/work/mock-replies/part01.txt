@@ -1,0 +1,19 @@
+'@MACROSTUDIO 310f4b83-1a45-436f-be5c-0cb8431cb14e PART 01 OF 02
+'@MACROSTUDIO 310f4b83-1a45-436f-be5c-0cb8431cb14e BEGIN standard WaitSupport
+Option Explicit
+
+' Win32 API を使わずに待つための共通モジュールです。
+Public Sub WaitMilliseconds(ByVal milliseconds As Long)
+    Dim startAt As Double
+    Dim finishAt As Double
+
+    If milliseconds <= 0 Then Exit Sub
+    startAt = Timer
+    finishAt = startAt + (milliseconds / 1000#)
+    Do While Timer < finishAt
+        DoEvents
+        If Timer < startAt Then Exit Do
+    Loop
+End Sub
+'@MACROSTUDIO 310f4b83-1a45-436f-be5c-0cb8431cb14e END standard WaitSupport
+'@MACROSTUDIO 310f4b83-1a45-436f-be5c-0cb8431cb14e COMPLETE 1

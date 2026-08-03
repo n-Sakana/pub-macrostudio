@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background"/>
+  <rect id="page-rule" x="0" y="0" width="1280" height="6" fill="#24507F" data-pptx-role="decoration"/>
+
+  <g id="page-head" data-pptx-bounds="64 44 1152 140">
+    <rect x="64" y="52" width="188" height="28" rx="14" fill="#24507F"/>
+    <text x="80" y="72" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="15" fill="#FFFFFF">手順 4 ・ 画面 8・9</text>
+    <text x="64" y="128" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="40" font-weight="700" fill="#1F2A37">改修済みブックを作成します</text>
+    <text x="64" y="164" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" fill="#5D6B7A">書き戻したあとブックを読み直し、取り込んだコードがそのとおり入っているか照合します。</text>
+    <rect x="64" y="180" width="1152" height="1" fill="#CFD7DE"/>
+  </g>
+
+  <g id="shot-build" data-pptx-bounds="64 200 560 360">
+    <rect x="64" y="200" width="560" height="320" rx="12" fill="#FAFBFC" stroke="#E2E7EC" stroke-width="1"/>
+    <image x="80" y="216" width="528" height="297" href="images/20-build.png" preserveAspectRatio="xMidYMid meet"/>
+    <text x="64" y="546" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">ビルド中。ここだけは［戻る］が使えません。</text>
+  </g>
+
+  <g id="shot-done" data-pptx-bounds="656 200 560 360">
+    <rect x="656" y="200" width="560" height="320" rx="12" fill="#FAFBFC" stroke="#E2E7EC" stroke-width="1"/>
+    <image x="672" y="216" width="528" height="297" href="images/21-done.png" preserveAspectRatio="xMidYMid meet"/>
+    <text x="656" y="546" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">完了。［出力フォルダをエクスプローラーで開く］が出ます。</text>
+  </g>
+
+  <g id="folder-files" data-pptx-bounds="64 564 1152 84">
+    <rect x="64" y="564" width="1152" height="82" rx="10" fill="#F2F6FB"/>
+    <text x="88" y="592" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#24507F">このフォルダに残るもの</text>
+    <text x="88" y="618" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#1F2A37">改修済みブック ／ 差分の確認レポート ／ result.md ／ run-manifest.json<tspan x="88" dy="22">diagnose-request.md ／ repair-request.md ／ source-code.md ／ diagnosis.md</tspan></text>
+  </g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 1152 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P19</text>
+    <text x="1216" y="676" text-anchor="end" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">通しの作業事例</text>
+  </g>
+</svg>

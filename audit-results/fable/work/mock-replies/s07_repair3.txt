@@ -1,0 +1,22 @@
+'@MACROSTUDIO 361683bc-e16f-417d-8dbe-246723df4782 SUMMARY BEGIN
+RefreshData に、集計が失敗したときの理由を残すエラー処理を追加しました。
+処理の順序と書き込み先は変えていません。
+'@MACROSTUDIO 361683bc-e16f-417d-8dbe-246723df4782 SUMMARY END
+'@MACROSTUDIO 361683bc-e16f-417d-8dbe-246723df4782 BEGIN standard RefreshData
+Option Explicit
+
+Public Sub RunLocalSummary()
+    On Error GoTo HandleError
+
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Worksheets("作業")
+    ws.Range("B2").Value = "集計済み"
+    Exit Sub
+
+HandleError:
+    ThisWorkbook.Worksheets("作業").Range("B9").Value = _
+        "集計に失敗しました: " & Err.Number & " " & Err.Description
+End Sub
+'@MACROSTUDIO 361683bc-e16f-417d-8dbe-246723df4782 END standard RefreshData
+'@MACROSTUDIO 361683bc-e16f-417d-8dbe-246723df4782 COMPLETE 1
+

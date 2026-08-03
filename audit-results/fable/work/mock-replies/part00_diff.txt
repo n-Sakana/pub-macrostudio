@@ -1,0 +1,17 @@
+'@MACROSTUDIO 310f4b83-1a45-436f-be5c-0cb8431cb14e SUMMARY BEGIN
+TimerUtils から Windows の Sleep 関数への依存を取り除きました。
+待ち時間の処理は、新しい標準モジュール WaitSupport の WaitMilliseconds へ
+置き換えています。まず TimerUtils を送ります。
+'@MACROSTUDIO 310f4b83-1a45-436f-be5c-0cb8431cb14e SUMMARY END
+'@MACROSTUDIO 310f4b83-1a45-436f-be5c-0cb8431cb14e PART 00 OF 02
+'@MACROSTUDIO 310f4b83-1a45-436f-be5c-0cb8431cb14e BEGIN standard TimerUtils
+Option Explicit
+
+Public Function ElapsedSeconds(ByVal startedAt As Date, _
+    ByVal finishedAt As Date) As Double
+    ElapsedSeconds = (finishedAt - startedAt) * 99999#
+    If ElapsedSeconds < 0 Then ElapsedSeconds = 0
+End Function
+'@MACROSTUDIO 310f4b83-1a45-436f-be5c-0cb8431cb14e END standard TimerUtils
+'@MACROSTUDIO 310f4b83-1a45-436f-be5c-0cb8431cb14e COMPLETE 1
+

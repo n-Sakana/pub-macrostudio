@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background"/>
+  <rect id="page-rule" x="0" y="0" width="1280" height="6" fill="#24507F" data-pptx-role="decoration"/>
+
+  <g id="page-head" data-pptx-bounds="64 44 1152 140">
+    <rect x="64" y="52" width="150" height="28" rx="14" fill="#24507F"/>
+    <text x="80" y="72" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="15" fill="#FFFFFF">手順 3 ・ 画面 2</text>
+    <text x="64" y="128" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="40" font-weight="700" fill="#1F2A37">診断結果を確認します</text>
+    <text x="64" y="164" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" fill="#5D6B7A">上部の件数は問題の数です。該当箇所の数は括弧で添えられます。</text>
+    <rect x="64" y="180" width="1152" height="1" fill="#CFD7DE"/>
+  </g>
+
+  <g id="shot-findings" data-pptx-bounds="64 200 700 448">
+    <rect x="64" y="200" width="700" height="420" rx="12" fill="#FAFBFC" stroke="#E2E7EC" stroke-width="1"/>
+    <image x="80" y="216" width="668" height="376" href="images/08-findings.png" preserveAspectRatio="xMidYMid meet"/>
+    <text x="64" y="640" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#5D6B7A">結論帯・概要・見つかった事実の順に並びます。</text>
+  </g>
+
+  <g id="three-tier" data-pptx-bounds="796 200 420 448">
+    <text x="796" y="228" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" font-weight="700" fill="#24507F">3 段で見せます</text>
+    <rect x="796" y="244" width="420" height="76" rx="10" fill="#F2F6FB"/>
+    <text x="820" y="276" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="18" font-weight="700" fill="#1F2A37">1. 作業の種類</text>
+    <text x="820" y="302" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#5D6B7A">Win32 API・パス操作・参照ライブラリ・接続先</text>
+    <rect x="796" y="332" width="420" height="76" rx="10" fill="#F2F6FB"/>
+    <text x="820" y="364" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="18" font-weight="700" fill="#1F2A37">2. 問題</text>
+    <text x="820" y="390" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#5D6B7A">同じ環境の前提を名指しした指摘は 1 つの問題</text>
+    <rect x="796" y="420" width="420" height="76" rx="10" fill="#F2F6FB"/>
+    <text x="820" y="452" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="18" font-weight="700" fill="#1F2A37">3. 該当箇所</text>
+    <text x="820" y="478" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#5D6B7A">開いたときだけ出ます</text>
+    <rect x="796" y="516" width="420" height="104" rx="10" fill="none" stroke="#E2E7EC" stroke-width="1"/>
+    <text x="820" y="550" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#1F2A37">指摘が 1 件も無いときは<tspan x="820" dy="26">「この監査範囲では動作阻害要因を</tspan><tspan x="820" dy="26">確認できませんでした。」と出ます。</tspan></text>
+  </g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 1152 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P11</text>
+    <text x="1216" y="676" text-anchor="end" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">通しの作業事例</text>
+  </g>
+</svg>

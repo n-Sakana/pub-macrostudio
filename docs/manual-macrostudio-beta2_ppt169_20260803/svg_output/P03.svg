@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background"/>
+  <rect id="page-rule" x="0" y="0" width="1280" height="6" fill="#24507F" data-pptx-role="decoration"/>
+
+  <g id="page-head" data-pptx-bounds="64 60 1152 120">
+    <text x="64" y="112" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="40" font-weight="700" fill="#1F2A37">このツールがすること、しないこと</text>
+    <text x="64" y="154" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" fill="#5D6B7A">判断はチャット AI、検証と書き戻しは MacroStudio、動作確認は利用者が行います。</text>
+    <rect x="64" y="176" width="1152" height="1" fill="#CFD7DE"/>
+  </g>
+
+  <g id="does" data-pptx-bounds="64 200 560 340">
+    <rect x="64" y="200" width="560" height="316" rx="10" fill="#F2F6FB"/>
+    <text x="88" y="240" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#24507F">します</text>
+    <text x="88" y="284" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" fill="#1F2A37">ブックから VBA のコードを読み取る<tspan x="88" dy="34">依頼文と、添付するコードのファイルを作る</tspan><tspan x="88" dy="34">AI の返答を機械的に検証する</tspan><tspan x="88" dy="34">固定パスの候補を、字句として検出する</tspan><tspan x="88" dy="34">変更内容を差分で見せる</tspan><tspan x="88" dy="34">元のブックのコピーへ書き戻し、読み直して照合する</tspan></text>
+  </g>
+
+  <g id="does-not" data-pptx-bounds="656 200 560 340">
+    <rect x="656" y="200" width="560" height="316" rx="10" fill="none" stroke="#E2E7EC" stroke-width="1"/>
+    <text x="680" y="240" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="22" font-weight="700" fill="#C05B21">しません</text>
+    <text x="680" y="284" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" fill="#1F2A37">どこをどう直すかを決める<tspan x="680" dy="34">マクロを実行する</tspan><tspan x="680" dy="34">返答の文章から意味を推測して取り込む</tspan><tspan x="680" dy="34">元のブックのファイルに書き込む</tspan><tspan x="680" dy="34">改修後のマクロの動作を確認する</tspan></text>
+  </g>
+
+  <g id="local-note" data-pptx-bounds="64 540 1152 96">
+    <rect x="64" y="540" width="1152" height="88" rx="10" fill="#FFFFFF" stroke="#CFD7DE" stroke-width="1"/>
+    <rect x="64" y="540" width="5" height="88" rx="2.5" fill="#24507F"/>
+    <text x="92" y="576" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#24507F">チャット AI は、利用者の操作で受け渡す外部サービスです。</text>
+    <text x="92" y="608" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#5D6B7A">MacroStudio 自体の処理（読み取り・依頼文の作成・検証・置き換え・差分・書き戻し）は手元で完結します。</text>
+  </g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 1152 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P03</text>
+    <text x="1216" y="676" text-anchor="end" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">このツールがすること</text>
+  </g>
+</svg>

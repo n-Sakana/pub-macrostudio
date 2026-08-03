@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="1280" height="720" data-pptx-page-role="content">
+  <rect id="page-bg" x="0" y="0" width="1280" height="720" fill="#FFFFFF" data-pptx-role="background"/>
+  <rect id="page-rule" x="0" y="0" width="1280" height="6" fill="#C05B21" data-pptx-role="decoration"/>
+
+  <g id="page-head" data-pptx-bounds="64 44 1152 140">
+    <rect x="64" y="52" width="196" height="28" rx="14" fill="#C05B21"/>
+    <text x="80" y="72" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="15" fill="#FFFFFF">手順 3 ・ 画面 4 下段</text>
+    <text x="64" y="128" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="40" font-weight="700" fill="#1F2A37">続けて、AIへ頼む内容を決めます</text>
+    <text x="64" y="164" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" fill="#5D6B7A">画面は増えません。同じ画面 4 が、置き換えのあとに改修する指摘の確認へ変わります。</text>
+    <rect x="64" y="180" width="1152" height="1" fill="#CFD7DE"/>
+  </g>
+
+  <g id="shot-ai-stage" data-pptx-bounds="64 200 700 448">
+    <rect x="64" y="200" width="700" height="420" rx="12" fill="#FAFBFC" stroke="#E2E7EC" stroke-width="1"/>
+    <image x="80" y="216" width="668" height="376" href="images/14-repairinput-ai.png" preserveAspectRatio="xMidYMid meet"/>
+    <text x="64" y="640" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="16" fill="#5D6B7A">置き換えが済んだあとの、同じ画面 4。</text>
+  </g>
+
+  <g id="stage-order" data-pptx-bounds="796 200 420 240">
+    <text x="796" y="228" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="20" font-weight="700" fill="#24507F">この画面で起きること</text>
+    <rect x="796" y="244" width="420" height="184" rx="10" fill="#F2F6FB"/>
+    <text x="820" y="278" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#1F2A37">1.［次へ］で置き換えが実行される<tspan x="820" dy="30">2.「3種類の文字列を置き換えました。</tspan><tspan x="820" dy="26">　続けて、AIへ依頼する内容を</tspan><tspan x="820" dy="26">　決めます。」と出る</tspan><tspan x="820" dy="30">3. 同じ画面が改修する指摘の確認に</tspan><tspan x="820" dy="26">　変わる</tspan></text>
+  </g>
+
+  <g id="checked-note" data-pptx-bounds="796 456 420 192">
+    <rect x="796" y="456" width="420" height="164" rx="10" fill="none" stroke="#E2E7EC" stroke-width="1"/>
+    <text x="820" y="492" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#24507F">チェックは既に入っています</text>
+    <text x="820" y="526" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="17" fill="#1F2A37">対象環境が阻害する指摘は、最初から<tspan x="820" dy="26">チェックが入っています。ここで確かめる</tspan><tspan x="820" dy="26">のはチェックの状態で、希望を書き直す</tspan><tspan x="820" dy="26">欄はありません。</tspan></text>
+  </g>
+
+  <g id="page-footer" data-pptx-bounds="64 654 1152 30">
+    <text x="64" y="676" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">P15</text>
+    <text x="1216" y="676" text-anchor="end" font-family="'Yu Gothic UI','Segoe UI',sans-serif" font-size="14" fill="#5D6B7A">通しの作業事例</text>
+  </g>
+</svg>

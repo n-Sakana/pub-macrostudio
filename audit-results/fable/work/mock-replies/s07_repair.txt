@@ -1,0 +1,21 @@
+'@MACROSTUDIO fbf9c55f-623e-4cd5-ae4b-625b43ad6aae SUMMARY BEGIN
+RefreshData に、集計が失敗したときの理由を残すエラー処理を追加しました。
+処理の順序と書き込み先は変えていません。
+'@MACROSTUDIO fbf9c55f-623e-4cd5-ae4b-625b43ad6aae SUMMARY END
+'@MACROSTUDIO fbf9c55f-623e-4cd5-ae4b-625b43ad6aae BEGIN standard RefreshData
+Option Explicit
+
+Public Sub RunLocalSummary()
+    On Error GoTo HandleError
+
+    Dim ws As Worksheet
+    Set ws = ThisWorkbook.Worksheets("作業")
+    ws.Range("B2").Value = "集計済み"
+    Exit Sub
+
+HandleError:
+    ThisWorkbook.Worksheets("作業").Range("B9").Value = _
+        "集計に失敗しました: " & Err.Number & " " & Err.Description
+End Sub
+'@MACROSTUDIO fbf9c55f-623e-4cd5-ae4b-625b43ad6aae END standard RefreshData
+'@MACROSTUDIO fbf9c55f-623e-4cd5-ae4b-625b43ad6aae COMPLETE 1
