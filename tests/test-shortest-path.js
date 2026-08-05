@@ -105,43 +105,52 @@ var diagnosisText = [
 
 var contracts = require("./helpers/contracts");
 var presetApi = windowObject.MacroStudioPreset;
-var entrances = fs.readdirSync(path.join(root, "presets"))
-  .filter(function (name) {
-    return fs.statSync(path.join(root, "presets", name)).isDirectory();
-  }).sort().map(function (folder) {
-    return contracts.entrance(presetApi, folder);
-  });
+var catalog = contracts.catalog(presetApi);
 
-assert(screens.count === 11 &&
+// The gate on the shape of the flow. What it guards has changed once
+// already - it used to fix an eleven-screen graph with a choice of
+// entrance in front of it - so it fixes the current answer rather than
+// the history: one road in, and the workbook is the way in.
+assert(screens.count === 10 &&
   store.startSimple === undefined && store.setMode === undefined &&
-  store.setDiagnosisSkipped === undefined &&
-  screens.modeScreen === undefined && screens.isSimple === undefined,
-"The flow must expose one 11-screen graph and no simple-mode API.");
-// Three entrances, each usable, each saying for itself what a run of its
-// kind does. Nothing about the shape of a run is decided in the app.
-assert(entrances.length === 3 && entrances.every(function (entrance) {
-  return entrance.valid === true && entrance.description.length > 0;
-}), "The install must ship exactly three usable entrances.");
-assert(entrances.filter(function (entrance) {
-  return entrance.hasDiagnosis;
-}).length === 2, "Two of the three entrances diagnose.");
-assert(entrances.every(function (entrance) {
-  return entrance.hasDiagnosis === false || entrance.diagnosisReady === true;
-}), "An entrance that diagnoses must hold exactly one diagnosis template.");
+  store.setDiagnosisSkipped === undefined && store.setEntrance === undefined &&
+  screens.modeScreen === undefined && screens.isSimple === undefined &&
+  screens.entranceScreen === undefined &&
+  screens.isDiagnosisSkipped === undefined,
+"The flow must expose one 10-screen graph and no entrance or mode API.");
+assert(screens.bookScreen === 0,
+  "Reading the workbook is the first thing that happens.");
+assert(screens.nextIndex({}, screens.bookScreen) === screens.diagnoseScreen,
+  "The workbook leads only to the diagnosis. There is nothing to skip it.");
 
-var macroEntrance = entrances[0];
+// The diagnosis is one file and there is no folder of them to pick from.
+assert(catalog.diagnosisReady === true && catalog.diagnose.length === 1,
+  "The install must ship exactly one usable diagnosis template.");
+// The operations stand under headings the files declare. More than one
+// heading is what makes them worth grouping; the app supplies none of
+// them, which the name check at the bottom of this file enforces.
+assert(catalog.categories.length >= 2 &&
+  catalog.repair.length > catalog.categories.length &&
+  catalog.repair.every(function (entry) {
+    return entry.valid === true && entry.category.length > 0;
+  }),
+"Every repair template must stand under a heading it declares itself.");
+// The change scope has a default that can be seen and changed, and the
+// default is the one that forbids structural change.
+assert(catalog.scopeReady === true && catalog.scope.length >= 2 &&
+  catalog.scope[0].valid === true &&
+  catalog.scope[0].structure === "forbidden" &&
+  catalog.scope.some(function (entry) {
+    return entry.valid && entry.structure === "allowed";
+  }),
+"The shipped change scopes must default to forbidding structural change.");
 
-assert(macroEntrance.folder === "01_マクロ改修" &&
-  macroEntrance.choosesTemplate === true,
-"The macro entrance is the one that offers a choice of repair template.");
-assert(screens.nextIndex({entrance: macroEntrance}, screens.bookScreen) ===
-  screens.diagnoseScreen,
-"For an entrance that diagnoses, the workbook leads only to the diagnosis.");
-
-store.setEntrance(macroEntrance);
-assert(store.getState().screen === screens.entranceScreen && store.goNext() &&
-  store.getState().screen === screens.bookScreen,
-"The shortest path must begin by saying what the run is for.");
+store.setAppInfo({version: "test", presets: {}, catalog: catalog});
+assert(store.getState().changeScope &&
+  store.getState().changeScope.file === catalog.scope[0].file,
+"The default change scope must be applied without the reader choosing it.");
+assert(store.getState().screen === screens.bookScreen,
+  "The shortest path must begin at the workbook.");
 store.setBook({
   name: "book.xlsm", path: "C:\\books\\book.xlsm", ext: ".xlsm",
   totalLines: 3
@@ -175,12 +184,12 @@ assert(groupPanel && groupPanel.hidden === true,
 assert(findings.querySelector(".occurrence-toggle") === null,
   "There is no second tier to leave unopened.");
 
-// The template comes off the entrance's own list, so the shortest path
-// walks the files the install actually ships.
-var chosen = macroEntrance.repair[0];
+// The template comes off the shipped list, so the shortest path walks
+// the files the install actually ships.
+var chosen = catalog.repair[0];
 
 assert(chosen && chosen.valid,
-  "The macro entrance must offer a usable repair template.");
+  "The install must offer a usable repair template.");
 store.setRepairPreset({
   file: chosen.file,
   name: chosen.name,
@@ -190,7 +199,7 @@ store.setRepairPreset({
 assert(store.goNext() && store.getState().screen === screens.nextStepScreen,
   "The read diagnosis must lead to the choice of work.");
 assert(store.goNext() && store.getState().screen === screens.repairInputScreen,
-  "Selecting one template must open repair input.");
+  "One template and the default change scope must open repair input.");
 store.setFindingSelected(1, true);
 store.setDesiredBehaviour(1, "元と同じ結果で動いてほしい");
 assert(screens.isRepairInputReady(store.getState()),
@@ -229,17 +238,23 @@ var productText = [
 ].join("\n");
 assert(productText.indexOf("簡易モードで始める") < 0 &&
   productText.indexOf("AIで相談する") < 0 &&
-  productText.indexOf("診断せずに進む") < 0,
-"No visible diagnosis-skip or simple-mode entrance may remain in product code.");
-// What the entrances are called is authored in their own folders, so the
-// app may not carry the names of the three it happens to ship.
-entrances.forEach(function (entrance) {
-  assert(productText.indexOf(entrance.name) < 0,
-    "The app names an entrance it should be reading off disk: " +
-      entrance.name);
+  productText.indexOf("診断せずに進む") < 0 &&
+  productText.indexOf("何をするか選びます") < 0,
+"No visible diagnosis-skip, simple-mode or entrance chooser may remain.");
+// The headings the operations stand under, and the words the change
+// scopes call themselves, are authored on disk. The app groups by a
+// string it was handed and may not carry any of those strings itself.
+catalog.categories.forEach(function (name) {
+  assert(productText.indexOf(name) < 0,
+    "The app names a category it should be reading off disk: " + name);
+});
+catalog.scope.forEach(function (entry) {
+  assert(!entry.valid || productText.indexOf(entry.name) < 0,
+    "The app names a change scope it should be reading off disk: " +
+      entry.name);
 });
 
 console.log("test-shortest-path: PASS");
-console.log("three entrances read off disk, the macro entrance's mandatory " +
-  "product-validated diagnosis, collapsed evidence, one template and one " +
-  "desired line reach build");
+console.log("one 10-screen road read off disk, a mandatory " +
+  "product-validated diagnosis, declared categories, a default change " +
+  "scope, one template and one desired line reach build");

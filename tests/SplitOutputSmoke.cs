@@ -191,17 +191,12 @@ namespace MacroStudio.Tests
             private async Task OpenRequestScreen(
                 Dictionary<string, object> report)
             {
+                // Nothing is chosen before the workbook, so waiting for
+                // the catalog and the first screen is the whole set-up.
                 await WaitFor(
                     "MacroStudioState.getState().appInfo !== null && " +
-                    "document.querySelector('[data-entrance-folder=" +
-                    "\"01_マクロ改修\"]') !== null");
-                // The run says what it is for before it reads anything.
-                await Execute(
-                    "document.querySelector('[data-entrance-folder=" +
-                    "\"01_マクロ改修\"]').click();");
-                await ClickNext(1);
-                await WaitFor(
-                    "MacroStudioState.getState().entrance !== null && " +
+                    "MacroStudioState.getState().appInfo.catalog && " +
+                    "MacroStudioState.getState().changeScope !== null && " +
                     "MacroStudioState.getState().screen === " +
                     "MacroStudioScreens.bookScreen");
                 Dictionary<string, object> eventData =
@@ -211,13 +206,28 @@ namespace MacroStudio.Tests
                 await WaitFor(
                     "MacroStudioState.getState().book !== null && " +
                     "MacroStudioState.getState().busyAction === null");
+                // The parts this walk sends replace whole modules with two
+                // lines, which under the default scope is a rewrite and is
+                // refused - correctly, and by a check with its own test.
+                // This run is about the part protocol, so it allows
+                // structural change the way a reader would. After the
+                // workbook, because attaching one starts a new run.
+                await Execute(
+                    "(function(){var scopes=MacroStudioState.getState()" +
+                    ".appInfo.catalog.scope.filter(function(e){" +
+                    "return e.valid && e.structure === 'allowed';});" +
+                    "MacroStudioState.setChangeScope(scopes[0]);}());");
+                await WaitFor(
+                    "MacroStudioState.getState().changeScope" +
+                    ".structure === 'allowed'");
                 report.Add("singleEntrance", await ReadBool(
                     "MacroStudioState.getState().screen === " +
                     "MacroStudioScreens.bookScreen && " +
                     "document.querySelectorAll(" +
                     "'[data-action=\"select-mode\"]," +
+                    "[data-action=\"select-entrance\"]," +
                     "[data-action=\"select-purpose\"]').length === 0"));
-                await ClickNext(2);
+                await ClickNext(1);
                 await WaitFor(
                     "MacroStudioState.getState().diagnosisRequestId " +
                     "!== null && " +
@@ -254,14 +264,14 @@ namespace MacroStudio.Tests
                     ".diagnosisParts === null," +
                     "recorded:MacroStudioState.getState()" +
                     ".diagnosisFilePath !== null})"));
-                await ClickNext(3);
+                await ClickNext(2);
                 // Reading the diagnosis and choosing the work are two pages.
-                await ClickNext(4);
+                await ClickNext(3);
 
                 string presetFile = await ReadJson(
                     "(function(){" +
                     "var entries = " +
-                    "MacroStudioState.getState().entrance.repair;" +
+                    "MacroStudioState.getState().appInfo.catalog.repair;" +
                     "var found = '';" +
                     "entries.forEach(function(entry){" +
                     "if (!found && entry.valid && " +
@@ -288,7 +298,7 @@ namespace MacroStudio.Tests
                     "MacroStudioState.getState().splitOutputRules " +
                     "!== null && " +
                     "MacroStudioState.getState().busyAction === null");
-                await ClickNext(5);
+                await ClickNext(4);
                 // The blocking finding is selected from the start and the
                 // screen asks nothing further about it.
                 await WaitFor(

@@ -16,6 +16,7 @@
     "TARGET_ENVIRONMENT",
     "OUTSIDE_CODE",
     "GRADING_BASIS",
+    "CHANGE_SCOPE",
     "DIAGNOSIS",
     "SELECTED_FINDINGS"
   ];
@@ -309,6 +310,9 @@
     if (Object.prototype.hasOwnProperty.call(options, "outsideCode")) {
       requiredNames.push("OUTSIDE_CODE");
     }
+    if (Object.prototype.hasOwnProperty.call(options, "changeScope")) {
+      requiredNames.push("CHANGE_SCOPE");
+    }
     if (Object.prototype.hasOwnProperty.call(options, "diagnosis")) {
       requiredNames.push("DIAGNOSIS");
     }
@@ -358,6 +362,14 @@
       GRADING_BASIS:
         Object.prototype.hasOwnProperty.call(options, "gradingBasis")
           ? requireString(options.gradingBasis, "Grading basis")
+          : "",
+      // How far the code may change, in the change-scope template's own
+      // words. The app carries the text and never composes it: what
+      // "minimal" forbids is written in the file the reader can open, and
+      // the same file's one-word declaration is what the intake enforces.
+      CHANGE_SCOPE:
+        Object.prototype.hasOwnProperty.call(options, "changeScope")
+          ? requireString(options.changeScope, "Change scope")
           : "",
       DIAGNOSIS:
         Object.prototype.hasOwnProperty.call(options, "diagnosis")

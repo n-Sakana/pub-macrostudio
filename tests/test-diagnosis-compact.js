@@ -246,7 +246,7 @@ assert(Object.keys(ids).length > 20,
 // ---- the shipped template asks for the short form ----
 
 var presetText = readUtf8(path.join(
-  root, "presets", "01_マクロ改修", "01_診断", "01_動くかどうかの監査.md"));
+  root, "presets", "01_診断", "01_動くかどうかの監査.md"));
 var parsedPreset = preset.parse(presetText, "diagnose");
 
 assert(parsedPreset.valid, "The diagnosis template must parse.");

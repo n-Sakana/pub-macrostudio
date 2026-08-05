@@ -289,7 +289,7 @@ function attach(requestId) {
     {requestId: diagnosisId, modules: state.getState().modules}),
   "diagnosis.md");
   state.setRepairPreset({
-    file: "01_マクロ改修\\\\02_改修\\\\sample.md",
+    file: "02_改修\\\\sample.md",
     name: "ひな形",
     content: "preset",
     parsed: {
@@ -592,7 +592,7 @@ assert(
 
 // ---- 6. the templates carry the instruction, the app does not ----
 
-var repairPresetDir = path.join(root, "presets", "01_マクロ改修", "02_改修");
+var repairPresetDir = path.join(root, "presets", "02_改修");
 var refactorPresets = fs.readdirSync(repairPresetDir)
   .filter(function (name) {
     return path.extname(name).toLowerCase() === ".md";

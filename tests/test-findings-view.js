@@ -52,22 +52,12 @@ windowObject.document = documentObject;
 var workflow = windowObject.MacroStudioWorkflow;
 var presetApi = windowObject.MacroStudioPreset;
 var contracts = require("./helpers/contracts");
-var macroEntrance = contracts.entrance(presetApi, "01_マクロ改修");
+var catalog = contracts.catalog(presetApi);
 var state = {
   busyAction: null,
   presetFile: null,
-  appInfo: {presets: {entrances: []}},
-  entrance: {
-    folder: macroEntrance.folder,
-    name: macroEntrance.name,
-    description: macroEntrance.description,
-    valid: true,
-    hasDiagnosis: true,
-    diagnosisReady: true,
-    choosesTemplate: true,
-    diagnose: macroEntrance.diagnose,
-    repair: []
-  },
+  appInfo: {presets: {}, catalog: catalog},
+  changeScope: catalog.scope[0],
   targetEnvironment: {
     displayName: "新しい業務端末",
     revision: "2026-08-01",
@@ -239,13 +229,25 @@ delete state.diagnosis.noFinding;
 // ---- the other kind of diagnosis: one grade for the whole workbook ----
 // A scoring template returns a letter and its reasoning, and the screen
 // says out loud that this is a judgement rather than a fact.
+var gradedCatalog = {
+  diagnose: [{
+    file: "01_診断\\01_採点.md",
+    name: "リファクタの価値",
+    content: "",
+    valid: true
+  }],
+  repair: [],
+  scope: catalog.scope,
+  categories: [],
+  diagnosisReady: true,
+  scopeReady: true,
+  defaultScope: catalog.scope[0].file
+};
 var graded = workflow.createFindingsScreen({
   busyAction: null,
   presetFile: null,
-  appInfo: {presets: {entrances: []}},
-  entrance: {folder: "02_リファクタ", name: "リファクタ", valid: true,
-    hasDiagnosis: true, diagnosisReady: true, choosesTemplate: false,
-    diagnose: [], repair: []},
+  appInfo: {presets: {}, catalog: gradedCatalog},
+  changeScope: catalog.scope[0],
   targetEnvironment: state.targetEnvironment,
   diagnosis: {
     shape: "grade",
@@ -263,7 +265,7 @@ var graded = workflow.createFindingsScreen({
 
 assert(dom.text(graded.querySelector(".grade-badge")) === "D" &&
   dom.text(graded.querySelector(".value-title")) ===
-    "リファクタする価値は 大きい",
+    "リファクタの価値の判定は 大きい",
 "The graded result must state the letter and what it is worth: " +
   dom.text(graded.querySelector(".value-title")));
 assert(dom.text(graded.querySelector(".value-judgement"))
@@ -281,7 +283,7 @@ assert(graded.querySelector(".grade-tiles") === null &&
 // Each shipped template declares which environment constraints it
 // addresses. A finding that names one earns the badge; a finding that
 // names none earns nothing, however plausible the template looks.
-var shippedPresets = macroEntrance.repair;
+var shippedPresets = catalog.repair;
 
 function starredTitles() {
   return dom.collect(
@@ -295,27 +297,46 @@ function starredTitles() {
   });
 }
 
-state.entrance.repair = shippedPresets;
 state.diagnosis.findings = [finding(1, "B", "CONFIRMED", "見つかった事実")];
 
+function titlesOf(className) {
+  return dom.collect(
+    workflow.createNextStepScreen(state),
+    function (node) {
+      return node.classList && node.classList.contains(className);
+    }).map(function (node) {
+    return dom.text(node);
+  });
+}
+
+var headings = titlesOf("category-heading");
+// The change scope is drawn on the same screen and its options are cards
+// too, so the operations are the cards that are not scope cards.
 var orderedTitles = dom.collect(
   workflow.createNextStepScreen(state),
   function (node) {
-    return node.classList && node.classList.contains("choice-title");
-  }).map(function (node) {
-  return dom.text(node);
+    return node.classList && node.classList.contains("choice-card") &&
+      !node.classList.contains("scope-card");
+  }).map(function (card) {
+  return dom.text(card.querySelector(".choice-title"));
 });
 
-// Named work first, in the order the improvement guide lists it, then
-// the general one, then the reader's own words. The file's leading
-// number is the whole of the ordering rule.
-assert(orderedTitles.length === 5 &&
+// The headings are the files' own, in the order the folder offers them.
+// Nothing here is a list the app keeps.
+assert(JSON.stringify(headings) === JSON.stringify(catalog.categories) &&
+  headings.length >= 2,
+"The category headings must be the declared ones, in the offered order: " +
+  JSON.stringify(headings));
+// Inside each heading the leading file number is the whole of the
+// ordering rule, and every shipped operation is reachable.
+assert(orderedTitles.length === shippedPresets.length &&
   orderedTitles[0].indexOf("Win32") >= 0 &&
-  orderedTitles[1].indexOf("固定パス") >= 0 &&
-  orderedTitles[2].indexOf("外部プログラム") >= 0 &&
+  orderedTitles[1].indexOf("外部プログラム") >= 0 &&
+  orderedTitles[2].indexOf("固定パス") >= 0 &&
   orderedTitles[3].indexOf("ファイル操作") >= 0 &&
-  orderedTitles[4].indexOf("診断で見つかった") >= 0,
-"The templates must be offered in the fixed order: " +
+  orderedTitles[4].indexOf("診断で見つかった") >= 0 &&
+  orderedTitles[5].indexOf("自分で") >= 0,
+"The templates must be offered grouped and in the fixed order: " +
   JSON.stringify(orderedTitles));
 
 state.diagnosis.findings[0].environmentKey = "-";
@@ -337,10 +358,12 @@ state.diagnosis.findings[0].environmentKey = "WIN32API_BLOCKED";
 var cards = dom.collect(
   workflow.createNextStepScreen(state),
   function (node) {
-    return node.classList && node.classList.contains("choice-card");
+    return node.classList && node.classList.contains("choice-card") &&
+      !node.classList.contains("scope-card");
   });
 
-assert(cards.length === 5, "Every template must still be offered.");
+assert(cards.length === shippedPresets.length,
+  "Every template must still be offered.");
 cards.forEach(function (card) {
   assert(card.getAttribute("role") === "checkbox" &&
     card.getAttribute("aria-checked") !== null,
@@ -348,6 +371,17 @@ cards.forEach(function (card) {
     "checkbox, not a pressed button.");
   assert(card.querySelector(".choice-checkbox") !== null,
     "A checkbox card must draw its box.");
+});
+// The change scope is one answer, not a set of them, so its options say
+// radio. A screen that drew both as checkboxes would be telling the
+// reader they could allow and forbid at the same time.
+dom.collect(
+  workflow.createNextStepScreen(state),
+  function (node) {
+    return node.classList && node.classList.contains("scope-card");
+  }).forEach(function (card) {
+  assert(card.getAttribute("role") === "radio",
+    "A change-scope option must say it is one of a set.");
 });
 var markColumn = cards[0].querySelector(".choice-state");
 

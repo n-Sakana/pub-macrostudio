@@ -87,46 +87,48 @@ function preset(file, content) {
   return { file: file, content: content };
 }
 
-// Which diagnosis is in play is a property of the chosen entrance, so
-// this asks the entrance rather than the whole install (SPEC section
-// 2.2.0). The folder is built the way the host hands one over.
-function entranceWith(diagnose, hasDiagnoseFolder) {
-  return presetApi.describeEntrance({
-    folder: "01_テスト入口",
-    entrance: preset("01_テスト入口\\入口.md", [
-      "# テスト入口",
+// There is one diagnosis folder for the whole install and it must hold
+// exactly one usable file. The catalog is built the way the host hands
+// the folder over.
+function catalogWith(diagnose) {
+  return presetApi.describeCatalog({
+    diagnose: diagnose,
+    repair: [preset("02_改修\\01_直す.md", validContent)],
+    scope: [preset("03_変更範囲\\01_最小.md", [
+      "# 必要最小限",
       "",
       "## 説明",
       "",
-      "この入口の説明です。"
-    ].join("\n")),
-    hasDiagnoseFolder: hasDiagnoseFolder !== false,
-    diagnose: diagnose,
-    repair: [preset("01_テスト入口\\02_改修\\01_直す.md", validContent)]
+      "構成は変えません。",
+      "",
+      "## 構造変更",
+      "",
+      "禁止",
+      "",
+      "## 改修指示",
+      "",
+      "必要な範囲だけ直してください。"
+    ].join("\n"))]
   });
 }
 
-function resolve(diagnose, hasDiagnoseFolder) {
+function resolve(diagnose) {
   return app.resolveDiagnosisPreset({
-    entrance: entranceWith(diagnose, hasDiagnoseFolder)
+    appInfo: {catalog: catalogWith(diagnose)}
   });
 }
 
-var file = "01_テスト入口\\01_診断\\one.md";
+var file = "01_診断\\one.md";
 var none = resolve([]);
 var one = resolve([preset(file, validContent)]);
 var two = resolve([
   preset(file, validContent),
-  preset("01_テスト入口\\01_診断\\two.md",
-    validContent.replace("# 診断", "# 診断2"))
+  preset("01_診断\\two.md", validContent.replace("# 診断", "# 診断2"))
 ]);
 var oneAndBroken = resolve([
   preset(file, validContent),
-  preset("01_テスト入口\\01_診断\\broken.md", invalidContent)
+  preset("01_診断\\broken.md", invalidContent)
 ]);
-// An entrance with no diagnosis folder at all does not diagnose, and
-// that is a shape of run rather than a broken install.
-var noStage = resolve([], false);
 
 assert(
   !none.ok && none.code === "E-PRESET-02" && none.validCount === 0,
@@ -143,13 +145,23 @@ assert(
     oneAndBroken.entries.length === 2 &&
     oneAndBroken.entries[1].valid === false,
   "Cardinality must count valid files while retaining invalid diagnostics.");
-assert(
-  noStage.ok && noStage.code === "" && noStage.entry === null,
-  "An entrance that does not diagnose must not be reported as broken.");
-// And nothing is decided before an entrance is chosen.
-assert(app.resolveDiagnosisPreset({entrance: null}).ok === false,
-  "With no entrance chosen there is no diagnosis to resolve.");
+// An install with no diagnosis at all is a broken install, not a run
+// that skips the diagnosis. There is no such run any more.
+assert(app.resolveDiagnosisPreset({}).ok === false,
+  "With no readable catalog there is no diagnosis to resolve.");
+// The scope folder is held to its own cardinality: at least one usable
+// file, and the first of them is the default.
+assert(catalogWith([preset(file, validContent)]).scopeReady === true &&
+  catalogWith([preset(file, validContent)]).defaultScope ===
+    "03_変更範囲\\01_最小.md",
+"The first usable change scope must be the default.");
+assert(presetApi.describeCatalog({
+  diagnose: [preset(file, validContent)],
+  repair: [],
+  scope: []
+}).scopeReady === false,
+"An install with no usable change scope must say so rather than assume one.");
 
 console.log("test-diagnosis-preset-cardinality: PASS");
-console.log("0/1/2 valid files per entrance, invalid-file visibility, and " +
-  "an entrance with no diagnosis stage: PASS");
+console.log("0/1/2 valid diagnosis files, invalid-file visibility, and the " +
+  "change-scope default: PASS");

@@ -193,38 +193,30 @@ try {
         Assert-True (-not $shell.documentScrollY) 'The product page scrolled vertically at 1366x768.'
         Assert-True $shell.footerVisible 'The fixed footer left the 1366x768 viewport.'
         Assert-True ($shell.buttons -eq 2 -and $shell.sameWidth) 'The footer must keep two same-width navigation buttons.'
-        Assert-True ($shell.progressSlots -eq 4) 'Every entrance must keep four major progress columns.'
+        Assert-True ($shell.progressSlots -eq 4) 'Every run must keep four major progress columns.'
     }
 
-    # The run says what it is for before it reads anything. Three
-    # entrances, each saying on its own card whether it diagnoses, and
-    # the forward button shut until one of them is chosen.
+    # The product opens on the workbook. Nothing stands in front of it,
+    # the forward button is shut until one is read, and the change scope
+    # is already in force without anyone having chosen it.
     Assert-True (
         $initial.screen -eq 0 -and
         -not $initial.book -and
         -not $initial.nextReady -and
-        $initial.entrances -eq 3 -and
-        $initial.diagnosisNotes -eq 3 -and
+        $initial.entrances -eq 0 -and
+        ([string]$initial.scope -ceq 'forbidden') -and
         $initial.visibleEntries -eq 0
-    ) 'The product must open on the choice of work.'
-
-    $entranceChosen = $result.entranceChosen | ConvertFrom-Json
-    Assert-True (
-        [string]$entranceChosen.folder -ceq [string]$initial.firstEntrance -and
-        $entranceChosen.hasDiagnosis -and
-        $entranceChosen.choosesTemplate -and
-        $entranceChosen.nextReady
-    ) 'Choosing the macro repair must open the way forward and ask for a diagnosis.'
+    ) 'The product must open on the workbook with the default scope in force.'
 
     Assert-True (
-        $book.screen -eq 1 -and
+        $book.screen -eq 0 -and
         $book.modules -gt 0 -and
         $book.nextReady -and
         $book.readDisclosure -eq 1
     ) 'Attaching a workbook must remain on the workbook screen and expose the read facts.'
 
     Assert-True (
-        $diagnoseRequest.screen -eq 2 -and
+        $diagnoseRequest.screen -eq 1 -and
         $diagnoseRequest.environment -eq 1 -and
         $diagnoseRequest.copy -eq 1 -and
         $diagnoseRequest.open -eq 1 -and
@@ -241,7 +233,7 @@ try {
     Assert-True $result.diagnosisPromptReady 'The first AI prompt must carry its id and source-code.md.'
 
     Assert-True (
-        $diagnosis.screen -eq 2 -and
+        $diagnosis.screen -eq 1 -and
         $diagnosis.findings -eq 1 -and
         $diagnosis.version -eq 1 -and
         $diagnosis.recorded -and
@@ -249,7 +241,7 @@ try {
     ) 'The product parser must accept and record the factual diagnosis.'
 
     Assert-True (
-        $findings.screen -eq 3 -and
+        $findings.screen -eq 2 -and
         $findings.findingRows -eq 1 -and
         $findings.occurrenceRows -eq 1 -and
         $findings.presetCards -eq 0 -and
@@ -272,13 +264,19 @@ try {
             'A named constraint must not star more than one template.'
     }
     Assert-True (
-        $nextStep.screen -eq 4 -and
-        $nextStep.presetCards -eq 5 -and
+        $nextStep.screen -eq 3 -and
+        $nextStep.presetCards -eq 6 -and
         ([string]$nextStep.firstCard).Contains('01_Win32') -and
         $nextStep.recommended -eq $expectedStars -and
         $nextStep.nextReady -eq $expectedReady
     ) ('The choice page must list the templates in the fixed order, and ' +
        $starRule + '.')
+    # The operations stand under headings the files declare, and more
+    # than one heading is what makes the grouping worth having.
+    Assert-True (
+        $nextStep.headings -ge 2 -and
+        $nextStep.scopeOptions -ge 2
+    ) 'The choice page must group the operations and offer the change scope.'
     # More than one template may be carried in one run, and one of them
     # arrives already ticked when the diagnosis pointed at it. What has
     # to hold is that something is chosen and the run has somewhere to
@@ -290,7 +288,7 @@ try {
     ) 'Choosing a template must leave a chat run ready to go.'
 
     Assert-True (
-        $repairInputEmpty.screen -eq 5 -and
+        $repairInputEmpty.screen -eq 4 -and
         $repairInputEmpty.findingChecks -eq 1 -and
         $repairInputEmpty.preselected -eq 1 -and
         $repairInputEmpty.removedForms -eq 0 -and
@@ -309,7 +307,7 @@ try {
     ) "The repair id is not a version 4 UUID: $repairId"
     Assert-True ($result.idsDistinct) 'Diagnosis and repair must have distinct request identities.'
     Assert-True (
-        $repairRequest.screen -eq 6 -and
+        $repairRequest.screen -eq 5 -and
         $repairRequest.copy -eq 1 -and
         $repairRequest.requestFile -and
         -not $repairRequest.nextReady
@@ -322,7 +320,7 @@ try {
         $refused.code -ceq 'E-INTAKE-01'
     ) 'An uncontracted AI answer must be refused before state changes.'
     Assert-True (
-        $intake.screen -eq 6 -and
+        $intake.screen -eq 5 -and
         $intake.imported -eq 2 -and
         $intake.accepted -eq 2 -and
         $intake.total -eq 2 -and
@@ -332,7 +330,7 @@ try {
     ) 'The second product parser must import one changed and one new module.'
 
     Assert-True (
-        $review.screen -eq 7 -and
+        $review.screen -eq 6 -and
         $review.accepted -eq 2 -and
         $review.nextReady -and
         $review.closed -ceq 'true'
@@ -354,7 +352,7 @@ try {
         [IO.Path]::GetFileName([string]$done.diffPath),
         'result.md')
     Assert-True (
-        $output.screen -eq 8 -and
+        $output.screen -eq 7 -and
         $output.nextReady
     ) 'The output screen must validate the workbook name before building.'
     foreach ($name in $expectedArtifacts) {
@@ -385,7 +383,7 @@ try {
         ($bookFolderAdded -join ', '))
 
     Assert-True (
-        $done.screen -eq 10 -and
+        $done.screen -eq 9 -and
         $done.status -ceq 'success' -and
         $done.openButtons -eq 1
     ) 'The build must finish on screen 10 with one open-folder action.'

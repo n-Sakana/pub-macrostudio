@@ -143,7 +143,7 @@ function attach(code) {
     }]
   }), "diagnosis.md");
   state.setRepairPreset({
-    file: "01_マクロ改修\\\\02_改修\\\\90_test.md",
+    file: "02_改修\\\\90_test.md",
     name: "テスト用ひな形",
     content: "preset",
     parsed: {

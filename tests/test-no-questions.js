@@ -155,25 +155,15 @@ expectQuestionRefused([].concat(
 
 // ---- the request says so, in every template that sends one ----
 
-// Every repair template of every entrance, wherever it lives. The rule
-// is about what goes out to a chat, so a new entrance cannot quietly
-// escape it by having its own folder.
-var repairTemplates = fs.readdirSync(path.join(root, "presets"))
-  .filter(function (entrance) {
-    return fs.statSync(
-      path.join(root, "presets", entrance)).isDirectory();
-  }).reduce(function (all, entrance) {
-    var dir = path.join(root, "presets", entrance, "02_改修");
-
-    if (!fs.existsSync(dir)) {
-      return all;
-    }
-    return all.concat(fs.readdirSync(dir).filter(function (name) {
-      return /\.md$/.test(name);
-    }).map(function (name) {
-      return {label: entrance + "\\" + name, path: path.join(dir, name)};
-    }));
-  }, []);
+// Every repair template. The rule is about what goes out to a chat, so
+// it applies to the whole folder without exception.
+var repairDir = path.join(root, "presets", "02_改修");
+var repairTemplates = fs.readdirSync(repairDir)
+  .filter(function (name) {
+    return /\.md$/.test(name);
+  }).map(function (name) {
+    return {label: name, path: path.join(repairDir, name)};
+  });
 
 assert(repairTemplates.length >= 5,
   "The scan found almost no repair templates: " + repairTemplates.length);

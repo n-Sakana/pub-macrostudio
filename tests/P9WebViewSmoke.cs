@@ -157,17 +157,11 @@ namespace MacroStudio.Tests
 
                 try
                 {
+                    // Every run is offered the same templates, so there is
+                    // nothing to choose before the workbook.
                     await WaitFor(
                         "MacroStudioState.getState().appInfo !== null && " +
-                        "document.querySelector('[data-entrance-folder=" +
-                        "\"01_マクロ改修\"]') !== null");
-                    // The templates on offer belong to an entrance, so
-                    // this walk chooses one before reading anything.
-                    await Execute(
-                        "document.querySelector('[data-entrance-folder=" +
-                        "\"01_マクロ改修\"]').click();");
-                    await WaitFor(
-                        "MacroStudioState.getState().entrance !== null");
+                        "MacroStudioState.getState().appInfo.catalog");
                     Dictionary<string, object> eventData =
                         new Dictionary<string, object>();
                     eventData.Add("path", bookPath);
@@ -211,20 +205,18 @@ namespace MacroStudio.Tests
                     Result = await ReadJson(
                         "(function(){" +
                         "var state=MacroStudioState.getState();" +
-                        "var entrance=state.entrance;" +
-                        "var presets=entrance.repair;" +
+                        "var catalog=state.appInfo.catalog;" +
+                        "var presets=catalog.repair;" +
                         "var entries=presets;" +
                         "return {" +
-                        // Every Markdown file the install holds, across
-                        // every entrance: its name file and its stages.
-                        "installedCount:state.appInfo.entrances.reduce(" +
-                        "function(total,item){" +
-                        "return total+1+item.diagnose.length+" +
-                        "item.repair.length;},0)," +
+                        // Every Markdown file the install holds: the one
+                        // diagnosis, the operations, the change scopes.
+                        "installedCount:catalog.diagnose.length+" +
+                        "catalog.repair.length+catalog.scope.length," +
                         "count:document.querySelectorAll(" +
                         "'[data-action=\"select-repair-preset\"]').length," +
                         "stateCount:presets.length," +
-                        "diagnoseCount:entrance.diagnose.length," +
+                        "diagnoseCount:catalog.diagnose.length," +
                         "invalidCount:entries.filter(function(item){" +
                         "return !item.valid;}).length," +
                         "validCount:entries.filter(function(item){" +

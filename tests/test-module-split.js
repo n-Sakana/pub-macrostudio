@@ -378,7 +378,7 @@ var seeded = api.addPart(
 
 // ---- the preset carries the rules for both ways of answering ----
 
-var presetDir = path.join(root, "presets", "01_マクロ改修", "02_改修");
+var presetDir = path.join(root, "presets", "02_改修");
 var presets = fs.readdirSync(presetDir).filter(function (name) {
   return path.extname(name).toLowerCase() === ".md";
 }).map(function (name) {
@@ -487,6 +487,10 @@ splitEntries.forEach(function (entry) {
 var plainPreset = presetApi.parse([
   "# 名前",
   "",
+  "## 分類",
+  "",
+  "試験用の操作",
+  "",
   "## 改修指示",
   "本文",
   "",
@@ -500,6 +504,10 @@ assert(
 assert(
   !presetApi.parse([
     "# 名前",
+    "",
+    "## 分類",
+    "",
+    "試験用の操作",
     "",
     "## 改修指示",
     "本文",
@@ -599,7 +607,7 @@ function attach() {
     {requestId: diagnosisId, modules: state.getState().modules}),
   "diagnosis.md");
   state.setRepairPreset({
-    file: "01_マクロ改修\\\\02_改修\\\\sample.md",
+    file: "02_改修\\\\sample.md",
     name: "ひな形",
     content: "preset",
     parsed: {

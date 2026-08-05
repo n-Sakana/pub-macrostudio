@@ -109,51 +109,83 @@ function repair(api, settings) {
   return described;
 }
 
-// One entrance, described the way the app describes it: read the real
-// folder, hand it to the product parser. A test that walks the flow has
-// to choose an entrance first, because what the flow does after the
-// workbook is read off the entrance's folder (SPEC §2.2.0).
-function entrance(presetApi, folder) {
+var DIAGNOSE_FOLDER = "01_診断";
+var REPAIR_FOLDER = "02_改修";
+var SCOPE_FOLDER = "03_変更範囲";
+
+function presetRoot() {
+  var path = require("path");
+
+  return path.join(path.resolve(__dirname, "..", ".."), "presets");
+}
+
+function readPreset(file) {
+  var fs = require("fs");
+  var text = fs.readFileSync(file, "utf8");
+
+  return text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+}
+
+// One preset folder, in the shape the host hands it over: the file name
+// relative to presets/ and the text, nothing parsed.
+function presetGroup(folder) {
   var fs = require("fs");
   var path = require("path");
-  var root = path.resolve(__dirname, "..", "..");
-  var dir = path.join(root, "presets", folder);
-  var entranceFile = path.join(dir, "入口.md");
+  var dir = path.join(presetRoot(), folder);
 
-  function read(file) {
-    var text = fs.readFileSync(file, "utf8");
-    return text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+  if (!fs.existsSync(dir)) {
+    return [];
   }
-
-  function group(stage) {
-    var stageDir = path.join(dir, stage);
-
-    if (!fs.existsSync(stageDir)) {
-      return [];
-    }
-    return fs.readdirSync(stageDir).filter(function (name) {
-      return /\.md$/.test(name);
-    }).sort().map(function (name) {
-      return {
-        file: folder + "\\" + stage + "\\" + name,
-        content: read(path.join(stageDir, name))
-      };
-    });
-  }
-
-  return presetApi.describeEntrance({
-    folder: folder,
-    entrance: fs.existsSync(entranceFile)
-      ? {file: folder + "\\入口.md", content: read(entranceFile)}
-      : null,
-    hasDiagnoseFolder: fs.existsSync(path.join(dir, "01_診断")),
-    diagnose: group("01_診断"),
-    repair: group("02_改修")
+  return fs.readdirSync(dir).filter(function (name) {
+    return /\.md$/.test(name);
+  }).sort().map(function (name) {
+    return {
+      file: folder + "\\" + name,
+      content: readPreset(path.join(dir, name))
+    };
   });
+}
+
+// The whole presets folder, described the way the app describes it: read
+// the real files, hand them to the product parser. Every run is offered
+// the same catalog - there is nothing to choose before the workbook.
+function catalog(presetApi, overrides) {
+  var settings = overrides || {};
+
+  return presetApi.describeCatalog({
+    diagnose: settings.diagnose || presetGroup(DIAGNOSE_FOLDER),
+    repair: settings.repair || presetGroup(REPAIR_FOLDER),
+    scope: settings.scope || presetGroup(SCOPE_FOLDER)
+  });
+}
+
+// The change scope a test runs under. Without an argument it is the
+// shipped default, which is the first file in the folder.
+function changeScope(presetApi, name) {
+  var described = catalog(presetApi);
+  var chosen = null;
+
+  described.scope.forEach(function (entry) {
+    if (!entry.valid || chosen) {
+      return;
+    }
+    if (!name || entry.name === name) {
+      chosen = entry;
+    }
+  });
+  if (!chosen) {
+    throw new Error("No usable change scope" + (name ? ": " + name : ""));
+  }
+  return chosen;
 }
 
 module.exports = {
   diagnosis: diagnosis,
   repair: repair,
-  entrance: entrance
+  catalog: catalog,
+  changeScope: changeScope,
+  presetGroup: presetGroup,
+  diagnoseFolder: DIAGNOSE_FOLDER,
+  repairFolder: REPAIR_FOLDER,
+  scopeFolder: SCOPE_FOLDER
 };

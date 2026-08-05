@@ -26,8 +26,25 @@ vm.runInContext(
 
 var presetApi = windowObject.MacroStudioPreset;
 
+// Every repair template stands under a heading on the screen where the
+// work is chosen, so every fixture here needs one. The declaration is
+// checked on its own further down; adding it here keeps the rest of the
+// fixtures about the section they were written to test.
+function withCategory(content) {
+  var text = String(content === null || content === undefined
+    ? ""
+    : content);
+
+  if (text.indexOf("## 分類") >= 0 || text.indexOf("# ") < 0) {
+    return content;
+  }
+  // Appended rather than inserted after the title, so a fixture written
+  // to test stray text before or between headings still has it there.
+  return text + "\n\n## 分類\n\n試験用の操作\n";
+}
+
 function parseRepair(content) {
-  return presetApi.parse(content, "repair");
+  return presetApi.parse(withCategory(content), "repair");
 }
 
 function lines(list) {
@@ -45,6 +62,10 @@ var complete = lines([
   "  # これは見出しではない",
   "-->",
   "",
+  "## 分類",
+  "",
+  "試験用の操作",
+  "",
   "## 改修指示",
   "",
   "Win32 API を使わない形へ直してください。",
@@ -61,6 +82,11 @@ var complete = lines([
   ""
 ]);
 
+// The same file without the heading a repair template stands under: a
+// diagnosis is not offered as a card, so it declares none.
+var completeDiagnose = complete.replace(
+  "## 分類\n\n試験用の操作\n\n",
+  "");
 var parsed = parseRepair(complete);
 
 assert(parsed.valid, "A complete preset must parse: " + parsed.message);
@@ -225,7 +251,7 @@ var invalidCases = [
       "知らない見出しがあります: ## メモ。" +
       "使えるのは「## 改修指示」「## 出力指示」「## 質問」「## 説明」" +
       "「## 置換の候補」「## 希望動作の候補」「## 維持すること」" +
-      "「## 推奨条件」「## 記入欄」" +
+      "「## 推奨条件」「## 分類」「## 認める構造変更」「## 記入欄」" +
       "「## 出力指示（モジュール単位）」「## 出力指示（分割）」です。"
   },
   {
@@ -387,7 +413,7 @@ assert(
   {
     label: "diagnosis carrying repair split output",
     stage: "diagnose",
-    text: complete + "\n## 出力指示（モジュール単位）\n分割\n",
+    text: completeDiagnose + "\n## 出力指示（モジュール単位）\n分割\n",
     message: presetApi.messages.wrongDiagnosisSplit
   },
   {
@@ -423,7 +449,7 @@ assert(
   {
     label: "repair-only replacement rules in diagnosis",
     stage: "diagnose",
-    text: complete.replace(
+    text: completeDiagnose.replace(
       "## 改修指示",
       "## 置換の候補\n\n- 名前 | ^x\n\n## 改修指示"),
     message: "「## 置換の候補」は改修ひな形だけで使えます。"
@@ -431,8 +457,46 @@ assert(
   {
     label: "table-only preset without description",
     stage: "repair",
-    text: "# 置き換える\n\n## 置換の候補\n\n- 名前 | ^x\n",
+    text: "# 置き換える\n\n## 分類\n\n試験用の操作\n\n" +
+      "## 置換の候補\n\n- 名前 | ^x\n",
     message: "「## 説明」がありません。"
+  },
+  {
+    label: "repair preset with no heading to stand under",
+    stage: "repair",
+    text: "# 名前\n\n## 改修指示\n\n本文\n\n## 出力指示\n\n出力\n",
+    message: "「## 分類」がありません。"
+  },
+  {
+    label: "an allowance the app has no name for",
+    stage: "repair",
+    text: complete.replace(
+      "## 改修指示",
+      "## 認める構造変更\n\n- モジュール削除\n\n## 改修指示"),
+    message: "「## 認める構造変更」に書けるのは「- モジュール追加」だけです: " +
+      "モジュール削除"
+  },
+  {
+    label: "a change scope that declares no answer",
+    stage: "scope",
+    text: "# 範囲\n\n## 説明\n\n説明です。\n\n## 改修指示\n\n本文\n",
+    message: "「## 構造変更」がありません。"
+  },
+  {
+    label: "a change scope with a word the app has no meaning for",
+    stage: "scope",
+    text: "# 範囲\n\n## 説明\n\n説明です。\n\n## 構造変更\n\nたぶん禁止\n\n" +
+      "## 改修指示\n\n本文\n",
+    message: "「## 構造変更」は「禁止」か「許可」のどちらかにしてください: " +
+      "たぶん禁止"
+  },
+  {
+    label: "a change scope carrying output rules",
+    stage: "scope",
+    text: "# 範囲\n\n## 説明\n\n説明です。\n\n## 構造変更\n\n禁止\n\n" +
+      "## 改修指示\n\n本文\n\n## 出力指示\n\n出力\n",
+    message: "変更範囲のファイルに使えるのは「## 説明」「## 構造変更」" +
+      "「## 改修指示」だけです。ほかの見出しは使えません: ## 出力指示"
   }
 ].forEach(function (item) {
   var result = presetApi.parse(item.text, item.stage);
@@ -462,7 +526,7 @@ assert(
   "A valid file must carry its H1 name.");
 assert(
   !entries[1].valid && entries[1].name === "" &&
-    entries[1].message === "「## 改修指示」がありません。",
+    entries[1].message === "「## 分類」がありません。",
   "An invalid file must carry its reason instead of a name.");
 assert(
   !entries[2].valid &&

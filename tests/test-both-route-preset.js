@@ -38,7 +38,7 @@ windowObject.window = windowObject;
 var store = windowObject.MacroStudioState;
 var screens = windowObject.MacroStudioScreens;
 
-var presetDir = path.join(root, "presets", "01_マクロ改修", "02_改修");
+var presetDir = path.join(root, "presets", "02_改修");
 function preset(fileName) {
   var full = path.join(presetDir, fileName);
   var content = fs.readFileSync(full, "utf8");

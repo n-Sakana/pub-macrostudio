@@ -43,43 +43,41 @@ function flatten(text) {
   return String(text).replace(/\r?\n[ \t]*/g, "");
 }
 
-// Both lists are discovered from their folders. Folder membership is the
+// Every list is discovered from its folder. Folder membership is the
 // stage; preset content is not allowed to declare a purpose of its own.
-// The stage folders sit under an entrance folder, so the walk
-// is one level deeper - and every entrance is included, because these
-// rules are about what goes out to a chat and none of them is excused
-// by living behind a different entrance.
+// What a file may declare about itself is which heading it stands under
+// and how far it is entitled to change the shape of the project - both
+// of which the app reads and neither of which it decides.
 var presetDir = path.join(root, "presets");
 
 function readGroup(stageFolder) {
-  return fs.readdirSync(presetDir).filter(function (entrance) {
-    return fs.statSync(path.join(presetDir, entrance)).isDirectory();
-  }).sort().reduce(function (all, entrance) {
-    var directory = path.join(presetDir, entrance, stageFolder);
+  var directory = path.join(presetDir, stageFolder);
 
-    if (!fs.existsSync(directory)) {
-      return all;
-    }
-    return all.concat(fs.readdirSync(directory).filter(function (name) {
-      return path.extname(name).toLowerCase() === ".md";
-    }).sort().map(function (name) {
-      return {
-        file: path.join(entrance, stageFolder, name),
-        content: readUtf8(path.join(directory, name))
-      };
-    }));
-  }, []);
+  if (!fs.existsSync(directory)) {
+    return [];
+  }
+  return fs.readdirSync(directory).filter(function (name) {
+    return path.extname(name).toLowerCase() === ".md";
+  }).sort().map(function (name) {
+    return {
+      file: path.join(stageFolder, name),
+      content: readUtf8(path.join(directory, name))
+    };
+  });
 }
 
 var diagnosisPresets = readGroup("01_診断");
 var repairPresets = readGroup("02_改修");
-var presets = diagnosisPresets.concat(repairPresets);
+var scopePresets = readGroup("03_変更範囲");
+var presets = diagnosisPresets.concat(repairPresets).concat(scopePresets);
 var template = readUtf8(
   path.join(root, "templates", "request-template.txt"));
 
 assert(
-  diagnosisPresets.length === 2 && repairPresets.length === 7,
-  "The shipped folders must contain two diagnosis and seven repair presets.");
+  diagnosisPresets.length === 1 && repairPresets.length === 6 &&
+    scopePresets.length === 2,
+  "The shipped folders must contain one diagnosis, six repair presets " +
+    "and two change scopes.");
 
 // ---- every shipped preset is a self-contained request ----
 
@@ -87,7 +85,8 @@ var diagnoseEntries = presetApi.describeAll(
   diagnosisPresets,
   "diagnose");
 var repairEntries = presetApi.describeAll(repairPresets, "repair");
-var entries = diagnoseEntries.concat(repairEntries);
+var scopeEntries = presetApi.describeAll(scopePresets, "scope");
+var entries = diagnoseEntries.concat(repairEntries).concat(scopeEntries);
 
 entries.forEach(function (entry) {
   assert(
@@ -97,6 +96,16 @@ entries.forEach(function (entry) {
   assert(
     entry.name.length > 0,
     "Shipped preset " + entry.file + " has no H1 name.");
+  if (entry.stage === "scope") {
+    // A change scope speaks through whatever else was chosen, so it has
+    // an instruction and no output rules of its own.
+    assert(
+      entry.instruction.body.length > 0 && entry.output === null &&
+        (entry.structure === "forbidden" || entry.structure === "allowed"),
+      "Shipped change scope " + entry.file +
+        " must carry text and one declared answer.");
+    return;
+  }
   if (entry.replaceRules === null) {
     assert(
       entry.instruction.body.length > 0 &&
@@ -104,6 +113,23 @@ entries.forEach(function (entry) {
       "Shipped AI preset " + entry.file + " has an empty section.");
   }
 });
+
+// ---- the headings the operations stand under ----
+// Every repair template names one, and the shipped set uses more than
+// one heading. The app never chooses them: what a card is filed under is
+// this line in this file.
+repairEntries.forEach(function (entry) {
+  assert(entry.category.length > 0,
+    "Shipped repair preset " + entry.file + " declares no category.");
+});
+assert(
+  repairEntries.reduce(function (names, entry) {
+    if (names.indexOf(entry.category) < 0) {
+      names.push(entry.category);
+    }
+    return names;
+  }, []).length >= 2,
+  "The shipped repair presets must use more than one heading.");
 
 // ---- folder-defined stages, and components asked for by name ----
 // A template that wants the app's replacement table says what to look
@@ -118,15 +144,18 @@ var pathEntries = repairEntries.filter(function (entry) {
 });
 
 assert(
-  diagnoseEntries.length === 2 &&
+  diagnoseEntries.length === 1 &&
     diagnoseEntries[0].stage === "diagnose" &&
     repairEntries.every(function (entry) {
       return entry.stage === "repair";
+    }) &&
+    scopeEntries.every(function (entry) {
+      return entry.stage === "scope";
     }),
   "Folder membership must be the only source of the preset stage.");
 assert(
-  refactorEntries.length === 6 && pathEntries.length === 1,
-  "Repair presets must expose six chat routes and one that asks for " +
+  refactorEntries.length === 5 && pathEntries.length === 1,
+  "Repair presets must expose five chat routes and one that asks for " +
     "the replacement table.");
 assert(
   pathEntries[0].instruction === null && pathEntries[0].output === null,
@@ -309,19 +338,24 @@ refactorEntries.forEach(function (entry) {
       " must not ask the AI to compute a hash.");
 });
 
-// ---- the refactoring preset, found by what it says ----
+// ---- the refactoring criteria, found by what they say ----
+// They are not an operation of their own any more: refactoring is how far
+// the code may change, so the criteria travel with the change scope that
+// permits structural change. What they say has not been allowed to
+// weaken in the move.
 
 var refactor = null;
 
-refactorEntries.forEach(function (entry) {
+scopeEntries.forEach(function (entry) {
   if (flatten(entry.instruction.body).indexOf("採用がかなり濃いもの") >= 0) {
     refactor = entry;
   }
 });
 
 assert(
-  refactor !== null,
-  "No shipped preset offers general VBA refactoring.");
+  refactor !== null && refactor.structure === "allowed",
+  "The refactoring criteria must ride with the scope that permits " +
+    "structural change.");
 
 // The practical criteria the refactoring request has to state. They are
 // judgement criteria, not a replace-everything rule list.
@@ -550,12 +584,16 @@ function fillRequestId(text) {
   return String(text).replace(/\{\{REQUEST_ID\}\}/g, requestId);
 }
 
+// A change scope carries no output rules of its own, so the sentinels
+// come from a repair template - which is exactly how a real request is
+// assembled: the operations speak, the scope rides along.
+var speaker = refactorEntries[0];
 var idPrompt = promptApi.buildRequestPrompt({
   template: template,
-  requestText: fillRequestId(refactor.instruction.body),
+  requestText: fillRequestId(speaker.instruction.body),
   outputRules: {
-    title: refactor.output.title,
-    body: fillRequestId(refactor.output.body)
+    title: speaker.output.title,
+    body: fillRequestId(speaker.output.body)
   },
   requestId: requestId,
   codeFileName: "book_code_20260729_120000.txt",
@@ -677,7 +715,8 @@ assert(
 var added = presetApi.describeAll(repairPresets.concat([
   {
     file: "追加.md",
-    content: "# 追加\n\n## 改修指示\n本文\n\n## 出力指示\n出力\n"
+    content: "# 追加\n\n## 分類\n試験用の操作\n\n## 改修指示\n本文\n" +
+      "\n## 出力指示\n出力\n"
   }
 ]), "repair");
 assert(

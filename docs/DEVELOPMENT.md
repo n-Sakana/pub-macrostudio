@@ -54,7 +54,7 @@ macrostudio/
 │   ├── css/                 # variables / layout / flow / module-list / diff / findings / path-map / code-view
 │   └── js/                  # 画面・状態・契約・lexer・決定的 path mapping
 ├── environment/             # 想定動作環境のJSON正本と出典・改訂履歴
-├── presets/                 # 入口ごとに 入口.md / 01_診断（singleton）/ 02_改修 の依頼正本
+├── presets/                 # 01_診断（singleton）/ 02_改修 / 03_変更範囲 の依頼正本
 ├── templates/               # 依頼文（チャット貼付用）の中立な組み立て枠
 ├── lib/                     # WebView2 DLL（4 本）
 ├── docs/                    # SPEC.md / DEVELOPMENT.md（本書）
@@ -67,20 +67,29 @@ macrostudio/
   （子プロセスや別モジュールを作らない）。理由は SPEC §2.3。
 - **エンジン（05〜08）は UI に依存しない**。この分離があるので、`tests/` は
   エンジンだけを Add-Type してヘッドレスに検証できる。
-- **画面フローの正本は `assets/js/screens.js`**。0 `entrance` → 1 `book` →
-  2 `diagnose` → 3 `findings` → 4 `nextStep` → 5 `repairInput` → 6 `repair` →
-  7 `review` → 8 `output` → 9 `build` → 10 `done` の 11 画面を持つ。依頼の
+- **画面フローの正本は `assets/js/screens.js`**。0 `book` → 1 `diagnose` →
+  2 `findings` → 3 `nextStep` → 4 `repairInput` → 5 `repair` → 6 `review` →
+  7 `output` → 8 `build` → 9 `done` の 10 画面を持つ。依頼の
   受け渡しと返答の取り込みは同じ画面の 2 つの段であって別画面ではない。診断を
   読むことと次にすることを選ぶことは別の決定なので、別画面である。
   `state.js` は現在地・履歴・2 段階の依頼状態、`app.js` は描画と操作を担当する。
   画面番号を literal で書かず、`screens.js` が公開する名前を使う。
-- **入口は 3 つで、その中身はフォルダが決める**。`presets/` 直下の
-  フォルダ 1 つが 1 入口で、`01_診断/` が無ければ診断せず、`02_改修/` の有効な
-  ひな形が 1 つならひな形を選ぶ画面を出さない。`screens.js` はこれを
-  `entrance.hasDiagnosis` / `entrance.choosesTemplate` として読むだけで、
-  どの入口も名前で知らない（`tests\test-shortest-path.js` が門番）。
+- **見える入口はブックの読み込みだけで、診断は素通りできない**。用途を先に
+  選ばせる画面を持たない。診断は必ず 1 回通り、何をするかは診断のあとに
+  「推奨操作」として出す（`tests\test-shortest-path.js` が門番）。
   用途選択、相談、簡易モードの旧入口は戻さない。相談の自由記述は診断画面の
   「ほかに気になっていること」と改修入力の記入欄へ移設済みである。
+- **推奨操作の見出しはひな形が名乗る**。改修ひな形の `## 分類` が画面 3 の
+  どの見出しの下に立つかを決め、同じ行を書いた 2 つのひな形が 1 つの束になる。
+  束ねるのは表示だけで、依頼文・差分・run manifest では別項目のまま残る。
+  アプリは渡された文字列で束ねるだけで、見出しの一覧を持たない
+  （`tests\test-shortest-path.js` が分類名の非在を検査する）。
+- **変更範囲は `presets/03_変更範囲/` が持つ**。ファイルの `## 構造変更` が
+  `禁止` か `許可` を名乗り、フォルダの先頭のファイルが既定になる。
+  `禁止` のあいだ、取り込みは 4 つだけを機械的に検査する（モジュール追加・
+  手続きの削除・手続きの移動・モジュールの全面書き換え）。検査していない
+  ものを検査したとは表示しない（`tests\test-change-scope.js` と
+  `tests\test-change-scope-webview.ps1` が門番）。
 - **第 1 AI と第 2 AI の状態を混ぜない**。`diagnoseRequestId` / `diagnosisPackage` と
   `repairRequestId` / `intakeRequestId` は別世代である。診断依頼の入力 snapshot が変われば
   診断以降を捨て、指摘選択・希望動作・追加要望・ひな形が変われば改修以降だけを捨てる。
@@ -99,8 +108,8 @@ macrostudio/
   `assets/js/target-environment.js` だけが持つ。key や title/detail を C#・JS・ひな形へ
   fallback として複製しない（`test-environment-not-embedded.js` が検査する）。
 - **ひな形の解釈は `assets/js/preset-document.js` だけが持つ**（β2 SPEC §9.2）。
-  ホスト（C#）は `presets/*/入口.md`・`presets/*/01_診断/*.md`・
-  `presets/*/02_改修/*.md` の列挙・テキスト読み出しに徹し、H1 も節も解釈しない。
+  ホスト（C#）は `presets/01_診断/*.md`・`presets/02_改修/*.md`・
+  `presets/03_変更範囲/*.md` の列挙・テキスト読み出しに徹し、H1 も節も解釈しない。
   段階はフォルダで決まり、`## 用途` は拒否する。
   改修指示・出力指示の文面を `templates/` や `src/` や `assets/js/` へ複製しないこと
   （`tests\test-preset-migration.js` が門番として検査する）。
@@ -193,16 +202,21 @@ macrostudio/
   （`tests\test-path-map.js` と `tests\test-code-view.js` が門番）。
 - **指摘の A〜D は AI が付ける**。当初の「要改修 / 要確認 / 改修不要」は
   アプリが「そのひな形をうちが持っているか」で決めていた。それはアプリが意味を
-  決めていたということで、言えることもそれだけだった。いまは入口の基準に照らして
-  AI が指摘ごとに A〜D を返し、アプリは letter の読み方（`改修不可` などの名前）
-  だけを持つ。**依頼に入るのは B だけ**で、C と D はできないことになるので入れない。
+  決めていたということで、言えることもそれだけだった。いまは診断ひな形の基準に
+  照らして AI が指摘ごとに A〜D を返し、アプリは letter の読み方
+  （`改修不可` などの名前）だけを持つ。
+  **依頼に入るのは B だけ**で、C と D はできないことになるので入れない。
   ★推奨は別の問いのまま（ひな形が `## 推奨条件` でその環境キーを名乗っているか）で、
   等級が★を付けることはない（`tests\test-verdict-result.js` が門番）。
-- **採点の基準は 1 ファイルにしか置かない**。採点型の診断（`02_リファクタ`）が
-  何に照らして採点するかは、同じ入口の唯一の改修ひな形の `## 改修指示` である。
-  依頼文には `{{GRADING_BASIS}}` としてそこから差し込む。仕様書にも診断ひな形にも
-  複製しないこと。2 か所にあれば必ずずれ、読者は「実際にやること」と違う基準で
-  採点された結果を見ることになる。
+- **採点の基準は 1 ファイルにしか置かない**。採点型の診断が何に照らして採点するかは
+  唯一の改修ひな形の `## 改修指示` で、依頼文には `{{GRADING_BASIS}}` として
+  そこから差し込む。同梱の診断は「動くか」を問うので基準を要さず、この変数は
+  空のまま消える。仕様書にも診断ひな形にも複製しないこと。2 か所にあれば必ずずれ、
+  読者は「実際にやること」と違う基準で採点された結果を見ることになる。
+  同じ理由で、**変更範囲の文面も 1 ファイルにしか置かない**。改修依頼には
+  `{{CHANGE_SCOPE}}` として `presets/03_変更範囲/` の選ばれたファイルの
+  `## 改修指示` が入る。AI へ何を禁じているかと、取り込みが何を拒否するかが
+  同じファイルから出ていること。
 - **差分 HTML は確認画面の閲覧専用版で、画面と同じ実装を同梱する**（SPEC §13.11）。
   `diff.js` / `vba-highlight.js` / `diff-view.js` と `variables.css` / `flow.css` /
   `module-list.css` / `diff.css` を無加工でインラインし（`@font-face` の除去だけが
@@ -295,7 +309,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-hostservices.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-clipboard-retry.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-diagnose-webview.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-flow-webview.ps1
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-entrance-routes.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-change-scope-webview.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-both-route-webview.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-split-webview.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-diff-report-webview.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\test-webview-security.ps1
@@ -317,6 +332,7 @@ node tests\test-audit-fixes.js
 node tests\test-back-and-forth.js
 node tests\test-both-route-preset.js
 node tests\test-build-payload.js
+node tests\test-change-scope.js
 node tests\test-change-source.js
 node tests\test-code-view.js
 node tests\test-contract-singleton.js
@@ -501,9 +517,16 @@ node tests\test-verdict-result.js
   **署名なしブックは一切変化しないこと**を確認する。
   `-SignedBookPath` を渡すと、実際の証明書で署名されたブックにも同じ検査を掛ける。
 - `tests\test-shortest-path.js` と `tests\test-shortest-path-webview.ps1` …
-  β1.10 の簡易モード入口と自動ひな形選択が戻っていないこと、および一本道の最短経路を
-  固定する。実 WebView2 側は診断、指摘選択、希望動作、改修、差分、読み直し検証済みの
+  β1.10 の簡易モード入口と自動ひな形選択が戻っていないこと、用途を先に選ばせる
+  画面が無いこと、および一本道の最短経路を固定する。実 WebView2 側は診断、
+  指摘選択、希望動作、改修、差分、読み直し検証済みの
   出力までを通し、原本の SHA-256 が変わらないことを確認する。
+- `tests\test-change-scope.js` … 同梱の変更範囲 2 ファイルの宣言（既定が
+  `禁止`）と、どちらの名前も**許すことで書かれている**こと（二重否定を作らない）。
+  4 検査それぞれの拒否と、拒否文が対象名と変更範囲名を含むこと。`Declare` を
+  手続きと数えないこと（Win32 改修の正常経路が既定設定で通る）。同名の手続きが
+  複数モジュールにあっても移動と誤検知しないこと。**同名のまま中身を書き換えた
+  返答は通る**ことを明示的に固定し、画面がその限界を書いていることを検査する。
 - `tests\test-editor-focus.ps1` … 入力中の画面（SPEC §3.7）。実 WebView2 で
   画面 5 の記入欄、および置換経路の置き換え後の値欄へ打ち込み、
   **値ではなく欄そのもの**を見る。1 打鍵ごとに同じ DOM 要素のままか、フォーカスと
@@ -538,14 +561,22 @@ node tests\test-verdict-result.js
 - `tests\test-diagnose-webview.ps1` は一本道の前半（実ブック → 診断依頼 → 診断返答 →
   指摘選択と希望動作 → 改修依頼）だけを実 WebView2 で通す。診断と改修の依頼 ID、
   4 成果物、原本非破壊、クリップボード再試行回数を検査する。
-- `tests\test-flow-webview.ps1` が 11 画面通し（入口 → 診断 → 改修 → 差分 →
+- `tests\test-flow-webview.ps1` が 10 画面通し（ブック → 診断 → 改修 → 差分 →
   読み直し検証済み出力 → 差分レポート）を担う。2 段階の依頼 ID と 7 成果物を検査し、
-  旧 P3〜P8 の個別スモークはこの 1 本へ統合した。
-- `tests\test-entrance-routes.ps1` が残る 2 つの入口を実 WebView2 で通す。
-  リファクタは採点型の返答（1 つの等級と理由）を取り込んで結果画面を確認し、
-  フリー依頼は診断そのものが無い経路で、ブックの次が改修依頼になること、
-  唯一のひな形が最初から選ばれていること、読者が書いた文だけで依頼が
-  成立することを検査する。入口ごとに変わるものだけを見る。
+  旧 P3〜P8 の個別スモークはこの 1 本へ統合した。既定の変更範囲のまま通るので、
+  ここが落ちるなら「必要最小限の変更」が普通の改修を止めているということである。
+- `tests\test-change-scope-webview.ps1` が変更範囲を実 WebView2 で通す。
+  起動直後がブック読込であること（入口カード 0 枚）、既定が誰も選ばずに
+  効いていること、推奨操作が宣言どおりの見出しで束ねられ束ねても別ファイルの
+  ままであること、画面が 4 検査とその限界を書いていること、改修依頼に
+  【変更範囲】が入ること、モジュールを増やす返答が既定で拒否され、許可へ
+  切り替えて依頼を作り直したときだけ同じ返答が取り込まれることを検査する。
+- `tests\test-both-route-webview.ps1` が**「固定パス置換 ＋ Win32 API 改修」を
+  1 案件として**実 WebView2 で通す。既定の変更範囲のまま、2 つの操作を同時に選び、
+  置換が先に走ること、置換後も同じ画面に留まって「AI に何を直してもらうか」を
+  聞くこと、1 通の依頼が各操作の指示・変更範囲・「置き換え済みなので元へ戻すな」の
+  契約を運ぶこと、差分が原本 → 最終であり置換と AI 改修の両方を含むこと、
+  読み直し検証済みのブックが出て原本の SHA-256 が変わらないことを検査する。
 - `tests\test-split-webview.ps1` は同じ WebView2 実動経路で、モジュール単位出力の
   チェックボックス、`diagnose-request.md` と `repair-request.md`、診断 part の欠番・
   冪等重複・統合、改修 part の衝突拒否・統合・取り込み直しを検証する。

@@ -43,17 +43,17 @@ Object.assign(windowObject, {
     {filename: name});
 });
 
-var diagnoseFile = "01_マクロ改修\\01_診断\\01_動くかどうかの監査.md";
-var repairFile = "03_フリー依頼\\02_改修\\01_自分で改修内容を書く.md";
+var diagnoseFile = "01_診断\\01_動くかどうかの監査.md";
+var repairFile = "03_フリー依頼\\02_改修\\06_自分で改修内容を書く.md";
 var diagnoseRaw = {
   file: diagnoseFile,
-  content: readUtf8(path.join(root, "presets", "01_マクロ改修", "01_診断",
+  content: readUtf8(path.join(root, "presets", "01_診断",
     "01_動くかどうかの監査.md"))
 };
 var repairRaw = {
   file: repairFile,
-  content: readUtf8(path.join(root, "presets", "03_フリー依頼", "02_改修",
-    "01_自分で改修内容を書く.md"))
+  content: readUtf8(path.join(root, "presets", "02_改修",
+    "06_自分で改修内容を書く.md"))
 };
 var diagnoseTemplate = readUtf8(path.join(root, "templates",
   "diagnose-template.txt"));
@@ -107,21 +107,22 @@ var diagnosis = {
 };
 
 (async function () {
-  store.setAppInfo({presets: {entrances: []}});
-  // Both values now live on the entrance's own screens: the concern on
-  // the diagnosis screen of an entrance that diagnoses, the extra
-  // request on the repair input of whichever entrance is running.
-  store.setEntrance({
-    folder: "01_マクロ改修",
-    name: "マクロ改修",
-    description: "動くようにします。",
-    valid: true,
-    hasDiagnosis: true,
-    diagnosisReady: true,
-    choosesTemplate: false,
-    diagnose: windowObject.MacroStudioPreset.describeAll(
-      [diagnoseRaw], "diagnose"),
-    repair: windowObject.MacroStudioPreset.describeAll([repairRaw], "repair")
+  // Both values live on their own screens: the concern on the diagnosis
+  // screen, the extra request on the repair input.
+  store.setAppInfo({
+    presets: {},
+    catalog: {
+      diagnose: windowObject.MacroStudioPreset.describeAll(
+        [diagnoseRaw], "diagnose"),
+      repair: windowObject.MacroStudioPreset.describeAll(
+        [repairRaw], "repair"),
+      scope: require("./helpers/contracts").catalog(
+        windowObject.MacroStudioPreset).scope,
+      categories: [],
+      diagnosisReady: true,
+      scopeReady: true,
+      defaultScope: ""
+    }
   });
   store.setBook({
     name: "book.xlsm", path: "C:\\books\\book.xlsm", ext: ".xlsm",

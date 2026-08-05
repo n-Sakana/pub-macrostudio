@@ -65,7 +65,7 @@ var diagnosis = contracts.diagnosis(windowObject.MacroStudioDiagnosis, {
 });
 store.commitDiagnosis(diagnosis, "diagnosis.md");
 store.setRepairPreset({
-  file: "01_マクロ改修\\\\02_改修\\\\test.md",
+  file: "02_改修\\\\test.md",
   name: "test",
   content: "preset-content",
   parsed: {

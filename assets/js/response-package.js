@@ -129,7 +129,30 @@
       "AIが質問や選択肢を返してきました。改修の返答は、直したコードを" +
       "返すか、直せない理由を返すかのどちらかです。" +
       "AIへ、決められないなら NOCHANGE UNCLEAR と理由で返すよう" +
-      "伝えてください。"
+      "伝えてください。",
+    // Four refusals for the four things the guard can actually see. Each
+    // names what it found and where, because "構造が変わっています" alone
+    // leaves the reader nothing to check.
+    structureNewModule:
+      "変更範囲を「{scope}」にしているあいだ、新しいモジュールは" +
+      "取り込めません。返答に {name} が入っていました。" +
+      "処理の分割やクラス化が必要なら、変更範囲の詳細オプションで" +
+      "構造変更を許可してから、もう一度依頼してください。",
+    structureRemovedProcedure:
+      "変更範囲を「{scope}」にしているあいだ、手続きを消す変更は" +
+      "取り込めません。{name} から {proc} が無くなっていました。" +
+      "呼び出し元が壊れる変更なので、必要なら変更範囲の詳細オプションで" +
+      "構造変更を許可してから、もう一度依頼してください。",
+    structureMovedProcedure:
+      "変更範囲を「{scope}」にしているあいだ、手続きを別のモジュールへ" +
+      "移す変更は取り込めません。{proc} は元は {from} にありましたが、" +
+      "{name} に入っていました。必要なら変更範囲の詳細オプションで" +
+      "構造変更を許可してから、もう一度依頼してください。",
+    structureRewritten:
+      "変更範囲を「{scope}」にしているあいだ、モジュールをほぼ全面的に" +
+      "書き換える変更は取り込めません。{name} は {lines} 行のうち " +
+      "{changed} 行が変わっていました。作り直しが必要なら、変更範囲の" +
+      "詳細オプションで構造変更を許可してから、もう一度依頼してください。"
   };
 
   function createRequestIdentity() {
@@ -833,6 +856,184 @@
       "変更内容を見て、意図どおりか確かめてください。";
   }
 
+  // A module is one whole rewrite when this much of it changed. The
+  // floor keeps a short module - where a two-line fix is most of the
+  // file - from reading as a rewrite; the ratio is what makes it one.
+  var REWRITE_MIN_LINES = 40;
+  var REWRITE_RATIO = 0.8;
+
+  // What counts as a procedure for the guard. Declare statements are
+  // deliberately excluded: `Declare PtrSafe Function Sleep Lib "kernel32"`
+  // is a Function to the VBA grammar, but removing it is the whole point
+  // of the Win32 repair, and a guard that called that a deleted procedure
+  // would refuse the most ordinary repair this tool does.
+  var PROCEDURE_LINE =
+    /^[ \t]*(?:(?:Public|Private|Friend|Global)[ \t]+)?(?:Static[ \t]+)?(?:(Sub|Function)|Property[ \t]+(?:Get|Let|Set))[ \t]+([A-Za-zÀ-￿][\wÀ-￿]*)/;
+  var DECLARE_LINE = /^[ \t]*(?:(?:Public|Private)[ \t]+)?Declare\b/i;
+
+  function listProcedures(code) {
+    var names = [];
+
+    splitLines(String(code === undefined || code === null ? "" : code))
+      .forEach(function (line) {
+        var match;
+
+        if (DECLARE_LINE.test(line)) {
+          return;
+        }
+        match = PROCEDURE_LINE.exec(line);
+        if (match && names.indexOf(match[2]) < 0) {
+          names.push(match[2]);
+        }
+      });
+    return names;
+  }
+
+  function countChangedLines(before, after) {
+    var left = splitLines(String(before === undefined ? "" : before));
+    var right = splitLines(String(after === undefined ? "" : after));
+    var seen = {};
+    var changed = 0;
+
+    left.forEach(function (line) {
+      var key = "|" + line;
+
+      seen[key] = (seen[key] || 0) + 1;
+    });
+    right.forEach(function (line) {
+      var key = "|" + line;
+
+      if (seen[key] > 0) {
+        seen[key] -= 1;
+        return;
+      }
+      changed += 1;
+    });
+    Object.keys(seen).forEach(function (key) {
+      changed += seen[key];
+    });
+    return changed;
+  }
+
+  function structureFailure(reason, fields) {
+    var text = MESSAGES[reason];
+
+    Object.keys(fields).forEach(function (key) {
+      text = text.split("{" + key + "}").join(String(fields[key]));
+    });
+    return brand({
+      ok: false,
+      reason: reason,
+      message: text,
+      validationId: "R3",
+      modules: []
+    });
+  }
+
+  // The four things the guard can see, checked in the order a reader
+  // would read them: something new arrived, something known left,
+  // something known moved, something known was replaced wholesale.
+  //
+  // Nothing here looks inside a procedure. A body rewritten line for line
+  // under the same name passes every one of these checks, and the screen
+  // that offers the setting says so rather than letting the tick imply a
+  // guarantee it cannot keep.
+  function checkStructure(summary, existingModules, options) {
+    var settings = options || {};
+    var scopeName = String(settings.scopeName || "");
+    var allowNewModules = settings.allowNewModules === true;
+    var owner = {};
+    var byName = {};
+    var refusal = null;
+
+    if (!isProductResult(summary) || !summary.ok || summary.noChange) {
+      return summary;
+    }
+    (existingModules || []).forEach(function (module) {
+      byName[module.name.toLowerCase()] = module;
+      listProcedures(module.code).forEach(function (name) {
+        owner[name.toLowerCase()] = module.name;
+      });
+    });
+
+    summary.modules.some(function (item) {
+      var original = byName[item.name.toLowerCase()];
+      var before;
+      var after;
+      var changed;
+
+      if (item.isNew) {
+        // A module the run itself asked for is not an unannounced change
+        // of shape. Only a template that declares 認める構造変更 buys this,
+        // and only for the run it was chosen in.
+        if (allowNewModules) {
+          return false;
+        }
+        refusal = structureFailure("structureNewModule", {
+          scope: scopeName,
+          name: item.name
+        });
+        return true;
+      }
+      if (!original) {
+        return false;
+      }
+      before = listProcedures(original.code);
+      after = listProcedures(item.code);
+      before.some(function (name) {
+        if (after.indexOf(name) >= 0) {
+          return false;
+        }
+        refusal = structureFailure("structureRemovedProcedure", {
+          scope: scopeName,
+          name: item.name,
+          proc: name
+        });
+        return true;
+      });
+      if (refusal) {
+        return true;
+      }
+      after.some(function (name) {
+        var from = owner[name.toLowerCase()];
+
+        // A procedure this module already had is not one that moved in,
+        // whatever else carries the same name. VBA lets `Test` or `Main`
+        // sit privately in half the modules of a workbook, so matching on
+        // the name alone called every one of them a move.
+        if (before.indexOf(name) >= 0) {
+          return false;
+        }
+        if (!from || from === original.name) {
+          return false;
+        }
+        refusal = structureFailure("structureMovedProcedure", {
+          scope: scopeName,
+          name: item.name,
+          proc: name,
+          from: from
+        });
+        return true;
+      });
+      if (refusal) {
+        return true;
+      }
+      changed = countChangedLines(original.code, item.code);
+      if (original.lineCount >= REWRITE_MIN_LINES &&
+          changed >= original.lineCount * REWRITE_RATIO) {
+        refusal = structureFailure("structureRewritten", {
+          scope: scopeName,
+          name: item.name,
+          lines: original.lineCount,
+          changed: changed
+        });
+        return true;
+      }
+      return false;
+    });
+    return refusal || summary;
+  }
+
   // The sentinel an answer uses to say there is nothing to change.
   function noChangeLine(requestId, verdict) {
     return MARKER + " " + requestId + " NOCHANGE " +
@@ -864,6 +1065,11 @@
     isPartCollectionComplete: isPartCollectionComplete,
     describeMissingParts: describeMissingParts,
     describe: describe,
-    describeKindWarning: describeKindWarning
+    describeKindWarning: describeKindWarning,
+    listProcedures: listProcedures,
+    countChangedLines: countChangedLines,
+    rewriteMinLines: REWRITE_MIN_LINES,
+    rewriteRatio: REWRITE_RATIO,
+    checkStructure: checkStructure
   };
 }(window));

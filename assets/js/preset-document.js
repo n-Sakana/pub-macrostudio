@@ -14,6 +14,26 @@
   var BEHAVIOR_CANDIDATES_TITLE = "希望動作の候補";
   var PRESERVE_TITLE = "維持すること";
   var RECOMMEND_TITLE = "推奨条件";
+  // The heading a repair template stands under on screen 3. Two templates
+  // that name the same one share a card group. The app groups by the
+  // string and never decides what belongs together: which operations
+  // read as one heading is the template author's judgement, not code's.
+  var CATEGORY_TITLE = "分類";
+  // What this operation legitimately does to the shape of the project.
+  // Replacing a Win32 call with a standard-VBA wrapper genuinely needs a
+  // module to put the wrapper in, so that template says so here. A
+  // template that says nothing gets no allowance, and the minimal-change
+  // guard refuses a reply that adds one anyway.
+  var ALLOWED_STRUCTURE_TITLE = "認める構造変更";
+  var ALLOWED_STRUCTURE_VALUES = ["モジュール追加"];
+  // Whether the run permits the shape of the project to change. The word
+  // is the scope template's own; the app reads it and switches the intake
+  // guard on or off, and never invents a third answer.
+  var STRUCTURE_TITLE = "構造変更";
+  var STRUCTURES = {
+    "禁止": "forbidden",
+    "許可": "allowed"
+  };
   var MODE_TITLE = "用途";
   var QUESTION_TITLE = "質問";
   var DESCRIPTION_TITLE = "説明";
@@ -42,18 +62,25 @@
     BEHAVIOR_CANDIDATES_TITLE,
     PRESERVE_TITLE,
     RECOMMEND_TITLE,
+    CATEGORY_TITLE,
+    ALLOWED_STRUCTURE_TITLE,
     WRITE_IN_TITLE,
     SHAPE_TITLE,
     SECTIONS_TITLE
   ];
-  // An entrance is one folder with one small file that names it. It has
-  // no instruction and no output rules because it speaks to nobody: what
-  // the entrance does is decided by what its folder contains.
-  var ENTRANCE_SECTION_TITLES = [DESCRIPTION_TITLE];
+  // A change-scope file says one thing to the reader and one thing to the
+  // chat, and declares whether the shape of the project may change. It
+  // has no output rules because it never speaks alone: its instruction
+  // rides along with whatever repair templates were chosen.
+  var SCOPE_SECTION_TITLES = [
+    DESCRIPTION_TITLE,
+    STRUCTURE_TITLE,
+    INSTRUCTION_TITLE
+  ];
   var STAGES = {
     diagnose: "diagnose",
     repair: "repair",
-    entrance: "entrance"
+    scope: "scope"
   };
 
   var MESSAGES = {
@@ -80,6 +107,7 @@
       QUESTION_TITLE + "」「## " + DESCRIPTION_TITLE + "」「## " +
       REPLACE_TITLE + "」「## " + BEHAVIOR_CANDIDATES_TITLE + "」「## " +
       PRESERVE_TITLE + "」「## " + RECOMMEND_TITLE + "」「## " +
+      CATEGORY_TITLE + "」「## " + ALLOWED_STRUCTURE_TITLE + "」「## " +
       WRITE_IN_TITLE + "」「## " +
       SPLIT_OUTPUT_TITLE + "」「## " +
       SPLIT_DIAGNOSIS_OUTPUT_TITLE + "」です。",
@@ -107,9 +135,19 @@
       "「## {title}」は改修ひな形だけで使えます。",
     diagnoseOnlySection:
       "「## {title}」は診断ひな形だけで使えます。",
-    entranceOnlyDescription:
-      "入口のファイルには「## " + DESCRIPTION_TITLE +
-      "」だけを書いてください。ほかの見出しは使えません: ## {title}",
+    scopeOnlySections:
+      "変更範囲のファイルに使えるのは「## " + DESCRIPTION_TITLE +
+      "」「## " + STRUCTURE_TITLE + "」「## " + INSTRUCTION_TITLE +
+      "」だけです。ほかの見出しは使えません: ## {title}",
+    unknownStructure:
+      "「## " + STRUCTURE_TITLE +
+      "」は「禁止」か「許可」のどちらかにしてください: {title}",
+    scopeOnlySection:
+      "「## {title}」は変更範囲のひな形だけで使えます。",
+    unknownAllowedStructure:
+      "「## " + ALLOWED_STRUCTURE_TITLE +
+      "」に書けるのは「- " + ALLOWED_STRUCTURE_VALUES.join("」「- ") +
+      "」だけです: {title}",
     unknownShape:
       "「## " + SHAPE_TITLE +
       "」は「指摘型」か「採点型」のどちらかにしてください: {title}",
@@ -247,6 +285,9 @@
       behaviorCandidates: [],
       preserveItems: [],
       recommendKeys: [],
+      category: "",
+      allowedStructures: [],
+      structure: null,
       writeIn: null,
       shape: null,
       returnSections: [],
@@ -434,7 +475,7 @@
     var result;
 
     if (stage !== STAGES.diagnose && stage !== STAGES.repair &&
-        stage !== STAGES.entrance) {
+        stage !== STAGES.scope) {
       return failure(MESSAGES.unknownStage, stage);
     }
     if (typeof content !== "string" || trimSpace(content) === "") {
@@ -478,10 +519,10 @@
           if (title === MODE_TITLE) {
             return failure(MESSAGES.obsoleteMode, stage);
           }
-          if (stage === STAGES.entrance) {
-            if (ENTRANCE_SECTION_TITLES.indexOf(title) < 0) {
+          if (stage === STAGES.scope) {
+            if (SCOPE_SECTION_TITLES.indexOf(title) < 0) {
               return failure(format(
-                MESSAGES.entranceOnlyDescription,
+                MESSAGES.scopeOnlySections,
                 title === "" ? "（名前なし）" : title), stage);
             }
           } else if (SECTION_TITLES.indexOf(title) < 0 &&
@@ -527,6 +568,9 @@
       behaviorCandidates: [],
       preserveItems: [],
       recommendKeys: [],
+      category: "",
+      allowedStructures: [],
+      structure: null,
       writeIn: null,
       shape: null,
       returnSections: [],
@@ -633,6 +677,61 @@
           RECOMMEND_TITLE), stage);
       }
     }
+    // Which heading this operation stands under on the screen where the
+    // work is chosen. Templates that write the same line share one group.
+    if (Object.prototype.hasOwnProperty.call(sections, CATEGORY_TITLE)) {
+      if (stage !== STAGES.repair) {
+        return failure(format(
+          MESSAGES.repairOnlySection,
+          CATEGORY_TITLE), stage);
+      }
+      body = joinBody(sections[CATEGORY_TITLE]);
+      if (body === "") {
+        return failure(format(
+          MESSAGES.emptySection,
+          CATEGORY_TITLE), stage);
+      }
+      result.category = body.split(CRLF)[0];
+    }
+    // The structural moves this operation is entitled to make. Checked
+    // against a known list so a typo becomes a visible authoring error
+    // rather than a silently withheld allowance.
+    if (Object.prototype.hasOwnProperty.call(
+      sections,
+      ALLOWED_STRUCTURE_TITLE)) {
+      if (stage !== STAGES.repair) {
+        return failure(format(
+          MESSAGES.repairOnlySection,
+          ALLOWED_STRUCTURE_TITLE), stage);
+      }
+      result.allowedStructures = readSimpleList(
+        sections[ALLOWED_STRUCTURE_TITLE]);
+      if (result.allowedStructures === null) {
+        return failure(format(
+          MESSAGES.invalidList,
+          ALLOWED_STRUCTURE_TITLE), stage);
+      }
+      for (index = 0; index < result.allowedStructures.length; index++) {
+        if (ALLOWED_STRUCTURE_VALUES.indexOf(
+          result.allowedStructures[index]) < 0) {
+          return failure(format(
+            MESSAGES.unknownAllowedStructure,
+            result.allowedStructures[index]), stage);
+        }
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(sections, STRUCTURE_TITLE)) {
+      if (stage !== STAGES.scope) {
+        return failure(format(
+          MESSAGES.scopeOnlySection,
+          STRUCTURE_TITLE), stage);
+      }
+      body = joinBody(sections[STRUCTURE_TITLE]).split(CRLF)[0];
+      if (!Object.prototype.hasOwnProperty.call(STRUCTURES, body)) {
+        return failure(format(MESSAGES.unknownStructure, body), stage);
+      }
+      result.structure = STRUCTURES[body];
+    }
     // The label the reader's own field carries, written by whoever
     // wrote the template. One line, because it is a label.
     if (Object.prototype.hasOwnProperty.call(sections, WRITE_IN_TITLE)) {
@@ -697,14 +796,34 @@
       };
     }
 
-    // An entrance names itself and says one line about what it is for.
-    // Everything else about it is decided by what its folder contains.
-    if (stage === STAGES.entrance) {
+    // A change-scope file names itself, says one line to the reader, says
+    // one word about structure, and carries the text that rides along with
+    // the repair request. It has no output rules: it never speaks alone.
+    if (stage === STAGES.scope) {
       if (result.description === "") {
         return failure(format(
           MESSAGES.missingSection,
           DESCRIPTION_TITLE), stage);
       }
+      if (result.structure === null) {
+        return failure(format(
+          MESSAGES.missingSection,
+          STRUCTURE_TITLE), stage);
+      }
+      if (!Object.prototype.hasOwnProperty.call(
+        sections,
+        INSTRUCTION_TITLE)) {
+        return failure(format(
+          MESSAGES.missingSection,
+          INSTRUCTION_TITLE), stage);
+      }
+      body = joinBody(sections[INSTRUCTION_TITLE]);
+      if (body === "") {
+        return failure(format(
+          MESSAGES.emptySection,
+          INSTRUCTION_TITLE), stage);
+      }
+      result.instruction = { title: INSTRUCTION_TITLE, body: body };
       if (hasText(beforeName)) {
         return failure(MESSAGES.textBeforeName, stage);
       }
@@ -712,6 +831,16 @@
         return failure(MESSAGES.textOutsideSection, stage);
       }
       return result;
+    }
+
+    // Every repair template stands under a heading on the screen where
+    // the work is chosen. A template with none would have nowhere to be
+    // drawn, and a card that quietly never appears is worse than a file
+    // that says why it was refused.
+    if (stage === STAGES.repair && result.category === "") {
+      return failure(format(
+        MESSAGES.missingSection,
+        CATEGORY_TITLE), stage);
     }
 
     // A template that only asks for the replacement table has nothing to
@@ -774,6 +903,9 @@
         behaviorCandidates: [],
         preserveItems: [],
         recommendKeys: [],
+        category: "",
+        allowedStructures: [],
+        structure: null,
         writeIn: null,
         shape: null,
         returnSections: [],
@@ -800,6 +932,9 @@
       behaviorCandidates: parsed.behaviorCandidates,
       preserveItems: parsed.preserveItems,
       recommendKeys: parsed.recommendKeys,
+      category: parsed.category,
+      allowedStructures: parsed.allowedStructures,
+      structure: parsed.structure,
       writeIn: parsed.writeIn,
       shape: parsed.shape,
       returnSections: parsed.returnSections,
@@ -832,39 +967,60 @@
     return valid;
   }
 
-  // Everything under presets/<入口>/ belongs to one entrance. What that
-  // entrance does is read off the folder: no diagnosis folder means no
-  // diagnosis, one repair template means no template to choose.
-  function describeEntrance(entrance) {
-    var described = describe(
-      entrance && entrance.entrance ? entrance.entrance : null,
-      STAGES.entrance);
+  // The headings the repair templates stand under, in the order the
+  // templates are offered. The app never names a category itself: the
+  // list is whatever the files say, first mention wins the position.
+  function listCategories(repair) {
+    var seen = {};
+    var order = [];
+
+    repair.forEach(function (entry) {
+      if (!entry.valid || !entry.category || seen[entry.category]) {
+        return;
+      }
+      seen[entry.category] = true;
+      order.push(entry.category);
+    });
+    return order;
+  }
+
+  // Everything under presets/ described in one pass: the single diagnosis,
+  // the repair templates grouped by the heading each declares, and the
+  // change-scope choices. The stage is still decided by the folder; what
+  // changed is that there is one set of folders again, not one per
+  // entrance.
+  function describeCatalog(presets) {
     var diagnose = describeAll(
-      entrance && entrance.diagnose ? entrance.diagnose : [],
+      presets && presets.diagnose ? presets.diagnose : [],
       STAGES.diagnose);
     var repair = describeAll(
-      entrance && entrance.repair ? entrance.repair : [],
+      presets && presets.repair ? presets.repair : [],
       STAGES.repair);
+    var scope = describeAll(
+      presets && presets.scope ? presets.scope : [],
+      STAGES.scope);
     var validDiagnose = diagnose.filter(function (item) {
       return item.valid;
     });
-    var validRepair = repair.filter(function (item) {
+    var validScope = scope.filter(function (item) {
       return item.valid;
     });
 
     return {
-      folder: entrance && entrance.folder ? String(entrance.folder) : "",
-      name: described.name,
-      description: described.description,
-      valid: described.valid,
-      message: described.message,
       diagnose: diagnose,
       repair: repair,
-      // A diagnosis folder that is present but does not hold exactly one
-      // usable template is an authoring mistake, not "no diagnosis".
-      hasDiagnosis: Boolean(entrance && entrance.hasDiagnoseFolder),
+      scope: scope,
+      categories: listCategories(repair),
+      // The diagnosis folder must hold exactly one usable template.
+      // Zero or two is an authoring mistake, not "no diagnosis".
       diagnosisReady: validDiagnose.length === 1,
-      choosesTemplate: validRepair.length > 1
+      // The first usable scope file is the default. A build with none is
+      // an authoring mistake the screen has to name, because without one
+      // there is no declared answer to whether structure may change - and
+      // guessing one would be exactly the silent default this repository
+      // refuses to ship.
+      scopeReady: validScope.length > 0,
+      defaultScope: validScope.length > 0 ? validScope[0].file : ""
     };
   }
 
@@ -873,7 +1029,12 @@
     shapeTitle: SHAPE_TITLE,
     sectionsTitle: SECTIONS_TITLE,
     shapes: SHAPES,
-    describeEntrance: describeEntrance,
+    structureTitle: STRUCTURE_TITLE,
+    structures: STRUCTURES,
+    categoryTitle: CATEGORY_TITLE,
+    allowedStructureTitle: ALLOWED_STRUCTURE_TITLE,
+    allowedStructureValues: ALLOWED_STRUCTURE_VALUES,
+    describeCatalog: describeCatalog,
     outputTitle: OUTPUT_TITLE,
     splitOutputTitle: SPLIT_OUTPUT_TITLE,
     splitDiagnosisOutputTitle: SPLIT_DIAGNOSIS_OUTPUT_TITLE,

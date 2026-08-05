@@ -158,7 +158,7 @@ assert(pathMap.indexOf("compileRules") >= 0,
 
 // The shipped template that uses it must be the one carrying them.
 var preset = readUtf8(path.join(
-  root, "presets", "01_マクロ改修", "02_改修", "02_固定パスを新環境へ置き換える.md"));
+  root, "presets", "02_改修", "03_固定パスを新環境へ置き換える.md"));
 
 assert(preset.indexOf("## 置換の候補") >= 0 &&
   preset.indexOf("^[A-Za-z]:[\\\\/]") >= 0,

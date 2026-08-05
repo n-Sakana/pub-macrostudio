@@ -172,12 +172,15 @@ var screens = flowWindow.MacroStudioScreens;
 
 var WORK = "C:" + String.fromCharCode(92) + "work" + String.fromCharCode(92);
 
-// The run has to say what it is for before it reads anything: this is a
-// macro repair, so it diagnoses whether the workbook runs.
-store.setEntrance(require("./helpers/contracts").entrance(
-  flowWindow.MacroStudioPreset, "01_マクロ改修"));
-assert(store.goNext() && store.getState().screen === screens.bookScreen,
-  "Choosing the work leads to the workbook.");
+// Everything the run offers comes off the presets folder, so the catalog
+// is in place before the workbook is read.
+store.setAppInfo({
+  version: "test",
+  presets: {},
+  catalog: require("./helpers/contracts").catalog(flowWindow.MacroStudioPreset)
+});
+assert(store.getState().screen === screens.bookScreen,
+  "The flow starts at the workbook.");
 
 store.setBook({
   name: "S01_fixed_drive.xlsm",

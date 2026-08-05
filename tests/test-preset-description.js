@@ -164,6 +164,7 @@ function readUtf8(filePath) {
 function build(description) {
   return "# 名前\n\n" +
     (description === null ? "" : "## 説明\n\n" + description + "\n\n") +
+    "## 分類\n\n試験用の操作\n\n" +
     "## 改修指示\n\n直してください。\n\n" +
     "## 出力指示\n\n本文で返してください。\n";
 }
@@ -219,43 +220,28 @@ assert(
 
 // ---- every shipped preset ----
 
-// Every repair template the install ships, in every entrance. The rule
-// is about the line under a name on a card, and every entrance builds
-// that card the same way.
-var entranceFolders = fs.readdirSync(path.join(root, "presets"))
-  .filter(function (name) {
-    return fs.statSync(path.join(root, "presets", name)).isDirectory();
-  }).sort();
-var allPresets = [];
-
-entranceFolders.forEach(function (folder) {
-  var dir = path.join(root, "presets", folder, "02_改修");
-
-  fs.readdirSync(dir).filter(function (name) {
-    return path.extname(name).toLowerCase() === ".md";
-  }).sort().forEach(function (name) {
-    allPresets.push({
-      file: folder + "\\02_改修\\" + name,
-      content: readUtf8(path.join(dir, name))
-    });
-  });
+// Every repair template the install ships. The rule is about the line
+// under a name on a card, and every card is built the same way.
+var repairDir = path.join(root, "presets", "02_改修");
+var allPresets = fs.readdirSync(repairDir).filter(function (name) {
+  return path.extname(name).toLowerCase() === ".md";
+}).sort().map(function (name) {
+  return {
+    file: "02_改修\\" + name,
+    content: readUtf8(path.join(repairDir, name))
+  };
 });
 
-// The macro repair entrance is the one the screen is built from below.
-var presets = allPresets.filter(function (item) {
-  return item.file.indexOf("01_マクロ改修\\") === 0;
-});
+var presets = allPresets;
 var entries = presetApi.describeAll(allPresets, "repair")
   .filter(function (entry) {
     return entry.valid;
   });
 
 assert(
-  entranceFolders.length === 3 && entries.length === allPresets.length &&
-    entries.length >= 7,
+  entries.length === allPresets.length && entries.length >= 5,
   "The shipped presets must be readable for this check (" +
-    entries.length + " of " + allPresets.length + " in " +
-    entranceFolders.length + " entrances).");
+    entries.length + " of " + allPresets.length + ").");
 
 entries.forEach(function (entry) {
   var text = entry.description;
@@ -303,16 +289,18 @@ entries.forEach(function (entry) {
       entry.name);
 });
 
-// The refactoring card, whose wording the owner fixed by hand.
+// The refactoring wording, whose phrasing the owner fixed by hand. It is
+// not an operation any more - it says how far the code may change - so it
+// is looked for where it moved to rather than dropped from the check.
 var refactor = null;
 
-entries.forEach(function (entry) {
+contracts.catalog(presetApi).scope.forEach(function (entry) {
   if (entry.instruction &&
       entry.instruction.body.indexOf("読みやすく") >= 0) {
     refactor = entry;
   }
 });
-assert(refactor !== null, "No shipped preset states the refactor request.");
+assert(refactor !== null, "No shipped file states the refactor request.");
 assert(
   refactor.instruction.body.indexOf("読みやすく・壊れにくく") < 0,
   "The middle dot between the two adjectives must stay removed.");
@@ -327,14 +315,12 @@ var declared;
 
 function prepareFindings(presetList) {
   var diagnosisId = "11111111-1111-4111-8111-111111111111";
-  var entrance = contracts.entrance(presetApi, "01_マクロ改修");
+  var described = contracts.catalog(presetApi, {repair: presetList});
 
   stateApi.reset();
-  stateApi.setAppInfo({version: "test", presets: {entrances: []}});
-  // The templates on offer belong to the entrance, so the run says what
-  // it is for before any card can be built.
-  entrance.repair = presetApi.describeAll(presetList, "repair");
-  stateApi.setEntrance(entrance);
+  // The templates on offer come off the folder, so the catalog is in
+  // place before any card can be built.
+  stateApi.setAppInfo({version: "test", presets: {}, catalog: described});
   stateApi.setBook({
     name: "book.xlsm", path: "book.xlsm", ext: ".xlsm", totalLines: 1
   }, [{
@@ -355,10 +341,15 @@ prepareFindings(presets);
 // The templates live on their own page now; the diagnosis page before it
 // carries no template at all.
 screen = workflow.createNextStepScreen(stateApi.getState());
-lines = collectByClass(screen, "choice-description").map(
-  function (node) {
-    return node.textContent;
-  });
+// The change scope is offered on the same screen and its options carry
+// the same card line, so only the cards standing under a heading are
+// the operations.
+lines = collectByClass(screen, "category-group").reduce(
+  function (all, group) {
+    return all.concat(collectByClass(group, "choice-description"));
+  }, []).map(function (node) {
+  return node.textContent;
+});
 declared = presetApi.describeAll(presets, "repair").map(function (entry) {
   return entry.description;
 });
@@ -376,11 +367,13 @@ lines.forEach(function (text, index) {
 
 // A preset with no 説明 shows its name alone rather than borrowing a
 // sentence from the request.
-prepareFindings([{ file: "01_マクロ改修\\\\02_改修\\\\plain.md", content: build(null) }]);
+prepareFindings([{ file: "02_改修\\plain.md", content: build(null) }]);
 assert(
   collectByClass(
     workflow.createNextStepScreen(stateApi.getState()),
-    "choice-description").length === 0,
+    "category-group").reduce(function (all, group) {
+    return all.concat(collectByClass(group, "choice-description"));
+  }, []).length === 0,
   "A preset without 説明 must show no line at all.");
 
 // A context without Web Crypto still gets an id, reports the fallback

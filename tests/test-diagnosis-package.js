@@ -188,7 +188,7 @@ expectPass(
 // test. Read it, replace only its request id, and prove that it is a real
 // package rather than decorative documentation.
 var presetText = fs.readFileSync(
-  path.join(root, "presets", "01_マクロ改修", "01_診断", "01_動くかどうかの監査.md"),
+  path.join(root, "presets", "01_診断", "01_動くかどうかの監査.md"),
   "utf8");
 var parsedPreset = presetApi.parse(presetText, "diagnose");
 var exampleMatch = /```\s*\r?\n([\s\S]*?)\r?\n```/.exec(

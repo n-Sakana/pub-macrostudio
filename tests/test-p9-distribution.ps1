@@ -151,14 +151,10 @@ $stageRoot = Join-Path $stageContainer 'distribution'
 $smokeBook = Join-Path $testdataRoot 'test_large.xlsm'
 $stagedScript = Join-Path $stageRoot 'macrostudio.ps1'
 $launchPath = Join-Path $stageRoot 'launch.vbs'
-# Templates live under the entrance that owns them, so the file the
-# probe adds goes into the first entrance's repair stage and is reported
-# with that entrance's folder in front of it.
-$entranceFolderName = '01_' + [string]::Join(
-    '',
-    [char[]](0x30DE, 0x30AF, 0x30ED, 0x6539, 0x4FEE))
-$repairFolderName = Join-Path $entranceFolderName (
-    '02_' + [char]0x6539 + [char]0x4FEE)
+# There is one repair-template folder for the whole install, so the file
+# the probe adds goes straight into it and is reported with that folder
+# in front of it.
+$repairFolderName = '02_' + [char]0x6539 + [char]0x4FEE
 $stagedRepairPresetRoot = Join-Path (
     Join-Path $stageRoot 'presets') $repairFolderName
 $stagedProcessId = 0
@@ -476,6 +472,14 @@ try {
     $outputHeading = '## ' + [string]::Join(
         '',
         [char[]](0x51FA, 0x529B, 0x6307, 0x793A))
+    # Every repair template names the heading it stands under, so a file
+    # added at run time needs one to become a card.
+    $categoryHeading = '## ' + [string]::Join(
+        '',
+        [char[]](0x5206, 0x985E))
+    $categoryValue = [string]::Join(
+        '',
+        [char[]](0x8A66, 0x9A13, 0x7528, 0x306E, 0x64CD, 0x4F5C))
     $brokenPresetName = 'p9-broken.md'
     $brokenPresetPath = Join-Path $stagedRepairPresetRoot $brokenPresetName
     Assert-True (-not [IO.File]::Exists($addedPresetPath)) `
@@ -486,6 +490,8 @@ try {
         $addedPresetPath,
         ("# $addedPresetTitle`r`n`r`n" +
             "<!-- editor note, never sent to the chat -->`r`n`r`n" +
+            "$categoryHeading`r`n`r`n" +
+            "$categoryValue`r`n`r`n" +
             "$instructionHeading`r`n`r`n" +
             "P9 preset restart smoke.`r`n`r`n" +
             "$outputHeading`r`n`r`n" +

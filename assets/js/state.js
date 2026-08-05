@@ -27,11 +27,6 @@
       history: [],
       appInfo: null,
 
-      // Which of the three kinds of work this run is. Chosen on the
-      // first screen, before the workbook. It carries the entrance's
-      // own templates, so what the run does next is read off the folder
-      // rather than decided here (SPEC §2.2.0).
-      entrance: null,
       book: null,
       bookInventory: null,
       bookSnapshot: "",
@@ -74,6 +69,11 @@
       presetReplaceRules: null,
       presetEngine: null,
       presetSnapshot: null,
+      // How far the code may change, chosen on the same screen as the
+      // work itself. It is a whole change-scope template, not a flag:
+      // the word it declares switches the intake guard, and the text it
+      // carries rides along with the repair request.
+      changeScope: null,
       questions: [],
       answers: {},
       behaviorCandidates: [],
@@ -306,6 +306,10 @@
       diagnosisVersion: state.diagnosisVersion,
       presetFiles: (state.presetFiles || []).join("|"),
       presetContent: state.presetContent || "",
+      // The scope is part of what the request says and part of what the
+      // intake enforces, so changing it has to make a written request
+      // stale exactly the way changing a template does.
+      changeScope: state.changeScope ? state.changeScope.file : "",
       answers: answers,
       selectedFindings: selected,
       desiredBehaviour: desired,
@@ -464,6 +468,11 @@
     state.extraRequest = "";
     state.pathMap = null;
     state.pathMapBasis = null;
+    // The change scope is deliberately not cleared here. It answers "how
+    // far may this workbook change", which a second diagnosis of the same
+    // workbook does not alter; the templates go because they were chosen
+    // against findings that are gone. Reading another workbook is what
+    // puts the default back, and that happens through setBook.
     refreshRepairInputSnapshot();
     invalidateRepairRequest();
   }
@@ -497,14 +506,10 @@
   function setBook(book, modules) {
     var api = screenApi();
     var appInfo = state.appInfo;
-    // The entrance is chosen before the workbook, so reading another
-    // workbook does not un-choose the work. Everything else about the
-    // run belonged to the previous workbook and goes.
-    var entrance = state.entrance;
 
     state = createInitialState();
     state.appInfo = appInfo;
-    state.entrance = entrance;
+    applyDefaultChangeScope();
     state.screen = api ? api.bookScreen : 0;
     state.book = book || null;
     state.modules = modules || [];
@@ -524,27 +529,57 @@
     notify();
   }
 
+  // The default change scope is the first usable file in the folder, and
+  // it is applied the moment the catalog arrives so the screen that
+  // chooses the work already has an answer to show. It is a default the
+  // reader can see and change, not a value the code assumed: with no
+  // usable scope file there is no default and the screen says so.
+  function applyDefaultChangeScope() {
+    var catalog = state.appInfo && state.appInfo.catalog
+      ? state.appInfo.catalog
+      : null;
+    var scopes = catalog && Array.isArray(catalog.scope)
+      ? catalog.scope
+      : [];
+    var chosen = null;
+
+    if (state.changeScope) {
+      return;
+    }
+    scopes.some(function (entry) {
+      if (entry.valid) {
+        chosen = entry;
+        return true;
+      }
+      return false;
+    });
+    state.changeScope = chosen;
+  }
+
   function setAppInfo(appInfo) {
     state.appInfo = appInfo;
+    applyDefaultChangeScope();
     notify();
   }
 
-  // Choosing the work. A different entrance asks a different question,
-  // so everything downstream - the diagnosis, the template, the request -
-  // belonged to the old question and is dropped. The workbook is not: it
-  // is the same workbook whichever question is asked about it.
-  function setEntrance(entrance) {
-    var next = entrance || null;
-    var folder = next ? String(next.folder || "") : "";
-    var current = state.entrance ? String(state.entrance.folder || "") : "";
+  // How far the code may change. This does not touch the diagnosis: the
+  // diagnosis answered "does it run", which is the same answer whether or
+  // not the reader will allow the shape of the project to change. What it
+  // does touch is the request that has not been written yet, and any
+  // request that already was.
+  function setChangeScope(scope) {
+    var next = scope || null;
+    var file = next ? String(next.file || "") : "";
+    var current = state.changeScope
+      ? String(state.changeScope.file || "")
+      : "";
 
-    if (folder === current) {
+    if (!next || !next.valid || file === current) {
       return false;
     }
-    state.entrance = next;
-    invalidateDiagnosisRequest();
-    invalidateDiagnosisResult();
-    state.diagnosisConcern = "";
+    state.changeScope = next;
+    invalidateRepairRequest();
+    refreshRepairInputSnapshot();
     notify();
     return true;
   }
@@ -571,14 +606,6 @@
     state.diagnosisConcern = next;
     notify();
     return true;
-  }
-
-  // Whether this run diagnoses at all is the entrance's answer, not a
-  // switch of its own. It used to be a checkbox on the diagnosis screen,
-  // which meant a branch that changes the following screens was hidden
-  // inside one of them (SPEC §2.2.1).
-  function isDiagnosisSkipped() {
-    return Boolean(state.entrance) && state.entrance.hasDiagnosis !== true;
   }
 
   function setDiagnosisSplit(enabled) {
@@ -852,10 +879,13 @@
   // The order the templates are offered in, so a request reads the same
   // way whichever order the reader ticked them.
   function orderPresets(entries) {
-    // What is offered belongs to the chosen entrance, so the order comes
-    // from there rather than from the whole install.
-    var offered = state.entrance && Array.isArray(state.entrance.repair)
-      ? state.entrance.repair.map(function (item) {
+    // The order is the order the folder offers them in, which is also the
+    // order the categories are drawn in.
+    var catalog = state.appInfo && state.appInfo.catalog
+      ? state.appInfo.catalog
+      : null;
+    var offered = catalog && Array.isArray(catalog.repair)
+      ? catalog.repair.map(function (item) {
         return item.file;
       })
       : [];
@@ -982,10 +1012,9 @@
   function commitRepairRequest(value) {
     var next = value || {};
     var requestId = String(next.requestId || "");
-    // A run that skipped the diagnosis has no findings to carry, but it
-    // still has a template and a request of its own.
-    if (!requestId || !state.presetFile ||
-        (!state.diagnosis && !isDiagnosisSkipped())) {
+    // Every run diagnoses, so a repair request that has no accepted
+    // diagnosis behind it is a request nobody asked for.
+    if (!requestId || !state.presetFile || !state.diagnosis) {
       return false;
     }
     // The request was written from the code the table produced, so
@@ -1121,7 +1150,6 @@
         requestPath: state.diagnosisRequestFilePath,
         concern: state.diagnosisConcern,
         split: state.diagnosisSplit === true,
-        skipped: isDiagnosisSkipped(),
         version: state.diagnosisVersion,
         filePath: state.diagnosisFilePath,
         attribution: state.diagnosisAttribution,
@@ -1490,7 +1518,10 @@
 
   function loadDemoState() {
     state = createInitialState();
-    state.appInfo = {version: "2.00", presets: {diagnose: [], repair: []}};
+    state.appInfo = {
+      version: "2.00",
+      presets: {diagnose: [], repair: [], scope: []}
+    };
     state.book = {
       name: "受注管理.xlsm",
       path: "samples\\受注管理.xlsm",
@@ -1541,11 +1572,10 @@
     setBook: setBook,
     setBookInventory: setBookInventory,
     setAppInfo: setAppInfo,
-    setEntrance: setEntrance,
     setTargetEnvironment: setTargetEnvironment,
     setDiagnosisConcern: setDiagnosisConcern,
-    isDiagnosisSkipped: isDiagnosisSkipped,
     setDiagnosisSplit: setDiagnosisSplit,
+    setChangeScope: setChangeScope,
     isDiagnosisRequestDirty: isDiagnosisRequestDirty,
     commitDiagnosisRequest: commitDiagnosisRequest,
     setDiagnosisHandoffProgress: setDiagnosisHandoffProgress,

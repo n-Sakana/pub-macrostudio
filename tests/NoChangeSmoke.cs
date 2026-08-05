@@ -194,9 +194,11 @@ namespace MacroStudio.Tests
                 await WaitFor(
                     "MacroStudioState.getState().book !== null && " +
                     "MacroStudioState.getState().busyAction === null");
+                await AllowStructuralChange();
                 phase.Add("singleEntrance", await ReadRaw(
                     "document.querySelectorAll(" +
                     "'[data-action=\"select-mode\"]," +
+                    "[data-action=\"select-entrance\"]," +
                     "[data-action=\"select-purpose\"]').length === 0"));
                 await ClickNext();
                 await WaitFor(
@@ -602,23 +604,35 @@ namespace MacroStudio.Tests
                 await Execute("MacroStudioState.reset();");
                 // The app's own rediscovery: the raw folder listing is
                 // described before it is stored, which is what puts the
-                // entrances on the first screen.
+                // operations and the change scopes in play. Nothing is
+                // chosen before the workbook.
                 await Execute("MacroStudioApp.loadAppInfo();");
-                // The run says what it is for before it reads anything.
-                // A declared "no change" answer is a macro repair that
-                // turned out to need none, so this is that entrance.
                 await WaitFor(
                     "MacroStudioState.getState().appInfo !== null && " +
-                    "document.querySelector('[data-entrance-folder=" +
-                    "\"01_マクロ改修\"]') !== null");
-                await Execute(
-                    "document.querySelector('[data-entrance-folder=" +
-                    "\"01_マクロ改修\"]').click();");
-                await ClickNext();
-                await WaitFor(
-                    "MacroStudioState.getState().entrance !== null && " +
+                    "MacroStudioState.getState().appInfo.catalog && " +
+                    "MacroStudioState.getState().changeScope !== null && " +
                     "MacroStudioState.getState().screen === " +
                     "MacroStudioScreens.bookScreen");
+            }
+
+            // This walk is about what a refusal looks like, and its
+            // stand-in answers replace whole modules with two lines.
+            // Under the default scope that is a rewrite and is refused -
+            // correctly, and by a check that has its own test. So this run
+            // allows structural change, the way a reader who meant to
+            // restructure would. It has to be done after the workbook is
+            // read: attaching one starts a new run, and a new run gets the
+            // default back.
+            private async Task AllowStructuralChange()
+            {
+                await Execute(
+                    "(function(){var scopes=MacroStudioState.getState()" +
+                    ".appInfo.catalog.scope.filter(function(e){" +
+                    "return e.valid && e.structure === 'allowed';});" +
+                    "MacroStudioState.setChangeScope(scopes[0]);}());");
+                await WaitFor(
+                    "MacroStudioState.getState().changeScope" +
+                    ".structure === 'allowed'");
             }
 
             private async Task ClickNext()

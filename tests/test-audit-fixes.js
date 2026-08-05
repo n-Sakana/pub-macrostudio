@@ -230,7 +230,7 @@ function attach() {
     modules: state.getState().modules
   }), "diagnosis.md");
   state.setRepairPreset({
-    file: "01_マクロ改修\\\\02_改修\\\\sample.md",
+    file: "02_改修\\\\sample.md",
     name: "ひな形",
     content: "preset",
     parsed: {

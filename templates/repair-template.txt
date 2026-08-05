@@ -15,7 +15,7 @@
 【改修指示】
 {{REQUEST_TEXT}}
 
-【対象モジュール】※ 0 行のモジュールは元から空です
+{{CHANGE_SCOPE}}【対象モジュール】※ 0 行のモジュールは元から空です
 {{MODULE_LIST}}
 
 {{OUTPUT_RULES}}

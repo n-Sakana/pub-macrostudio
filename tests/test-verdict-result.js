@@ -59,8 +59,7 @@ windowObject.document = documentObject;
 
 var workflow = windowObject.MacroStudioWorkflow;
 var presetApi = windowObject.MacroStudioPreset;
-var macroEntrance = require("./helpers/contracts").entrance(
-  presetApi, "01_マクロ改修");
+var catalog = require("./helpers/contracts").catalog(presetApi);
 
 var MODULE_CODE = (function () {
   var lines = [];
@@ -99,18 +98,8 @@ var state = {
   extraRequest: "",
   questions: [],
   answers: {},
-  appInfo: {presets: {entrances: []}},
-  entrance: {
-    folder: macroEntrance.folder,
-    name: macroEntrance.name,
-    description: macroEntrance.description,
-    valid: true,
-    hasDiagnosis: true,
-    diagnosisReady: true,
-    choosesTemplate: true,
-    diagnose: macroEntrance.diagnose,
-    repair: macroEntrance.repair
-  },
+  appInfo: {presets: {}, catalog: catalog},
+  changeScope: catalog.scope[0],
   modules: [{name: "CommonUtil", code: MODULE_CODE, lineCount: 40}],
   targetEnvironment: {
     displayName: "新しい業務端末",

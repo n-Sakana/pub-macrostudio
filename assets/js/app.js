@@ -493,7 +493,7 @@
       !targetEnvironmentLoading;
   }
 
-  // Which templates are in play changes with the entrance, so this is
+  // The presets folder can be edited while the app is open, so this is
   // worked out from the current state rather than cached at start-up.
   function isDiagnosisPresetReady() {
     return resolveDiagnosisPreset(
@@ -501,8 +501,6 @@
   }
 
   function createDiagnosisPresetErrorCard() {
-    var state = global.MacroStudioState.getState();
-    var folder = state.entrance ? state.entrance.folder : "<入口>";
     var card = createElement("div", "inline-error-card");
 
     card.setAttribute("role", "alert");
@@ -517,40 +515,33 @@
     card.appendChild(createElement(
       "p",
       "",
-      "presets\\" + folder +
-        "\\01_診断 に有効な Markdown を 1 つだけ置いてください。"));
+      "presets\\01_診断 に有効な Markdown を 1 つだけ置いてください。"));
     return card;
   }
 
-  // Templates belong to the entrance that was chosen, so what is on
-  // offer changes with it. Before an entrance is chosen there is nothing
-  // to offer, which is why the choice comes first.
+  function getCatalog(state) {
+    return state && state.appInfo && state.appInfo.catalog
+      ? state.appInfo.catalog
+      : null;
+  }
+
+  // Every repair template the presets folder holds. Every run is offered
+  // the same list; what changes between runs is which of them the
+  // diagnosis points at.
   function getPresetEntries(state) {
-    return state.entrance && Array.isArray(state.entrance.repair)
-      ? state.entrance.repair
-      : [];
+    var catalog = getCatalog(state);
+
+    return catalog && Array.isArray(catalog.repair) ? catalog.repair : [];
   }
 
   function resolveDiagnosisPreset(state) {
-    var entrance = state && state.entrance ? state.entrance : null;
-    var entries = entrance && Array.isArray(entrance.diagnose)
-      ? entrance.diagnose
+    var catalog = getCatalog(state);
+    var entries = catalog && Array.isArray(catalog.diagnose)
+      ? catalog.diagnose
       : [];
     var valid = entries.filter(function (entry) {
       return entry.valid;
     });
-
-    // An entrance with no diagnosis stage is not an error: it is a run
-    // that does not diagnose, and the flow steps over those screens.
-    if (entrance && entrance.hasDiagnosis !== true) {
-      return {
-        ok: true,
-        code: "",
-        entry: null,
-        validCount: 0,
-        entries: []
-      };
-    }
 
     if (valid.length !== 1) {
       return {
@@ -1833,8 +1824,8 @@
     };
   }
 
-  // Screens 0-6 live in screens/workflow.js: the entrance, the
-  // workbook, the two diagnosis pages, the choice of work, the repair
+  // Screens 0-5 live in screens/workflow.js: the workbook, the two
+  // diagnosis pages, the choice of work and change scope, the repair
   // input and the repair hand-over. The established review, output,
   // build and done builders remain the β1.10 implementations.
   var screenBuilders = [
@@ -1844,7 +1835,6 @@
     createWorkflowScreen(3),
     createWorkflowScreen(4),
     createWorkflowScreen(5),
-    createWorkflowScreen(6),
     createScreen6,
     createScreen7,
     createScreenBuilding,
@@ -3017,28 +3007,18 @@
     });
   }
 
-  // Every entrance the presets folder holds, described. The app reads
-  // the folder's shape - a diagnosis stage, how many repair templates -
-  // and nothing about what any of them says.
-  function describeEntrances(appInfo) {
-    var list = appInfo && appInfo.presets &&
-      Array.isArray(appInfo.presets.entrances)
-      ? appInfo.presets.entrances
-      : [];
-
-    return list.map(function (entrance) {
-      return global.MacroStudioPreset.describeEntrance(entrance);
-    });
-  }
-
   function loadAppInfo() {
     return global.hostBridge.request("getAppInfo").then(
       function (appInfo) {
         // A rediscovery that comes back without a preset list is not
         // an empty presets folder: keep what the app already has.
         if (appInfo && appInfo.presets &&
-            Array.isArray(appInfo.presets.entrances)) {
-          appInfo.entrances = describeEntrances(appInfo);
+            Array.isArray(appInfo.presets.repair)) {
+          // The whole presets folder, described once. The stage is still
+          // the folder's answer; which heading a template stands under
+          // and whether a scope permits structural change are the files'.
+          appInfo.catalog = global.MacroStudioPreset.describeCatalog(
+            appInfo.presets);
           global.MacroStudioState.setAppInfo(appInfo);
         }
         return appInfo;

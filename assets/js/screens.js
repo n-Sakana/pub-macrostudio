@@ -1,7 +1,8 @@
 (function (global) {
   "use strict";
 
-  // The β2 flow has one visible entrance and four stable major steps.
+  // The β2 flow has one visible way in - the workbook - and four stable
+  // major steps.
   // This table is the sole authority for screen order and readiness.
   // The four stages of the improvement guide: 2-A preservation,
   // 2-B judgement, 2-C repair, 2-E handover. 2-D testing happens outside
@@ -25,46 +26,19 @@
   // the name is how they came to disagree.
   var AI_CODE_FILE = "source-code-for-ai.md";
 
-  var ENTRANCE_SCREEN = 0;
-  var BOOK_SCREEN = 1;
-  var DIAGNOSE_SCREEN = 2;
-  var FINDINGS_SCREEN = 3;
-  var NEXT_STEP_SCREEN = 4;
-  var REPAIR_INPUT_SCREEN = 5;
-  var REPAIR_SCREEN = 6;
-  var REVIEW_SCREEN = 7;
-  var OUTPUT_SCREEN = 8;
-  var BUILD_SCREEN = 9;
-  var DONE_SCREEN = 10;
-
-  // What a run does after the workbook is read is not decided here. It
-  // is read off the entrance the reader chose, which is read off what
-  // that entrance's folder contains (SPEC §2.2.0).
-  function getEntrance(state) {
-    return state && state.entrance ? state.entrance : null;
-  }
-
-  function hasDiagnosis(state) {
-    var entrance = getEntrance(state);
-
-    return Boolean(entrance) && entrance.hasDiagnosis === true;
-  }
-
-  function choosesTemplate(state) {
-    var entrance = getEntrance(state);
-
-    return Boolean(entrance) && entrance.choosesTemplate === true;
-  }
-
-  function isEntranceChosen(state) {
-    var entrance = getEntrance(state);
-
-    return Boolean(entrance) && entrance.valid === true &&
-      // A folder that has a diagnosis stage must hold exactly one usable
-      // template in it. Half a diagnosis is an authoring mistake, and
-      // walking into it would produce a request nobody can answer.
-      (entrance.hasDiagnosis !== true || entrance.diagnosisReady === true);
-  }
+  // One road. Reading the workbook is the first thing that happens, and
+  // the diagnosis after it is not optional: a run that could step over it
+  // would be a branch at the top of the flow wearing a different name.
+  var BOOK_SCREEN = 0;
+  var DIAGNOSE_SCREEN = 1;
+  var FINDINGS_SCREEN = 2;
+  var NEXT_STEP_SCREEN = 3;
+  var REPAIR_INPUT_SCREEN = 4;
+  var REPAIR_SCREEN = 5;
+  var REVIEW_SCREEN = 6;
+  var OUTPUT_SCREEN = 7;
+  var BUILD_SCREEN = 8;
+  var DONE_SCREEN = 9;
 
   function getModules(state) {
     return state && Array.isArray(state.modules) ? state.modules : [];
@@ -156,12 +130,23 @@
     }).length;
   }
 
-  // An entrance with no diagnosis stage has nothing to hand over and
-  // nothing to read back, so the flow steps over both screens. This was
-  // a checkbox on the diagnosis screen; it is an entrance now, which is
-  // where a branch that changes the following screens belongs.
-  function isDiagnosisSkipped(state) {
-    return Boolean(state) && !hasDiagnosis(state);
+  // Whether the run may change the shape of the project. The answer is
+  // the chosen change-scope template's own word, never a default this
+  // file invented: with no scope chosen there is nothing to enforce and
+  // nothing to promise, so the screen that chooses the work says so
+  // rather than guessing "minimal".
+  function getChangeScope(state) {
+    return state && state.changeScope ? state.changeScope : null;
+  }
+
+  function isStructureForbidden(state) {
+    var scope = getChangeScope(state);
+
+    return Boolean(scope) && scope.structure === "forbidden";
+  }
+
+  function isChangeScopeChosen(state) {
+    return getChangeScope(state) !== null;
   }
 
   function isDiagnosisCurrent(state) {
@@ -407,23 +392,7 @@
   var SCREENS = [
     {
       major: 1,
-      sub: "1/2",
-      title: function () { return "何をするか選びます"; },
-      meta: function (state) {
-        var entrance = getEntrance(state);
-
-        return entrance && entrance.name ? entrance.name : "3つから選ぶ";
-      },
-      context: function (state) {
-        return isEntranceChosen(state)
-          ? "右下の「次へ」で、ブックを読み込みます"
-          : "したいことに近いものを選んでください";
-      },
-      ready: isEntranceChosen
-    },
-    {
-      major: 1,
-      sub: "2/2",
+      sub: "1/1",
       title: function () { return "Excelブックを読み込みます"; },
       meta: function () { return "対応形式 .xlsm / .xlam / .xlsb / .xls"; },
       context: function (state) {
@@ -443,11 +412,6 @@
         if (isDiagnosisCurrent(state)) {
           return findingCount(state) + "件の指摘を取り込み済み";
         }
-        // A skipped diagnosis has no request to hand over, so the header
-        // must not keep announcing one.
-        if (isDiagnosisSkipped(state)) {
-          return "診断は行いません";
-        }
         return state.diagnosisRequestId
           ? "診断依頼を用意しました"
           : "診断依頼を準備中";
@@ -455,9 +419,6 @@
       context: function (state) {
         if (isDiagnosisCurrent(state)) {
           return "右下の「次へ」で診断結果を確認します";
-        }
-        if (isDiagnosisSkipped(state)) {
-          return "右下の「次へ」で、次にすることを選びます";
         }
         if (!state.diagnosisPromptCopied) {
           return "依頼文をコピーして、AIへ貼り付けます";
@@ -467,9 +428,7 @@
         }
         return "AIの返答をコピーして、この画面へ取り込みます";
       },
-      ready: function (state) {
-        return isDiagnosisCurrent(state) || isDiagnosisSkipped(state);
-      }
+      ready: isDiagnosisCurrent
     },
     {
       major: 3,
@@ -493,14 +452,20 @@
       sub: "2/5",
       title: function () { return "次にすることを選びます"; },
       meta: function (state) {
-        return state.presetName || "ひな形を選ぶ";
+        return state.presetName || "操作を選ぶ";
       },
-      context: function () {
-        return "したい作業に近いひな形を選びます";
+      context: function (state) {
+        if (!isChangeScopeChosen(state)) {
+          return "変更範囲を選んでください";
+        }
+        return "診断から出てきた操作を選びます。複数選べます";
       },
+      // Two answers are needed here, and neither has a silent default:
+      // which operations to carry out, and how far the code may change.
       ready: function (state) {
-        return (isDiagnosisCurrent(state) || isDiagnosisSkipped(state)) &&
-          (state.presetFiles || []).length > 0;
+        return isDiagnosisCurrent(state) &&
+          (state.presetFiles || []).length > 0 &&
+          isChangeScopeChosen(state);
       }
     },
     {
@@ -652,26 +617,13 @@
       clampIndex(index) === DONE_SCREEN;
   }
 
-  // Three branches, all read off the entrance's own folder rather than
-  // decided here (SPEC §2.3), plus the repair engine as before.
-  //
-  //   no 01_診断/          skip the hand-over and the result
-  //   one 02_改修/ template  skip the choice of template
-  //   replacement table     skip the chat and go straight to the diff
-  //
-  // Skipping is not the same as hiding: an entrance that skips a screen
-  // never had anything to put on it.
+  // One branch is left, and it is not about what the reader wanted: when
+  // everything chosen is carried out by the replacement table, there is
+  // no chat stage to walk through, so the flow goes from the table
+  // straight to the diff. Every screen before that is walked every time.
   function nextIndex(state, index) {
     var current = clampIndex(index);
 
-    if (current === BOOK_SCREEN && isDiagnosisSkipped(state)) {
-      return choosesTemplate(state)
-        ? NEXT_STEP_SCREEN
-        : REPAIR_INPUT_SCREEN;
-    }
-    if (current === FINDINGS_SCREEN && !choosesTemplate(state)) {
-      return REPAIR_INPUT_SCREEN;
-    }
     if (current === REPAIR_INPUT_SCREEN &&
         getEngine(state) === "対応表による置換") {
       return REVIEW_SCREEN;
@@ -680,7 +632,7 @@
   }
 
   function canGoBack(state, index) {
-    return clampIndex(index) > ENTRANCE_SCREEN &&
+    return clampIndex(index) > BOOK_SCREEN &&
       clampIndex(index) !== BUILD_SCREEN &&
       (!state || state.busyAction === null);
   }
@@ -690,11 +642,10 @@
     count: SCREENS.length,
     majors: MAJORS,
     getMajors: function () { return MAJORS.slice(); },
-    entranceScreen: ENTRANCE_SCREEN,
-    isEntranceChosen: isEntranceChosen,
-    hasDiagnosis: hasDiagnosis,
-    choosesTemplate: choosesTemplate,
     isGradeDiagnosis: isGradeDiagnosis,
+    getChangeScope: getChangeScope,
+    isChangeScopeChosen: isChangeScopeChosen,
+    isStructureForbidden: isStructureForbidden,
     bookScreen: BOOK_SCREEN,
     diagnoseScreen: DIAGNOSE_SCREEN,
     nextStepScreen: NEXT_STEP_SCREEN,
@@ -720,7 +671,6 @@
     nextIndex: nextIndex,
     isTerminal: isTerminal,
     isDiagnosisCurrent: isDiagnosisCurrent,
-    isDiagnosisSkipped: isDiagnosisSkipped,
     isDiagnosisRequestCurrent: isDiagnosisRequestCurrent,
     isRepairIntakeCurrent: isRepairIntakeCurrent,
     isRepairResultCurrent: isRepairResultCurrent,

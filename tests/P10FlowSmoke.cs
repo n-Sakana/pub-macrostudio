@@ -12,7 +12,7 @@ using Microsoft.Web.WebView2.Wpf;
 
 namespace MacroStudio.Tests
 {
-    // Walks the eleven screens against the real host: one workbook in,
+    // Walks the ten screens against the real host: one workbook in,
     // one run folder out.
     public static class P10FlowSmoke
     {
@@ -290,10 +290,10 @@ namespace MacroStudio.Tests
                     string repairPrompt = null;
 
                     await WaitFor(
-                        "MacroStudioState.getState().appInfo !== null");
-                    // Screen 0: what this run is for. Nothing has been
-                    // read yet and nothing may be, so [次へ] is shut
-                    // until one of the entrances is chosen.
+                        "MacroStudioState.getState().appInfo !== null && " +
+                        "MacroStudioState.getState().appInfo.catalog");
+                    // Screen 0: the workbook. Nothing stands in front of
+                    // it, so [次へ] is shut until one is read.
                     result.Add("initial", await ReadJson(
                         "({" +
                         "screen:MacroStudioState.getState().screen," +
@@ -302,37 +302,17 @@ namespace MacroStudio.Tests
                         "'[data-action=\"go-next\"]').disabled," +
                         "entrances:document.querySelectorAll(" +
                         "'[data-action=\"select-entrance\"]').length," +
-                        "diagnosisNotes:document.querySelectorAll(" +
-                        "'.entrance-card .choice-note').length," +
-                        "firstEntrance:document.querySelector(" +
-                        "'[data-action=\"select-entrance\"]')" +
-                        ".getAttribute('data-entrance-folder')," +
+                        // The change scope is in force before anything is
+                        // chosen, because a run with no answer to "how far
+                        // may this change" is a run with nothing to
+                        // enforce.
+                        "scope:MacroStudioState.getState().changeScope" +
+                        ".structure," +
                         "visibleEntries:document.querySelectorAll(" +
                         "'[data-action=\"select-mode\"]," +
                         "[data-action=\"select-purpose\"]').length" +
                         "})"));
                     result.Add("startShell", await ReadShell());
-
-                    // This walk is the macro repair: it diagnoses whether
-                    // the workbook runs, and it offers a choice of repair
-                    // template afterwards.
-                    await Execute(
-                        "document.querySelector('[data-entrance-folder=\"" +
-                        "01_マクロ改修\"]').click();");
-                    await WaitFor(
-                        "MacroStudioState.getState().entrance !== null");
-                    result.Add("entranceChosen", await ReadJson(
-                        "({" +
-                        "folder:MacroStudioState.getState().entrance.folder," +
-                        "hasDiagnosis:MacroStudioState.getState()" +
-                        ".entrance.hasDiagnosis," +
-                        "choosesTemplate:MacroStudioState.getState()" +
-                        ".entrance.choosesTemplate," +
-                        "nextReady:!document.querySelector(" +
-                        "'[data-action=\"go-next\"]').disabled" +
-                        "})"));
-                    await Next();
-                    await WaitForScreen(1);
 
                     eventData.Add("path", bookPath);
                     router.PushEvent("bookDropped", eventData);
@@ -352,7 +332,7 @@ namespace MacroStudio.Tests
 
                     await Next();
                     await WaitFor(
-                        "MacroStudioState.getState().screen === 2 && " +
+                        "MacroStudioState.getState().screen === 1 && " +
                         "MacroStudioState.getState().diagnosisRequestId !== null && " +
                         "MacroStudioState.getState().targetEnvironment !== null && " +
                         "MacroStudioState.getState().busyAction === null");
@@ -403,7 +383,7 @@ namespace MacroStudio.Tests
                     await WaitFor(
                         "document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled");
-                    await WaitForScreen(2);
+                    await WaitForScreen(1);
 
                     string marker = "'@MACROSTUDIO " + diagnosisId + " ";
                     string diagnosisResponse;
@@ -496,7 +476,7 @@ namespace MacroStudio.Tests
                         "})"));
 
                     await Next();
-                    await WaitForScreen(3);
+                    await WaitForScreen(2);
                     result.Add("findings", await ReadJson(
                         "({" +
                         "screen:MacroStudioState.getState().screen," +
@@ -515,7 +495,7 @@ namespace MacroStudio.Tests
                     // Reading the diagnosis and choosing the work are two
                     // pages now.
                     await Next();
-                    await WaitForScreen(4);
+                    await WaitForScreen(3);
                     await WaitFor(
                         "document.querySelector(" +
                         "'[data-action=\"select-repair-preset\"]') !== null");
@@ -530,6 +510,10 @@ namespace MacroStudio.Tests
                         "'.choice-card.is-recommended').length," +
                         "firstCard:cards.length ? cards[0]" +
                         ".getAttribute('data-preset-file') : ''," +
+                        "headings:document.querySelectorAll(" +
+                        "'.category-heading').length," +
+                        "scopeOptions:document.querySelectorAll(" +
+                        "'.scope-card').length," +
                         "nextReady:!document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled};}())"));
                     // The diagnosis may point at a template, and the
@@ -555,8 +539,8 @@ namespace MacroStudio.Tests
                     await Execute(
                         "(function(){" +
                         "var state=MacroStudioState.getState();" +
-                        // The templates on offer are the entrance's own.
-                        "var entries=state.entrance.repair;" +
+                        // Every run is offered the whole folder.
+                        "var entries=state.appInfo.catalog.repair;" +
                         // With the table, the one that asks for it;
                         // without, the first that asks the chat instead.
                         "var wanted=entries.filter(function(entry){" +
@@ -574,15 +558,19 @@ namespace MacroStudio.Tests
                         "MacroStudioState.getState().busyAction === null");
                     result.Add("preset", await ReadJson(
                         "({" +
+                        // The change scope is chosen on the same screen
+                        // and its option is a card too, so the operations
+                        // are the selected cards that are not scope cards.
                         "selected:document.querySelectorAll(" +
-                        "'.choice-card.is-selected').length," +
+                        "'.choice-card.is-selected:not(.scope-card)')" +
+                        ".length," +
                         "engine:MacroStudioState.getState().presetEngine," +
                         "nextReady:!document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled" +
                         "})"));
 
                     await Next();
-                    await WaitForScreen(5);
+                    await WaitForScreen(4);
                     if (pathMap)
                     {
                         result.Add("pathMapInitial", await ReadJson(
@@ -644,7 +632,7 @@ namespace MacroStudio.Tests
                             "'[data-action=\"go-next\"]').disabled};}())"));
                         await Next();
                         await WaitFor(
-                            "MacroStudioState.getState().screen === 7 && " +
+                            "MacroStudioState.getState().screen === 6 && " +
                             "MacroStudioState.getState().intakeResult && " +
                             "MacroStudioState.getState().intakeResult" +
                             ".mapping.rows.length === 1");
@@ -692,7 +680,7 @@ namespace MacroStudio.Tests
 
                     await Next();
                     await WaitFor(
-                        "MacroStudioState.getState().screen === 6 && " +
+                        "MacroStudioState.getState().screen === 5 && " +
                         "MacroStudioState.getState().repairRequestId !== null && " +
                         "MacroStudioState.getState().busyAction === null");
                     repairId = serializer.Deserialize<string>(
@@ -750,7 +738,7 @@ namespace MacroStudio.Tests
                     await WaitFor(
                         "document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled");
-                    await WaitForScreen(6);
+                    await WaitForScreen(5);
                     await SetClipboardAfterHandoff(
                         "not a MacroStudio answer");
                     await Execute(
@@ -769,14 +757,29 @@ namespace MacroStudio.Tests
                         "})"));
 
                     marker = "'@MACROSTUDIO " + repairId + " ";
+                    // The module comes back as it was read with one line
+                    // added, which is what a repair to one place looks
+                    // like. Replacing it with two lines instead was a
+                    // stand-in that deleted every procedure in it - a
+                    // change of shape the default scope refuses, and
+                    // rightly. The template this walk chose declares that
+                    // it adds a standard module, so the new one below is
+                    // within what was asked for.
+                    string firstModuleCode = serializer.Deserialize<string>(
+                        await ReadJson(
+                            "MacroStudioState.getState().modules.filter(" +
+                            "function(m){return m.name===" +
+                            serializer.Serialize(firstModule) +
+                            ";})[0].code"))
+                        .TrimEnd('\r', '\n');
                     string repairResponse =
                         marker + "SUMMARY BEGIN\r\n" +
                         firstModule + " now has a visible test effect.\r\n" +
                         "FlowSmokeHelpers was added for the flow smoke.\r\n" +
                         marker + "SUMMARY END\r\n" +
                         marker + "BEGIN standard " + firstModule + "\r\n" +
-                        "Option Explicit\r\n" +
-                        "Public Sub Test(): Beep: End Sub\r\n" +
+                        firstModuleCode + "\r\n" +
+                        "' touched by the flow smoke\r\n" +
                         marker + "END standard " + firstModule + "\r\n" +
                         marker + "BEGIN standard FlowSmokeHelpers\r\n" +
                         "Option Explicit\r\n" +
@@ -809,7 +812,7 @@ namespace MacroStudio.Tests
                         "})"));
 
                     await Next();
-                    await WaitForScreen(7);
+                    await WaitForScreen(6);
                     }
                     result.Add("review", await ReadJson(
                         "({" +
@@ -860,7 +863,7 @@ namespace MacroStudio.Tests
                     await Capture(darkScreenshot, true);
 
                     await Next();
-                    await WaitForScreen(8);
+                    await WaitForScreen(7);
                     result.Add("output", await ReadJson(
                         "({" +
                         "screen:MacroStudioState.getState().screen," +
@@ -878,7 +881,8 @@ namespace MacroStudio.Tests
 
                     await Next();
                     await WaitFor(
-                        "MacroStudioState.getState().screen === 10 && " +
+                        "MacroStudioState.getState().screen === " +
+                        "MacroStudioScreens.doneScreen && " +
                         "MacroStudioState.getState().busyAction === null");
                     result.Add("done", await ReadJson(
                         "({" +

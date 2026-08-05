@@ -328,92 +328,20 @@ namespace MacroStudio
             return presets;
         }
 
-        // One file naming the entrance. It is read the same way a preset
-        // is - the host carries text and does not parse markdown.
-        private Dictionary<string, object> ReadEntranceFile(
-            string folderName)
-        {
-            string path = Path.Combine(
-                baseDir,
-                "presets",
-                Path.Combine(folderName, "\u5165\u53E3.md"));
-            Dictionary<string, object> entrance;
-
-            if (!File.Exists(path))
-            {
-                return null;
-            }
-            entrance = new Dictionary<string, object>();
-            entrance.Add(
-                "file",
-                Path.Combine(folderName, "\u5165\u53E3.md"));
-            try
-            {
-                entrance.Add(
-                    "content",
-                    File.ReadAllText(path, new UTF8Encoding(false, true)));
-            }
-            catch (Exception)
-            {
-                entrance.Add("content", string.Empty);
-                entrance.Add("error", "read");
-            }
-            return entrance;
-        }
-
-        // Every folder directly under presets/ is one entrance. What each
-        // entrance does is decided by what its folder holds, not by a list
-        // in this file: a missing diagnosis folder means no diagnosis, and
-        // a single repair template means no template to choose. The host
-        // reports what is on disk and reads none of it.
-        private List<Dictionary<string, object>> ReadEntrances()
-        {
-            List<Dictionary<string, object>> entrances =
-                new List<Dictionary<string, object>>();
-            string presetRoot = Path.Combine(baseDir, "presets");
-            string diagnoseFolder = "01_\u8A3A\u65AD";
-            string repairFolder = "02_\u6539\u4FEE";
-            string[] folders;
-            int index;
-
-            if (!Directory.Exists(presetRoot))
-            {
-                return entrances;
-            }
-            folders = Directory.GetDirectories(presetRoot);
-            Array.Sort(folders, ComparePresetFiles);
-            for (index = 0; index < folders.Length; index++)
-            {
-                string name = Path.GetFileName(folders[index]);
-                Dictionary<string, object> entrance =
-                    new Dictionary<string, object>();
-                Dictionary<string, object> file =
-                    ReadEntranceFile(name);
-
-                entrance.Add("folder", name);
-                entrance.Add("entrance", file);
-                entrance.Add(
-                    "hasDiagnoseFolder",
-                    Directory.Exists(
-                        Path.Combine(folders[index], diagnoseFolder)));
-                entrance.Add(
-                    "diagnose",
-                    ReadPresetGroup(
-                        Path.Combine(name, diagnoseFolder)));
-                entrance.Add(
-                    "repair",
-                    ReadPresetGroup(
-                        Path.Combine(name, repairFolder)));
-                entrances.Add(entrance);
-            }
-            return entrances;
-        }
-
+        // The stage is still decided by the folder a file sits in, and
+        // there is one set of folders for the whole run: the diagnosis,
+        // the repair templates, and the change-scope choices. The host
+        // reports what is on disk and reads none of it - which heading a
+        // repair template stands under, and whether a scope permits the
+        // shape of the project to change, are written in the files and
+        // parsed in the UI.
         public Dictionary<string, object> GetAppInfo()
         {
             Dictionary<string, object> presets =
                 new Dictionary<string, object>();
-            presets.Add("entrances", ReadEntrances());
+            presets.Add("diagnose", ReadPresetGroup("01_\u8A3A\u65AD"));
+            presets.Add("repair", ReadPresetGroup("02_\u6539\u4FEE"));
+            presets.Add("scope", ReadPresetGroup("03_\u5909\u66F4\u7BC4\u56F2"));
 
             Dictionary<string, object> result =
                 new Dictionary<string, object>();
@@ -794,10 +722,9 @@ namespace MacroStudio
         // <book folder>\MacroStudio\<book base>_<timestamp>.
         // The first request of a run creates it and its immutable
         // source-code.md; later stages only add or generation-replace
-        // their own run artifact. Which request comes first depends on
-        // the entrance: one that does not diagnose starts at the repair
-        // request, and that run needs the same folder and the same
-        // record of the workbook as it was read.
+        // their own run artifact. The diagnosis request always comes
+        // first, and the repair request that follows needs the same
+        // folder and the same record of the workbook as it was read.
         public Dictionary<string, object> WriteRequestFiles(
             string stage,
             string outputTimestamp,

@@ -632,6 +632,20 @@
     return lines.join(CRLF);
   }
 
+  // How far the code may change, in the chosen template's own words. The
+  // heading travels with the text so a build whose 03_変更範囲 folder is
+  // empty sends no empty heading - and cannot get that far anyway,
+  // because the screen refuses to advance without a scope.
+  function changeScopeText(state) {
+    var scope = state && state.changeScope ? state.changeScope : null;
+
+    if (!scope || !scope.instruction) {
+      return "";
+    }
+    return "【変更範囲】" + CRLF +
+      String(scope.instruction.body || "") + CRLF + CRLF;
+  }
+
   function composeRepairRequestText(parsed, state, requestId) {
     var text = composeInstructions(state, requestId);
     var answers = [];
@@ -739,39 +753,51 @@
     return lines.join(CRLF) + CRLF;
   }
 
-  // Every entrance the presets folder holds, already described by
-  // preset-document.js. The app never reads what is inside them.
-  function listEntrances(state) {
-    return state && state.appInfo && Array.isArray(state.appInfo.entrances)
-      ? state.appInfo.entrances
+  // The whole presets folder, already described by preset-document.js.
+  // The app never reads what is inside the files.
+  function catalog(state) {
+    return state && state.appInfo && state.appInfo.catalog
+      ? state.appInfo.catalog
+      : null;
+  }
+
+  function repairPresets(state) {
+    var described = catalog(state);
+
+    return described && Array.isArray(described.repair)
+      ? described.repair
       : [];
   }
 
-  function entranceRepairPresets(state) {
-    return state && state.entrance && Array.isArray(state.entrance.repair)
-      ? state.entrance.repair
+  function scopePresets(state) {
+    var described = catalog(state);
+
+    return described && Array.isArray(described.scope)
+      ? described.scope
       : [];
   }
 
-  // What this run is called. Authored in the entrance's own folder, so
-  // the app can say it back without knowing any of the three by name.
-  function entranceName(state) {
-    return state && state.entrance ? String(state.entrance.name || "") : "";
+  // The headings the repair templates stand under, in the order the
+  // folder offers them. Written in the files, never here.
+  function repairCategories(state) {
+    var described = catalog(state);
+
+    return described && Array.isArray(described.categories)
+      ? described.categories
+      : [];
   }
 
-  // The one diagnosis template of the chosen entrance, with the raw file
-  // beside it. An entrance with no diagnosis stage has none, and the
-  // flow steps over the screens that would have used it.
+  // The one diagnosis template, with the raw file beside it. The folder
+  // must hold exactly one usable file; zero or two is E-PRESET-02 and the
+  // screen says so rather than picking one.
   function diagnosisPreset(state) {
-    var entrance = state && state.entrance ? state.entrance : null;
-    var valid;
+    var described = catalog(state);
+    var valid = described && Array.isArray(described.diagnose)
+      ? described.diagnose.filter(function (entry) {
+        return entry.valid;
+      })
+      : [];
 
-    if (!entrance || entrance.hasDiagnosis !== true) {
-      return null;
-    }
-    valid = (entrance.diagnose || []).filter(function (entry) {
-      return entry.valid;
-    });
     if (valid.length !== 1) {
       return null;
     }
@@ -779,6 +805,14 @@
       entry: valid[0],
       raw: {file: valid[0].file, content: valid[0].content}
     };
+  }
+
+  // What the diagnosis calls itself, for the one screen that has to name
+  // the question it answered.
+  function diagnosisName(state) {
+    var selected = diagnosisPreset(state);
+
+    return selected ? String(selected.entry.name || "") : "";
   }
 
   // The reply did not come back in the shape the request asked for. The
@@ -899,23 +933,25 @@
 
   // What the diagnosis is asked to grade against. It is not written here
   // and not written in the diagnosis template either: it is the repair
-  // template's own 改修指示. An entrance with one repair template has one
-  // basis; an entrance with several has no single basis to name, and its
-  // diagnosis does not ask for one.
+  // template's own 改修指示. An install with one repair template has one
+  // basis; an install with several has no single basis to name, and its
+  // diagnosis does not ask for one - which is the shipped case, because
+  // the shipped diagnosis grades on "does it run" and needs no template
+  // to say so.
   //
   // Keeping the criteria in one file is the point. Copying them into the
   // diagnosis template would let the two stages drift apart, and the
   // reader would be told the code was graded against something the
   // repair does not do.
   function gradingBasis(state) {
-    var valid = entranceRepairPresets(state).filter(function (entry) {
+    var valid = repairPresets(state).filter(function (entry) {
       return entry.valid && entry.instruction;
     });
 
     if (valid.length !== 1) {
       return "";
     }
-    // The heading travels with the text so an entrance without a single
+    // The heading travels with the text so an install without a single
     // basis sends no empty heading, the same way the outside-code block
     // disappears when there is nothing outside the code.
     return "【改修の基準】" + CRLF +
@@ -1135,20 +1171,21 @@
     }, failHost);
   }
 
-  // Choosing the work. The templates in play change with it, so anything
-  // chosen under the old entrance goes; the workbook stays, because it
-  // is the same workbook whichever question is asked about it.
-  function selectEntrance(folder) {
+  // How far the code may change. The choice belongs to the same screen as
+  // the work itself, and switching it makes a request written under the
+  // old answer stale - both because the request text carries the scope
+  // and because the intake enforces it.
+  function selectChangeScope(file) {
     var store = global.MacroStudioState;
     var state = store.getState();
     var chosen = null;
 
-    if (!folder || state.busyAction) {
+    if (!file || state.busyAction) {
       return false;
     }
-    listEntrances(state).some(function (entrance) {
-      if (entrance.folder === folder) {
-        chosen = entrance;
+    scopePresets(state).some(function (entry) {
+      if (entry.file === file) {
+        chosen = entry;
         return true;
       }
       return false;
@@ -1156,7 +1193,7 @@
     if (!chosen || !chosen.valid) {
       return false;
     }
-    return store.setEntrance(chosen);
+    return store.setChangeScope(chosen);
   }
 
   function selectRepairPreset(file) {
@@ -1201,7 +1238,7 @@
     if (!state.presetFile) {
       return false;
     }
-    entranceRepairPresets(state).some(function (entry) {
+    repairPresets(state).some(function (entry) {
       if (entry.file === state.presetFile) {
         raw = entry;
         return true;
@@ -1283,10 +1320,9 @@
       return Promise.resolve(null);
     }
     requestId = createIdentity();
-    // On an entrance that diagnoses, the run folder was named by the
-    // diagnosis request and this reuses it. On one that does not, this
-    // request is the first thing the run writes, so it names the folder
-    // itself rather than writing into nowhere.
+    // The run folder was named by the diagnosis request and this reuses
+    // it. The fallback stays because a repair request must never write
+    // into nowhere, whatever order a future stage arrives in.
     timestamp = state.outputTimestamp ||
       global.MacroStudioApp.createOutputTimestamp(new Date());
     requestText = composeRepairRequestText(parsed, state, requestId);
@@ -1314,6 +1350,7 @@
           modules: state.modules,
           codeFileName: AI_CODE_FILE,
           targetEnvironment: state.targetEnvironmentSnapshot,
+          changeScope: changeScopeText(state),
           diagnosis: diagnosisText,
           selectedFindings: selectedText
         }), requestId);
@@ -1325,8 +1362,8 @@
         outputTimestamp: timestamp,
         request: prompt,
         // The workbook as it was read. The host keeps the first one a
-        // run writes and never replaces it, so on an entrance that
-        // diagnoses this is the copy the diagnosis already recorded.
+        // run writes and never replaces it, so this is the copy the
+        // diagnosis already recorded.
         code: global.MacroStudioPrompt.buildCodeFile({
           book: state.book,
           modules: state.modules,
@@ -1371,13 +1408,54 @@
     }, failHost);
   }
 
+  // Whether this run may add modules, and under which scope name. Both
+  // are read off files: the scope template's own 構造変更 word, and the
+  // 認める構造変更 of whatever repair templates the reader ticked. An
+  // operation that needs a module to put a wrapper in says so in its own
+  // file; nothing here knows which operations those are.
+  function structureOptions(state) {
+    var screens = global.MacroStudioScreens;
+    var scope = state.changeScope;
+
+    if (!screens.isStructureForbidden(state)) {
+      return null;
+    }
+    return {
+      scopeName: scope ? String(scope.name || "") : "",
+      allowNewModules: (state.presets || []).some(function (entry) {
+        var allowed = entry.parsed && entry.parsed.allowedStructures
+          ? entry.parsed.allowedStructures
+          : [];
+
+        return allowed.indexOf("モジュール追加") >= 0;
+      })
+    };
+  }
+
+  // The scope guard runs on the whole package, after the wire contract
+  // passed and before anything is imported. A reply that trips it is
+  // refused outright: nothing is half-applied, and the reason names what
+  // was found so the reader can either fix the request or allow the
+  // change deliberately.
+  function guardStructure(state, described) {
+    var options = structureOptions(state);
+
+    if (!options) {
+      return described;
+    }
+    return global.MacroStudioResponse.checkStructure(
+      described,
+      state.modules,
+      options);
+  }
+
   function applyWholeRepairPackage(parsed) {
     var store = global.MacroStudioState;
     var state = store.getState();
-    var described = global.MacroStudioResponse.describe(
+    var described = guardStructure(state, global.MacroStudioResponse.describe(
       parsed,
       state.modules,
-      state.diagnosis);
+      state.diagnosis));
 
     if (!described.ok) {
       return showRepairIntakeError(described.message, described);
@@ -2061,19 +2139,16 @@
     });
   }
 
-  function createPresetCards(state) {
-    var cards = element("div", "choice-list");
-    var entries = entranceRepairPresets(state);
+  function createPresetCard(state, entry) {
+    var card;
 
-    entries.forEach(function (entry) {
-      var card;
-      if (!entry.valid) {
-        cards.appendChild(element(
-          "p",
-          "preset-invalid-item",
-          entry.file + " — " + entry.message));
-        return;
-      }
+    if (!entry.valid) {
+      return element(
+        "p",
+        "preset-invalid-item",
+        entry.file + " — " + entry.message);
+    }
+    {
       // More than one may be chosen, so the card carries a checkbox and
       // looks like one. A card that only changed colour when pressed did
       // not say that a second one could be pressed too.
@@ -2117,9 +2192,47 @@
         mark.appendChild(element("span", "choice-recommended", "★ 推奨"));
       }
       card.appendChild(mark);
-      cards.appendChild(card);
+      return card;
+    }
+  }
+
+  // The operations, drawn under the headings the files declare. Grouping
+  // is display only: each card is still its own template, still ticked
+  // one at a time, and still reaches the request as its own instruction
+  // under its own name. Two operations sharing a heading never become one
+  // instruction - what the reader sees as one row of work stays two
+  // traceable items in the request, the diff and the run manifest.
+  function createPresetCards(state) {
+    var root = element("div", "category-list");
+    var entries = repairPresets(state);
+    var categories = repairCategories(state);
+    var placed = {};
+
+    categories.forEach(function (name) {
+      var group = element("div", "category-group");
+      var cards = element("div", "choice-list");
+
+      group.appendChild(element("h3", "category-heading", name));
+      entries.forEach(function (entry) {
+        if (!entry.valid || entry.category !== name) {
+          return;
+        }
+        placed[entry.file] = true;
+        cards.appendChild(createPresetCard(state, entry));
+      });
+      group.appendChild(cards);
+      root.appendChild(group);
     });
-    return cards;
+    // A file that could not be read has no heading to stand under, so it
+    // is listed on its own rather than dropped. A card nobody can see is
+    // how an editing mistake becomes invisible.
+    entries.forEach(function (entry) {
+      if (entry.valid && placed[entry.file]) {
+        return;
+      }
+      root.appendChild(createPresetCard(state, entry));
+    });
+    return root;
   }
 
   // A heading for each section a diagnosis template may declare. A name
@@ -2234,12 +2347,13 @@
       "span",
       "grade-badge grade-badge--" + grade.toLowerCase(),
       grade));
-    // What the run is about is the entrance's name, which is authored in
-    // its own folder. The app supplies only what the letter means.
+    // What the run was graded on is the diagnosis template's own name,
+    // which is authored in its own file. The app supplies only what the
+    // letter means.
     head.appendChild(element(
       "h2",
       "value-title",
-      entranceName(state) + "する価値は " + (VALUE_LABELS[grade] || "")));
+      diagnosisName(state) + "の判定は " + (VALUE_LABELS[grade] || "")));
     box.appendChild(head);
     box.appendChild(element(
       "p",
@@ -2362,14 +2476,140 @@
   }
 
   // Choosing the work. Nothing else: the diagnosis is the page before.
+  // Exactly what the intake refuses while the chosen scope forbids
+  // structural change - and, in the same breath, what it cannot see.
+  // Listing only the first half would read as a promise the checks do not
+  // make: nothing here inspects what happens inside a procedure, so a
+  // rewritten body passes, and the reader has to know that before
+  // trusting the box.
+  var STRUCTURE_GUARD_CHECKS = [
+    "読み込んだブックに無いモジュールが返ってきたら断ります" +
+      "（分割・クラス化はこれに当たります）",
+    "元のモジュールにあった Sub / Function / Property が" +
+      "返答から消えていたら断ります",
+    "別のモジュールにあった手続きが移ってきていたら断ります",
+    "1つのモジュールがほぼ全面的に書き換わっていたら断ります"
+  ];
+  var STRUCTURE_GUARD_LIMIT =
+    "機械的に検査するのはこの4つだけです。" +
+    "手続きの中身の作り替え、変数の整理、コメントの書き直しは検査できません。" +
+    "検査していないものを「検査した」とは表示しません。";
+
+  function createStructureGuardNote() {
+    var box = element("div", "scope-guard");
+    var list = element("ul", "scope-guard-list");
+
+    box.appendChild(element(
+      "p",
+      "task-note",
+      "この設定のあいだ、取り込みで次を検査します。"));
+    STRUCTURE_GUARD_CHECKS.forEach(function (line) {
+      list.appendChild(element("li", "scope-guard-item", line));
+    });
+    box.appendChild(list);
+    box.appendChild(element("p", "task-note", STRUCTURE_GUARD_LIMIT));
+    return box;
+  }
+
+  function createChangeScopeOption(state, entry) {
+    var chosen = state.changeScope &&
+      state.changeScope.file === entry.file;
+    var card;
+    var body;
+    var box;
+
+    if (!entry.valid) {
+      return element(
+        "p",
+        "preset-invalid-item",
+        entry.file + " — " + entry.message);
+    }
+    card = element("button", "choice-card scope-card");
+    body = element("span", "choice-body");
+    box = element("span", "option-checkbox choice-checkbox");
+    card.type = "button";
+    card.setAttribute("data-action", "select-change-scope");
+    card.setAttribute("data-scope-file", entry.file);
+    card.setAttribute("role", "radio");
+    card.setAttribute("aria-checked", chosen ? "true" : "false");
+    card.disabled = state.busyAction !== null;
+    if (chosen) {
+      card.classList.add("is-selected");
+      box.appendChild(icon("check", "flow-icon--small"));
+    }
+    card.appendChild(box);
+    card.appendChild(icon("template", "choice-icon"));
+    body.appendChild(element("span", "choice-title", entry.name));
+    if (entry.description) {
+      body.appendChild(element(
+        "span",
+        "choice-description",
+        entry.description));
+    }
+    card.appendChild(body);
+    return card;
+  }
+
+  // How far the code may change. The first choice is the default and is
+  // shown outright; the rest sit behind one row that opens, because
+  // allowing the shape of the project to change is the unusual answer and
+  // should be a deliberate one. The labels are the files' own, and every
+  // one of them is written as something it permits - no option here is
+  // phrased as a negative to be turned off.
+  function createChangeScopeSection(state) {
+    var box = section("変更範囲", "change-scope");
+    var scopes = scopePresets(state);
+    var chosen = state.changeScope;
+    var rest = scopes.slice(1);
+    var others;
+
+    if (scopes.length === 0) {
+      box.appendChild(element(
+        "p",
+        "preset-invalid-item",
+        "presets\\03_変更範囲 に有効な Markdown がありません。" +
+          "どこまで変えてよいかが決まらないので、依頼を作れません。"));
+      return box;
+    }
+    box.appendChild(element(
+      "p",
+      "task-note",
+      "改修でコードをどこまで変えてよいかを決めます。"));
+    box.appendChild(createChangeScopeOption(state, scopes[0]));
+    if (rest.length > 0) {
+      others = element("div", "choice-list");
+      rest.forEach(function (entry) {
+        others.appendChild(createChangeScopeOption(state, entry));
+      });
+      box.appendChild(createDisclosure(
+        "change-scope-detail",
+        "詳細オプション",
+        others,
+        Boolean(chosen) && chosen.file !== scopes[0].file,
+        chosen && chosen.file !== scopes[0].file ? chosen.name : ""));
+    }
+    if (global.MacroStudioScreens.isStructureForbidden(state)) {
+      box.appendChild(createStructureGuardNote());
+    } else if (chosen) {
+      box.appendChild(element(
+        "p",
+        "task-note",
+        "この設定のあいだ、構造の検査は行いません。" +
+          "返ってきた変更は差分で確かめてください。"));
+    }
+    return box;
+  }
+
   function createNextStepScreen(state) {
     var root = task(true);
 
-    if (!state.diagnosis &&
-        !global.MacroStudioScreens.isDiagnosisSkipped(state)) {
+    if (!state.diagnosis) {
       return missingDiagnosis(root);
     }
+    root.appendChild(intro(
+      "診断から出てきた操作を選びます。複数選べます。"));
     root.appendChild(createPresetCards(state));
+    root.appendChild(createChangeScopeSection(state));
     return root;
   }
 
@@ -2482,83 +2722,6 @@
           "完了画面の引渡しメモへ、人がやることとして残ります。"));
     }
     root.appendChild(box);
-    return root;
-  }
-
-  // The first screen. Three kinds of work, and the folder each one owns
-  // decides what happens after the workbook is read.
-  function createEntranceScreen(state) {
-    var root = task(true);
-    var cards = element("div", "choice-list");
-    var entrances = listEntrances(state);
-
-    root.appendChild(intro(
-      "このブックに何をしますか。選んだものによって、" +
-        "このあとの診断と手順が変わります。"));
-    if (entrances.length === 0) {
-      root.appendChild(element(
-        "p",
-        "preset-invalid-item",
-        "presets フォルダに入口がありません。" +
-          "presets の下に入口のフォルダを置いてください。"));
-      return root;
-    }
-    entrances.forEach(function (entrance) {
-      var card;
-      var body;
-      var mark;
-      var box;
-      var chosen = state.entrance &&
-        state.entrance.folder === entrance.folder;
-
-      if (!entrance.valid) {
-        cards.appendChild(element(
-          "p",
-          "preset-invalid-item",
-          entrance.folder + " — " + entrance.message));
-        return;
-      }
-      card = element("button", "choice-card entrance-card");
-      body = element("span", "choice-body");
-      mark = element("span", "choice-state");
-      box = element("span", "option-checkbox choice-checkbox");
-      card.type = "button";
-      card.setAttribute("data-action", "select-entrance");
-      card.setAttribute("data-entrance-folder", entrance.folder);
-      card.setAttribute("role", "radio");
-      card.setAttribute("aria-checked", chosen ? "true" : "false");
-      card.disabled = state.busyAction !== null;
-      if (chosen) {
-        card.classList.add("is-selected");
-        box.appendChild(icon("check", "flow-icon--small"));
-      }
-      card.appendChild(box);
-      card.appendChild(icon("template", "choice-icon"));
-      body.appendChild(element("span", "choice-title", entrance.name));
-      body.appendChild(element(
-        "span",
-        "choice-description",
-        entrance.description));
-      // What this entrance will actually do, read off its own folder.
-      // The reader can see before choosing whether a diagnosis happens.
-      mark.appendChild(element(
-        "span",
-        "choice-note",
-        entrance.hasDiagnosis ? "診断あり" : "診断なし"));
-      card.appendChild(body);
-      card.appendChild(mark);
-      if (entrance.hasDiagnosis && !entrance.diagnosisReady) {
-        card.disabled = true;
-        card.classList.add("is-unusable");
-        body.appendChild(element(
-          "span",
-          "choice-description",
-          "この入口の診断ひな形が1つに定まりません。" +
-            "presets の 01_診断 を確認してください。"));
-      }
-      cards.appendChild(card);
-    });
-    root.appendChild(cards);
     return root;
   }
 
@@ -2904,9 +3067,6 @@
 
   function build(index, state) {
     var screens = global.MacroStudioScreens;
-    if (index === screens.entranceScreen) {
-      return createEntranceScreen(state);
-    }
     if (index === screens.bookScreen) {
       return createBookScreen(state);
     }
@@ -3019,8 +3179,8 @@
     if (action === "import-diagnosis") {
       importDiagnosisFromClipboard(); return true;
     }
-    if (action === "select-entrance") {
-      selectEntrance(button.getAttribute("data-entrance-folder"));
+    if (action === "select-change-scope") {
+      selectChangeScope(button.getAttribute("data-scope-file"));
       return true;
     }
     if (action === "select-repair-preset") {
@@ -3181,25 +3341,6 @@
         arrived) {
       selectRecommendedPresets(state);
     }
-    // An entrance with one template never shows the screen that chooses
-    // one, so choosing it is what the entrance already meant.
-    if (state.screen === global.MacroStudioScreens.repairInputScreen &&
-        !global.MacroStudioScreens.choosesTemplate(state) &&
-        (state.presetFiles || []).length === 0) {
-      selectOnlyPreset(state);
-    }
-  }
-
-  function selectOnlyPreset(state) {
-    var valid = entranceRepairPresets(state).filter(function (entry) {
-      return entry.valid;
-    });
-
-    if (valid.length !== 1) {
-      return false;
-    }
-    selectRepairPreset(valid[0].file);
-    return true;
   }
 
   // The diagnosis already said which templates it points at, so arriving
@@ -3212,7 +3353,7 @@
     if ((state.presetFiles || []).length > 0 || !state.diagnosis) {
       return false;
     }
-    recommended = entranceRepairPresets(state).filter(function (entry) {
+    recommended = repairPresets(state).filter(function (entry) {
       return entry.valid && recommendedBy(state, entry).length > 0;
     });
     if (recommended.length === 0) {
@@ -3263,7 +3404,6 @@
     composeDiagnosisRequestText: composeDiagnosisRequestText,
     composeOutsideCode: composeOutsideCode,
     composeRepairRequestText: composeRepairRequestText,
-    createEntranceScreen: createEntranceScreen,
     createBookScreen: createBookScreen,
     createDiagnoseScreen: createDiagnoseScreen,
     createFindingsScreen: createFindingsScreen,

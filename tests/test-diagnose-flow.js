@@ -64,9 +64,9 @@ var rawEnvironment = readUtf8(path.join(
 var environment = environmentApi.parse(rawEnvironment);
 var environmentText = environmentApi.renderForPrompt(environment);
 var diagnosisPresetPath = path.join(
-  root, "presets", "01_マクロ改修", "01_診断", "01_動くかどうかの監査.md");
+  root, "presets", "01_診断", "01_動くかどうかの監査.md");
 var diagnosisPreset = {
-  file: "01_マクロ改修\\01_診断\\01_動くかどうかの監査.md",
+  file: "01_診断\\01_動くかどうかの監査.md",
   content: readUtf8(diagnosisPresetPath)
 };
 var diagnoseTemplate = readUtf8(path.join(
@@ -125,11 +125,14 @@ windowObject.MacroStudioApp = {
 };
 
 function attach() {
-  store.setAppInfo({version: "test", presets: {entrances: []}});
-  // Which diagnosis is asked for belongs to the entrance, so the run
-  // says what it is for before anything is written (SPEC §2.2.0).
-  store.setEntrance(require("./helpers/contracts").entrance(
-    windowObject.MacroStudioPreset, "01_マクロ改修"));
+  // The diagnosis and the change scope both come off the presets folder,
+  // so the catalog has to be in place before anything is written.
+  store.setAppInfo({
+    version: "test",
+    presets: {},
+    catalog: require("./helpers/contracts").catalog(
+      windowObject.MacroStudioPreset)
+  });
   store.setBook({
     name: "book.xlsm",
     path: "C:\\books\\book.xlsm",

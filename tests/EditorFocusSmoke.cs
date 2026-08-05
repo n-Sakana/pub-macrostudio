@@ -287,26 +287,19 @@ namespace MacroStudio.Tests
                 await Execute("MacroStudioState.reset();");
                 // The app's own rediscovery: the raw folder listing is
                 // described before it is stored, which is what puts the
-                // entrances on the first screen.
+                // operations and the change scopes in play.
                 await Execute("MacroStudioApp.loadAppInfo();");
-                await ChooseMacroRepair();
+                await WaitForCatalog();
             }
 
-            // The run says what it is for before it reads anything. This
-            // walk is about the repair input, so it takes the entrance
-            // that diagnoses and then offers a choice of template.
-            private async Task ChooseMacroRepair()
+            // Nothing is chosen before the workbook, so waiting for the
+            // catalog and the first screen is the whole of the set-up.
+            private async Task WaitForCatalog()
             {
                 await WaitFor(
                     "MacroStudioState.getState().appInfo !== null && " +
-                    "document.querySelector('[data-entrance-folder=" +
-                    "\"01_マクロ改修\"]') !== null");
-                await Execute(
-                    "document.querySelector('[data-entrance-folder=" +
-                    "\"01_マクロ改修\"]').click();");
-                await ClickNext();
-                await WaitFor(
-                    "MacroStudioState.getState().entrance !== null && " +
+                    "MacroStudioState.getState().appInfo.catalog && " +
+                    "MacroStudioState.getState().changeScope !== null && " +
                     "MacroStudioState.getState().screen === " +
                     "MacroStudioScreens.bookScreen");
             }
@@ -354,8 +347,8 @@ namespace MacroStudio.Tests
                 await Execute(
                     "(function(){" +
                     "var state=MacroStudioState.getState();" +
-                    // The templates on offer are the entrance's own.
-                    "var entries=state.entrance.repair;" +
+                    // Every run is offered the whole folder.
+                    "var entries=state.appInfo.catalog.repair;" +
                     "var target=entries.filter(function(entry){" +
                     "return entry.valid&&" +
                     (fixedPath
