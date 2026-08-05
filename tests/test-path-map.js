@@ -339,7 +339,7 @@ var uiDocument = {
 var uiContext = vm.createContext({window: uiWindow, document: uiDocument});
 uiWindow.window = uiWindow;
 uiWindow.document = uiDocument;
-["icons.js", "preset-document.js", "vba-lexer.js", "path-map.js",
+["icons.js", "components.js", "preset-document.js", "vba-lexer.js", "path-map.js",
   "vba-highlight.js", "code-view.js", "screens.js",
   "screens/workflow.js"].forEach(function (name) {
   vm.runInContext(

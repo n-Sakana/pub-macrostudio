@@ -154,13 +154,22 @@ try {
         'Two operations under one heading must stay two files: ' +
         $result.categories)
 
-    # ---- what the strict scope says it checks ----
+    # ---- one setting, one control, two named states ----
+    # It used to be a card for the default and a 詳細オプション row for the
+    # other answer: the same yes/no twice, and the reader had to open the
+    # second to learn what the first refused.
     Assert-True (
-        $scopeScreen.options -ge 2 -and
+        $scopeScreen.switches -eq 1 -and
+        $scopeScreen.options -eq 2 -and
         $scopeScreen.radios -and
-        $scopeScreen.detail) (
-        'The scopes must be offered as one answer, with the permissive ' +
-        'one behind the detail row: ' + $result.scopeScreen)
+        $scopeScreen.checked -eq 1 -and
+        -not $scopeScreen.detail) (
+        'How far the code may change must be one control with exactly ' +
+        'two states and no duplicate detail row: ' + $result.scopeScreen)
+    # Which one is in force has to be legible without seeing the colour.
+    Assert-True ($scopeScreen.statedInWords) (
+        'The state in force must say so in words, not only by ' +
+        'highlighting: ' + $result.scopeScreen)
     Assert-True (
         $scopeScreen.checks -eq 4 -and
         $scopeScreen.limit) (

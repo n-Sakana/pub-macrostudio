@@ -7,11 +7,15 @@
   // The four stages of the improvement guide: 2-A preservation,
   // 2-B judgement, 2-C repair, 2-E handover. 2-D testing happens outside
   // this tool, and the handover memo lists its viewpoints as not run.
+  // The four stages, in the words a reader would use for them. They were
+  // "決めて読む" and "作って引き渡す" - phrases that name two acts each and
+  // read as instructions to the machine rather than as where you are.
+  // One verb per stage, and the verb is what happens to the workbook.
   var MAJORS = [
-    "決めて読む",
+    "読み込む",
     "診断する",
     "改修する",
-    "作って引き渡す"
+    "書き出す"
   ];
 
   // Handing the request to the chat and taking the reply back is one
@@ -443,22 +447,22 @@
         return findingCount(state) + "件の指摘";
       },
       context: function () {
-        return "診断の内容を確かめます";
+        return "重い指摘から順に並んでいます。開くと根拠まで読めます";
       },
       ready: isDiagnosisCurrent
     },
     {
       major: 3,
       sub: "2/5",
-      title: function () { return "次にすることを選びます"; },
+      title: function () { return "どう改修するかを選びます"; },
       meta: function (state) {
-        return state.presetName || "操作を選ぶ";
+        return state.presetName || "未選択";
       },
       context: function (state) {
         if (!isChangeScopeChosen(state)) {
           return "変更範囲を選んでください";
         }
-        return "診断から出てきた操作を選びます。複数選べます";
+        return "診断で見つかった問題に対する改修を選びます。複数選べます";
       },
       // Two answers are needed here, and neither has a silent default:
       // which operations to carry out, and how far the code may change.
@@ -471,14 +475,14 @@
     {
       major: 3,
       sub: "3/5",
-      title: function () { return "改修する内容を決めます"; },
-      meta: function (state) { return state.presetName || "改修の入力"; },
+      title: function () { return "直す指摘を選びます"; },
+      meta: function (state) { return state.presetName || "未選択"; },
       context: function (state) {
         if (getEngine(state) === "対応表による置換" ||
             isReplacementPending(state)) {
           return "置き換える内容を確認します";
         }
-        return "改修する指摘にチェックが入っていることを確かめます";
+        return "AIへ送る指摘にチェックを入れます";
       },
       ready: isRepairInputReady
     },
@@ -523,12 +527,12 @@
     {
       major: 3,
       sub: "5/5",
-      title: function () { return "取り込んだ変更を確認します"; },
+      title: function () { return "AIの変更内容を確認します"; },
       meta: function (state) { return countChanged(state) + "モジュールに変更"; },
       context: function (state) {
         return state.pasteEditing
           ? "手動修正を反映するか、やめると次へ進めます"
-          : "内容を確かめたら、右下の「次へ」で作成へ進みます";
+          : "変更を確かめたら、右下の「次へ」で作成へ進みます";
       },
       ready: function (state) {
         return countChanged(state) > 0 &&
@@ -538,10 +542,10 @@
     {
       major: 4,
       sub: "1/3",
-      title: function () { return "作成する改修済みブックを確認します"; },
+      title: function () { return "出力するファイル名を決めます"; },
       meta: function (state) { return "書き戻し " + countAccepted(state) + "個"; },
       context: function () {
-        return "作成するファイルを、今回の改修用フォルダへまとめます";
+        return "改修済みブックと関連ファイルを、この実行のフォルダへまとめます";
       },
       ready: function (state) {
         return countChanged(state) > 0 &&

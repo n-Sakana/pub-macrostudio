@@ -30,7 +30,7 @@ windowObject.document = documentObject;
 windowObject.Math = Math;
 windowObject.Uint8Array = Uint8Array;
 
-["icons.js", "handover.js", "preset-document.js", "response-package.js", "diagnosis-package.js",
+["icons.js", "components.js", "handover.js", "preset-document.js", "response-package.js", "diagnosis-package.js",
   "diff.js", "screens.js", "state.js", "screens/workflow.js"]
   .forEach(function (name) {
     vm.runInContext(readUtf8(path.join(root, "assets", "js", name)), context,

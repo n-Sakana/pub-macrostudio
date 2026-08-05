@@ -38,7 +38,7 @@ windowObject.Uint8Array = Uint8Array;
 windowObject.setTimeout = setTimeout;
 windowObject.clearTimeout = clearTimeout;
 
-["icons.js",
+["icons.js", "components.js",
   "target-environment.js",
   "preset-document.js",
   "response-package.js",

@@ -46,7 +46,7 @@ windowObject.document = documentObject;
 windowObject.Math = Math;
 windowObject.Uint8Array = Uint8Array;
 
-["icons.js", "response-package.js", "diagnosis-package.js", "diff.js",
+["icons.js", "components.js", "response-package.js", "diagnosis-package.js", "diff.js",
   "vba-lexer.js", "path-map.js", "preset-document.js", "prompt-template.js",
   "handover.js", "screens.js", "state.js", "screens/workflow.js"]
   .forEach(function (name) {

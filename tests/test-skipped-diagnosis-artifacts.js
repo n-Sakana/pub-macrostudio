@@ -45,7 +45,7 @@ var context = vm.createContext({window: windowObject, document: documentObject})
 windowObject.window = windowObject;
 windowObject.document = documentObject;
 
-["icons.js", "response-package.js", "diagnosis-package.js", "vba-lexer.js",
+["icons.js", "components.js", "response-package.js", "diagnosis-package.js", "vba-lexer.js",
   "vba-highlight.js", "diff.js", "diff-view.js", "path-map.js",
   "target-environment.js", "prompt-template.js", "preset-document.js",
   "handover.js", "state.js", "screens.js", "screens/workflow.js",

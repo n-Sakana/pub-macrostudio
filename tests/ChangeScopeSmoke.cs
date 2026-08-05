@@ -229,14 +229,29 @@ namespace MacroStudio.Tests
 
                     // What the reader is told the strict scope actually
                     // checks - and, in the same breath, what it does not.
+                    // One control, two named states. The detail row that
+                    // used to hold the second answer is gone; a setting
+                    // with two values is not two controls.
                     result.Add("scopeScreen", await ReadJson(
                         "({" +
+                        "switches:document.querySelectorAll(" +
+                        "'[data-component=\"modeSwitch\"]').length," +
                         "options:document.querySelectorAll(" +
-                        "'.scope-card').length," +
+                        "'.mode-switch-option').length," +
                         "radios:Array.prototype.every.call(" +
-                        "document.querySelectorAll('.scope-card')," +
+                        "document.querySelectorAll(" +
+                        "'.mode-switch-option')," +
                         "function(c){return c.getAttribute('role') === " +
                         "'radio';})," +
+                        "checked:document.querySelectorAll(" +
+                        "'.mode-switch-option[aria-checked=\"true\"]')" +
+                        ".length," +
+                        // Which state is in force has to be readable as
+                        // words, not inferred from a highlighted side.
+                        "statedInWords:document.querySelector(" +
+                        "'.mode-switch-option[aria-checked=\"true\"] " +
+                        ".mode-switch-state').textContent === " +
+                        "'\\u3044\\u307e\\u6709\\u52b9'," +
                         "detail:document.body.textContent.indexOf(" +
                         "'\\u8a73\\u7d30\\u30aa\\u30d7\\u30b7\\u30e7\\u30f3'" +
                         ") >= 0," +

@@ -1647,26 +1647,11 @@
   font-weight: var(--weight-regular);
 }
 
-/* A row that opens onto a text field. It carries a pencil instead of a
-   chevron, and while it is closed it wears the same inset the textarea
-   inside it wears, so it reads as somewhere to write rather than as one
-   more thing to read. */
-.disclosure--writein > .disclosure-trigger {
-  background: var(--surface-sunken);
-  color: var(--text-sub);
-  font-weight: var(--weight-regular);
-}
+/* A row that opened onto a text field used to live here, wearing the
+   sunken grey of a control that cannot be used. A field the reader may
+   fill in is not folded away at all now - see .field in components.css.
 
-.disclosure--writein[data-open="true"] > .disclosure-trigger {
-  background: transparent;
-  font-weight: var(--weight-semibold);
-}
-
-.disclosure-pencil {
-  color: var(--text-muted);
-}
-
-/* The body grows in place instead of the page jumping. */
+   The body grows in place instead of the page jumping. */
 .disclosure-body {
   display: grid;
   grid-template-rows: 0fr;

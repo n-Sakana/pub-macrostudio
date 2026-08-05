@@ -74,7 +74,7 @@ function loadApp() {
     },
     on: function () { return function () {}; }
   };
-  ["icons.js", "handover.js", "diff.js", "diff-view.js", "vba-highlight.js",
+  ["icons.js", "components.js", "handover.js", "diff.js", "diff-view.js", "vba-highlight.js",
     "preset-document.js", "response-package.js", "diagnosis-package.js",
     "screens.js", "state.js", "screens/workflow.js", "app.js"]
     .forEach(function (name) {

@@ -364,6 +364,7 @@ namespace MacroStudio.Tests
                         "'[data-action=\"go-next\"]').disabled" +
                         "})"));
                     await Capture(lightScreenshot);
+                    await Shot("01-diagnose-request");
 
                     CaptureClipboard();
                     await Execute(
@@ -492,6 +493,7 @@ namespace MacroStudio.Tests
                         "nextReady:!document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled" +
                         "})"));
+                    await Shot("02-verdict");
                     // Reading the diagnosis and choosing the work are two
                     // pages now.
                     await Next();
@@ -513,9 +515,11 @@ namespace MacroStudio.Tests
                         "headings:document.querySelectorAll(" +
                         "'.category-heading').length," +
                         "scopeOptions:document.querySelectorAll(" +
-                        "'.scope-card').length," +
+                        "'.mode-switch-option').length," +
                         "nextReady:!document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled};}())"));
+                    await Shot("03-nextstep-and-scope");
+                    await ShotAt("03b-change-scope", ".change-scope");
                     // The diagnosis may point at a template, and the
                     // screen arrives with that one already ticked. This
                     // walk is one route on purpose, so it unticks
@@ -558,11 +562,11 @@ namespace MacroStudio.Tests
                         "MacroStudioState.getState().busyAction === null");
                     result.Add("preset", await ReadJson(
                         "({" +
-                        // The change scope is chosen on the same screen
-                        // and its option is a card too, so the operations
-                        // are the selected cards that are not scope cards.
+                        // The change scope is chosen on the same screen,
+                        // but it is a mode switch rather than a card now,
+                        // so every selected card here is an operation.
                         "selected:document.querySelectorAll(" +
-                        "'.choice-card.is-selected:not(.scope-card)')" +
+                        "'.choice-card.is-selected')" +
                         ".length," +
                         "engine:MacroStudioState.getState().presetEngine," +
                         "nextReady:!document.querySelector(" +
@@ -677,6 +681,7 @@ namespace MacroStudio.Tests
                         "nextReady:!document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled" +
                         "})"));
+                    await Shot("04-repair-input");
 
                     await Next();
                     await WaitFor(
@@ -697,6 +702,7 @@ namespace MacroStudio.Tests
                         "nextReady:!document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled" +
                         "})"));
+                    await Shot("05-repair-request");
                     await Execute(
                         "document.querySelector(" +
                         "'[data-action=\"copy-repair-prompt\"]').click();");
@@ -755,6 +761,7 @@ namespace MacroStudio.Tests
                         "'[data-action=\"go-next\"]').disabled," +
                         "code:MacroStudioState.getState().lastError.code" +
                         "})"));
+                    await Shot("06-refused-intake");
 
                     marker = "'@MACROSTUDIO " + repairId + " ";
                     // The module comes back as it was read with one line
@@ -1241,6 +1248,57 @@ namespace MacroStudio.Tests
             private async Task Capture(string path)
             {
                 await Capture(path, false);
+            }
+
+            // Evidence for a person to look at, rather than for an
+            // assertion to read. A count and a text search cannot see
+            // two elements overlapping, a line of text clipped by its
+            // box, or a heading that ended up smaller than the sentence
+            // under it - and every one of those has shipped.
+            //
+            // Off unless MACROSTUDIO_SMOKE_SHOTS names a folder, so the
+            // ordinary run of this test is unchanged.
+            private async Task Shot(string name)
+            {
+                string folder = Environment.GetEnvironmentVariable(
+                    "MACROSTUDIO_SMOKE_SHOTS");
+
+                if (string.IsNullOrEmpty(folder))
+                {
+                    return;
+                }
+                if (!Directory.Exists(folder))
+                {
+                    Directory.CreateDirectory(folder);
+                }
+                // Long enough for the screen's enter transition to
+                // finish. A frame caught halfway through it is a
+                // half-faded page, which tells a reviewer nothing about
+                // spacing and everything about timing.
+                await Task.Delay(500);
+                await Capture(Path.Combine(folder, name + ".png"), false);
+            }
+
+            // The same screen, scrolled so that a control below the fold
+            // is in the frame. Evidence has to show the thing it is
+            // evidence of.
+            private async Task ShotAt(string name, string selector)
+            {
+                if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(
+                    "MACROSTUDIO_SMOKE_SHOTS")))
+                {
+                    return;
+                }
+                await Execute(
+                    "(function(){var target=document.querySelector('" +
+                    selector + "');" +
+                    "if(target){target.scrollIntoView(" +
+                    "{block:'end'});}}());");
+                await Shot(name);
+                await Execute(
+                    "(function(){var main=" +
+                    "document.getElementById('main-content');" +
+                    "if(main){main.scrollTop=0;}}());");
             }
 
             private async Task Execute(string script)

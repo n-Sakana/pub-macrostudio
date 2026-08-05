@@ -50,7 +50,7 @@ var context = vm.createContext({
 windowObject.window = windowObject;
 windowObject.document = documentObject;
 
-["icons.js", "preset-document.js", "handover.js", "vba-highlight.js",
+["icons.js", "components.js", "preset-document.js", "handover.js", "vba-highlight.js",
   "code-view.js", "screens.js", "screens/workflow.js"].forEach(
   function (name) {
     vm.runInContext(readUtf8(path.join(root, "assets", "js", name)), context,
@@ -191,24 +191,52 @@ assert(rowsOf(blocks[1])[0].getAttribute("data-grade") === "B",
 assert(rowsOf(blocks[2])[0].getAttribute("data-grade") === "A",
   "A finding that does not stop the macro is filed under A.");
 
-// ---- the strip at the top, including the zeros ----
+// ---- one verdict at the top, and only one ----
+//
+// A-D is not a tally. It is one judgement about the whole workbook, and
+// the heaviest finding is what the workbook is. Four cards of counts said
+// something else - that there were four results, one of which happened to
+// be zero - and the red D card was the loudest thing on the page while it
+// read 0. This fixture has C, B and A findings and no D, so the verdict
+// is C and no D may be drawn anywhere near it.
 
-var tiles = collectClass(screen, "grade-tile");
+var verdicts = collectClass(screen, "verdict");
 
-assert(tiles.length === 4,
-  "All four letters are on the strip, so 要改修 0 can be read as an " +
-  "answer: " + tiles.length);
-assert(dom.text(tiles.filter(function (tile) {
-  return dom.text(tile.querySelector(".grade-tile-letter")) === "D";
-})[0]).indexOf("0") >= 0,
-"A letter with nothing under it still shows its zero.");
-assert(dom.text(tiles[0].querySelector(".grade-tile-count")) === "0" &&
-  dom.text(tiles[1].querySelector(".grade-tile-count")) === "1",
-"The strip counts problems, not places.");
-// The headline states the worst grade present, which here is C.
-assert(dom.text(screen.querySelector(".diagnosis-conclusion-verdict"))
+assert(verdicts.length === 1,
+  "The workbook gets exactly one verdict: " + verdicts.length);
+assert(dom.text(verdicts[0].querySelector(".verdict-letter")) === "C",
+  "The verdict is the worst grade present, which here is C: " +
+    dom.text(verdicts[0].querySelector(".verdict-letter")));
+assert(verdicts[0].classList.contains("verdict--c"),
+  "The tone follows the verdict actually reached, not the worst letter " +
+  "that exists.");
+assert(dom.text(verdicts[0].querySelector(".verdict-headline"))
+  .indexOf("C（不明）") >= 0,
+"The headline names the letter and what it means.");
+assert(dom.text(verdicts[0].querySelector(".verdict-reason"))
   .indexOf("環境の側で手を打つ") >= 0,
-"The conclusion says what the worst grade asks of the reader.");
+"The verdict says what that grade asks of the reader.");
+assert(dom.text(verdicts[0].querySelector(".verdict-scale"))
+  .indexOf("ひとつだけ") >= 0,
+"The verdict says that a workbook gets one grade, so the letter can be " +
+  "read without a legend.");
+// Nothing at the top may present a grade nobody reached.
+assert(collectClass(screen, "grade-tile").length === 0,
+  "The per-grade count cards are gone.");
+
+var summary = screen.querySelector(".diagnosis-summary");
+var breakdown = dom.text(summary.querySelector(".diagnosis-conclusion-note"));
+
+assert(!verdicts[0].classList.contains("verdict--d"),
+  "A workbook with no D finding is never drawn in the D tone.");
+// The counts survive, as a line of text rather than as four cards, and
+// only for the grades that actually occur. A category nobody reached is
+// not a result and does not get counted at the reader.
+assert(breakdown.indexOf("不明 1件") >= 0 &&
+  breakdown.indexOf("要改修 1件") >= 0,
+"The breakdown counts problems, not places.");
+assert(breakdown.indexOf("改修不可") < 0,
+  "A grade with nothing in it is not listed: " + breakdown);
 
 // ---- the star is still the template's own declaration ----
 // Which template a diagnosis points at is a different question from what
@@ -312,7 +340,7 @@ assert(dom.text(workflow.createRepairInputScreen(state)).indexOf(
 "With nothing to send, the screen says so plainly.");
 
 console.log("test-verdict-result: PASS");
-console.log("A-D blocks and their notes, the strip including its zeros, the " +
-  "star staying the template's own declaration, the zero-finding " +
-  "conclusion, the code opening under a finding, and the repair screen " +
-  "carrying B and only B");
+console.log("A-D blocks and their notes, the single whole-workbook verdict " +
+  "with no letter nobody reached, the star staying the template's own " +
+  "declaration, the zero-finding conclusion, the code opening under a " +
+  "finding, and the repair screen carrying B and only B");

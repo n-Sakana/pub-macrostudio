@@ -35,7 +35,7 @@ var context = vm.createContext({window: windowObject, document: documentObject})
 windowObject.window = windowObject;
 windowObject.document = documentObject;
 
-["icons.js", "preset-document.js", "handover.js", "screens.js",
+["icons.js", "components.js", "preset-document.js", "handover.js", "screens.js",
   "screens/workflow.js"].forEach(
   function (name) {
     vm.runInContext(readUtf8(path.join(root, "assets", "js", name)), context,

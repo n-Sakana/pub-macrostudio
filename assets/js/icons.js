@@ -24,7 +24,11 @@
     drop: '<path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5"/>' +
       '<path d="M12 18v-6"/><path d="m9 15 3-3 3 3"/>',
     info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/>' +
-      '<path d="M12 8h.01"/>'
+      '<path d="M12 8h.01"/>',
+    // Something the reader has to act on. It sits next to the words, so
+    // that a refusal is not carried by colour alone.
+    alert: '<path d="M12 4 2.5 20h19z"/><path d="M12 10v5"/>' +
+      '<path d="M12 18h.01"/>'
   };
 
   function has(name) {

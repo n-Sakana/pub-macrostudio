@@ -1,0 +1,435 @@
+/* The standard components.
+
+   Every screen in this app is built from the kinds listed in
+   assets/js/components.js. A kind looks the same wherever it appears,
+   because it is drawn here once and nowhere else. A screen that needed a
+   look of its own is how the diagnosis hand-off came to carry an accent
+   rail that existed on exactly one paragraph and overlapped the buttons
+   under it.
+
+   Three rules hold for everything below.
+
+   1. Type is the three tiers in variables.css. Emphasis is weight and
+      colour, never a size a component invented.
+   2. Grey means "you cannot use this". An optional control is fully
+      usable, so it keeps a normal border, a normal background and normal
+      text; only its position and its heading weight say it is optional.
+   3. Nothing carries meaning in colour alone. Every tone here also has an
+      icon, a word, or both. */
+
+/* ---- 補足説明: .note ----
+   One line of standing context next to what it explains. It is quieter
+   than the body text and it is not a box: a bordered card reads as
+   something that happened, and nothing has happened. */
+.note {
+  margin: var(--space-2) 0 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-meta-weight);
+  line-height: var(--type-meta-line);
+}
+
+.note + .note {
+  margin-top: var(--space-1);
+}
+
+/* A note that belongs to the control right under it stays with it. */
+.note--lead {
+  margin-bottom: var(--space-3);
+}
+
+/* ---- 状態表示: .status-chip ----
+   What something is right now. The tone is carried by a word as well as
+   a colour, so it survives being read in greyscale. */
+.status-chip {
+  display: inline-flex;
+  min-height: var(--badge-h);
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-micro-weight);
+  gap: var(--space-1);
+  line-height: var(--type-micro-line);
+}
+
+.status-chip[data-tone="active"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.status-chip[data-tone="done"] {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+.status-chip[data-tone="warn"] {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+/* ---- 警告／エラー: .alert ----
+   Something the reader has to act on. It has a heading, a body and, when
+   the checker knows one, the three lines that say how to fix it. */
+.alert {
+  display: grid;
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-left: var(--alert-rail-w) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  gap: var(--space-2);
+}
+
+.alert--error {
+  border-color: var(--danger);
+  border-left-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.alert--warn {
+  border-color: var(--caution);
+  border-left-color: var(--caution);
+}
+
+.alert-title {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  color: var(--text);
+  font-size: var(--type-body-size);
+  font-weight: var(--weight-semibold);
+  gap: var(--space-2);
+  line-height: var(--line-normal);
+}
+
+.alert--error .alert-title {
+  color: var(--danger-text);
+}
+
+.alert-body {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+/* Expected / actual / what to change, from the contract that refused the
+   reply. A definition list, so the three are labelled rather than run
+   together into one apologetic paragraph. */
+.alert-facts {
+  display: grid;
+  margin: 0;
+  gap: var(--space-1) var(--space-3);
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.alert-fact-name {
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  font-weight: var(--weight-semibold);
+  line-height: var(--type-body-line);
+  white-space: nowrap;
+}
+
+.alert-fact-value {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+  line-height: var(--type-body-line);
+  overflow-wrap: break-word;
+}
+
+.alert-steps {
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+  line-height: var(--type-body-line);
+}
+
+.alert-check {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  line-height: var(--type-meta-line);
+}
+
+/* ---- 編集可能な入力 / 任意入力: .field ----
+   The optional variant is the point of this block. It used to be folded
+   away behind a row whose label read "任意" and whose closed state wore
+   the sunken grey a disabled control wears, so a field the reader was
+   free to use looked like one they were not. It is open, it is normal,
+   and the word 任意 is a tag on its heading - not a shade. */
+.field {
+  display: grid;
+  margin-top: var(--space-4);
+  gap: var(--space-2);
+}
+
+/* Whatever follows a field starts its own block. Without this the next
+   control sits flush against the box and reads as part of it. */
+.field + * {
+  margin-top: var(--space-4);
+}
+
+.field-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.field-label {
+  color: var(--text);
+  font-size: var(--type-body-size);
+  font-weight: var(--weight-semibold);
+  line-height: var(--line-normal);
+}
+
+.field--optional .field-label {
+  color: var(--text-sub);
+  font-weight: var(--weight-regular);
+}
+
+/* A tag, not a shade: it says the field may be skipped without saying
+   the field is unavailable. */
+.field-optional-tag {
+  display: inline-flex;
+  min-height: var(--badge-h);
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-micro-weight);
+  line-height: var(--type-micro-line);
+}
+
+.field-input {
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  resize: none;
+}
+
+.field-input::placeholder {
+  color: var(--text-muted);
+}
+
+.field-input:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* The only grey in this file, and it means what grey means everywhere
+   else: the control cannot be used right now. */
+.field-input:disabled {
+  background: var(--surface-sunken);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+/* ---- モード切替: .mode-switch ----
+   Two states, one control, both named. Not a toggle whose "on" side the
+   reader has to guess: each segment says what it is and what it permits,
+   and the one in force is marked with a tick and a word as well as a
+   colour. */
+.mode-switch {
+  display: grid;
+  margin-top: var(--space-2);
+  gap: var(--space-2);
+}
+
+.mode-switch-options {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mode-switch-option {
+  display: grid;
+  min-height: var(--switch-h);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  font-family: inherit;
+  gap: var(--space-1);
+  text-align: left;
+  transition: background var(--transition-fast);
+}
+
+.mode-switch-option + .mode-switch-option {
+  border-left: 1px solid var(--border);
+}
+
+.mode-switch-option:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.mode-switch-option:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.mode-switch-option:disabled {
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+.mode-switch-option[aria-checked="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.mode-switch-name {
+  display: flex;
+  align-items: center;
+  font-size: var(--type-body-size);
+  font-weight: var(--weight-semibold);
+  gap: var(--space-2);
+  line-height: var(--line-normal);
+}
+
+.mode-switch-state {
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-micro-weight);
+  line-height: var(--type-micro-line);
+}
+
+.mode-switch-option[aria-checked="true"] .mode-switch-state {
+  color: var(--accent-text);
+}
+
+.mode-switch-effect {
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  line-height: var(--type-meta-line);
+}
+
+.mode-switch-option[aria-checked="true"] .mode-switch-effect {
+  color: var(--accent-text);
+}
+
+/* ---- 総合判定: .verdict ----
+   One letter for the whole workbook, at a size that says it is the
+   answer, with the sentence that gives it meaning beside it. Four cards
+   of counts said something else: that the reader had four results, one of
+   which happened to be zero. */
+.verdict {
+  display: grid;
+  align-items: center;
+  padding: var(--space-5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  gap: var(--space-2) var(--space-5);
+  grid-template-columns: var(--verdict-letter-w) minmax(0, 1fr);
+}
+
+.verdict-letter {
+  display: flex;
+  min-height: var(--verdict-letter-w);
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  color: var(--text);
+  font-family: var(--font-code);
+  font-size: var(--type-display-size);
+  font-weight: var(--type-display-weight);
+  grid-row: span 3;
+  line-height: var(--type-display-line);
+}
+
+.verdict-body {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.verdict-headline {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
+  line-height: var(--type-title-line);
+}
+
+.verdict-reason {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+}
+
+.verdict-scale {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  line-height: var(--type-meta-line);
+}
+
+/* The tone follows the verdict that was actually reached. A workbook
+   with no D findings never shows a red D. */
+.verdict--b .verdict-letter {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.verdict--a .verdict-letter {
+  border-color: var(--success);
+  background: var(--success-soft);
+  color: var(--success-text);
+}
+
+.verdict--c .verdict-letter,
+.verdict--d .verdict-letter {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+  color: var(--danger-text);
+}
+
+@media (max-width: 48em) {
+  .verdict {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .verdict-letter {
+    grid-row: auto;
+    justify-self: start;
+    width: var(--verdict-letter-w);
+  }
+
+  .mode-switch-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mode-switch-option + .mode-switch-option {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+}

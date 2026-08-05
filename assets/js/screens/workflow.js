@@ -3,6 +3,10 @@
 
   var CRLF = "\r\n";
   var DIVIDER = new Array(81).join("-");
+  // The standard components. Every note, alert, optional field, mode
+  // switch and verdict on these screens comes from here, so the same kind
+  // of thing is the same shape wherever it turns up.
+  var ui = global.MacroStudioComponents;
   // The one file the chat is handed. It names itself, so nobody mistakes
   // it for the record of the code as it was read. screens.js owns the name
   // because its status line says it too; keeping a second copy here is what
@@ -184,8 +188,8 @@
   // label that says what opens, and an optional note on the right. A
   // plain bordered box with no chevron reads as a card, and nobody can
   // tell a card is going to open.
-  function createDisclosure(key, label, content, openByDefault, note, writein) {
-    var box = element("div", "disclosure" + (writein ? " disclosure--writein" : ""));
+  function createDisclosure(key, label, content, openByDefault, note) {
+    var box = element("div", "disclosure");
     var trigger = element("button", "disclosure-trigger");
     var body = element("div", "disclosure-body");
     var inner = element("div", "disclosure-inner");
@@ -212,12 +216,13 @@
     trigger.setAttribute("data-disclosure-key", key);
     trigger.setAttribute("aria-expanded", open ? "true" : "false");
     trigger.setAttribute("aria-controls", panelId);
-    // A row that opens onto a text field says so while it is closed. A
-    // chevron promises more reading; a pencil promises somewhere to
-    // write, and the reader should not have to open it to find out.
-    trigger.appendChild(writein
-      ? icon("edit", "flow-icon--small disclosure-pencil")
-      : icon("chevron", "flow-icon--small disclosure-chevron"));
+    // Every row here opens onto more reading, and says so with the same
+    // chevron. There used to be a second kind that opened onto a field
+    // instead; a field the reader may fill in is now simply on the
+    // screen (.field in components.css), so nothing has to be opened to
+    // find out that it exists.
+    trigger.appendChild(
+      icon("chevron", "flow-icon--small disclosure-chevron"));
     trigger.appendChild(element("span", "disclosure-label", label));
     if (note) {
       trigger.appendChild(element("span", "disclosure-note", note));
@@ -820,9 +825,11 @@
   // puts the asking back on the clipboard rather than leaving the reader
   // to compose it. The output rules come from the template that made the
   // request - this is not the place to re-author the contract.
-  function retryText(stage) {
+  function retryText(stage, detail) {
     var state = global.MacroStudioState.getState();
     var rules = null;
+    var evidence = detail && detail.evidence ? detail.evidence : null;
+    var lines = [];
     var selected;
     var parsed;
 
@@ -841,12 +848,29 @@
         }
       }
     }
-    if (!rules) {
+    if (!rules && !evidence) {
       return "";
     }
-    return "さきほどの返答をそのまま取り込めませんでした。" +
-      "内容は変えず、次の書き方のとおりにもう一度返してください。" +
-      CRLF + CRLF + rules;
+    lines.push("さきほどの返答は取り込めませんでした。");
+    // A retry that only restates the rules asks the chat to find its own
+    // mistake in a page of contract. The checker already knows which one
+    // it was, so it is named here: what was asked for, what came back
+    // instead, and the single edit that settles it. The reply itself is
+    // never quoted back (SPEC 8.4) - only the contract's own vocabulary.
+    if (evidence) {
+      lines.push("");
+      lines.push("【求めている形】" + evidence.expected);
+      lines.push("【返ってきた形】" + evidence.actual);
+      lines.push("【直すところ】" + evidence.fix);
+    }
+    lines.push("");
+    lines.push(
+      "ほかの内容は変えず、同じ診断のまま、書き方だけを直して返してください。");
+    if (rules) {
+      lines.push("");
+      lines.push(rules);
+    }
+    return lines.join(CRLF);
   }
 
   // What a refusal is recorded as: the stage, the contract's own check
@@ -892,6 +916,7 @@
       reason: detail && detail.reason,
       message: message,
       detail: detail && detail.detail,
+      evidence: detail && detail.evidence,
       count: count
     });
     if (count >= 2) {
@@ -902,7 +927,7 @@
         "error");
       return false;
     }
-    text = retryText(stage);
+    text = retryText(stage, detail);
     if (!text) {
       global.MacroStudioApp.showToast(message, "error");
       return false;
@@ -1756,12 +1781,12 @@
     body.appendChild(element(
       "p",
       "task-note",
-      "どれも VBA のコードの外にあるので、このツールは直しません。" +
-        "次の診断の依頼文へ自動で入れて、AIの判断材料にします。" +
-        "ここで操作することはありません。"));
+      "どれも VBA のコードの外にあるので、このツールは書き換えません。" +
+        "診断の依頼文には自動で入るので、ここで操作は要りません。" +
+        "確認が要るものは、診断結果と最後の引渡しメモに一覧で出ます。"));
     root.appendChild(createDisclosure(
       "book-outside-code",
-      "コードの外にあるもの",
+      "コードのほかに読み取ったもの",
       body,
       false,
       facts.length + " 件・" + facts.slice(0, 3).map(function (fact) {
@@ -1801,18 +1826,25 @@
     return actions;
   }
 
-  // The chat is given the code and the assumed environment. Anything
-  // else the reader happens to have - the specification the macro was
-  // written from, a screenshot of the error, the sheet it reads - is
-  // theirs to add, and it is worth saying so, because a chat that has
-  // seen them writes a better diagnosis. The templates say the same
-  // thing to the AI, so the offer and the instruction agree.
-  function attachmentHint() {
-    return element(
+  // What to hand the chat, in one paragraph.
+  //
+  // The optional extras used to be a second paragraph wearing an accent
+  // rail nothing else on any screen wore - a one-off emphasis for a
+  // sentence that is not urgent, sitting hard against the buttons below
+  // it. It is the same offer either way, so it is now the last clause of
+  // the instruction and the standard quiet note under it. The templates
+  // make the same offer to the AI, so the screen and the request agree.
+  function handoffInstruction(root) {
+    root.appendChild(element(
       "p",
-      "attachment-hint",
-      "仕様書、手順書、エラーの画面など、参考になる資料が手元にあれば" +
-        "いっしょに添付してください。AIはそれも踏まえて答えます。");
+      "task-note",
+      "依頼文をコピーしてAIへ貼り付け、［ファイルの場所を開く］で開いた" +
+        "フォルダーの " + AI_CODE_FILE + " を、同じチャットへ添付します。"));
+    root.appendChild(ui.note(
+      "仕様書やエラー画面など、参考になる資料が手元にあれば" +
+        "いっしょに添付できます。AIはそれも踏まえて答えます。",
+      true));
+    return root;
   }
 
   // What the reader has to know to hand the request over, and nothing
@@ -1821,22 +1853,16 @@
   // under labels that say what they open.
   function createDiagnoseScreen(state) {
     var root = task(true);
-    var concern = element("textarea", "form-textarea");
     var optional = element("div", "optional-details");
     var environment = element("div", "environment-detail");
-    var concernBox = element("div", "concern-detail");
+    var rebuild;
 
     // The header above already says what this screen is for, and the two
     // numbered steps say what to do. An opening line that repeated both
     // was a third copy of the same sentence.
-    root.appendChild(element("h2", "task-step", "1. 依頼をAIへ渡す"));
+    root.appendChild(element("h2", "task-step", "1. 依頼文をAIへ渡す"));
     if (state.diagnosisRequestId) {
-      root.appendChild(element(
-        "p",
-        "task-note",
-        "依頼文をコピーして貼り付け、開いたフォルダの " + AI_CODE_FILE + " を" +
-          "添付します。"));
-      root.appendChild(attachmentHint());
+      handoffInstruction(root);
       root.appendChild(createHandoffActions(state, "diagnose"));
     } else if (state.busyAction) {
       root.appendChild(element("p", "inline-status", "診断依頼を作成しています…"));
@@ -1858,28 +1884,32 @@
       false,
       environmentChip(state)));
 
-    concern.id = "diagnosis-concern";
-    concern.rows = 3;
-    concern.value = state.diagnosisConcern;
-    concern.disabled = state.busyAction !== null;
-    concern.setAttribute("data-workflow-input", "diagnosis-concern");
-    concernBox.appendChild(concern);
+    // Optional, and open. It used to be folded behind a row that wore the
+    // sunken grey of a control that cannot be used, under the single word
+    // 任意 - so a field the reader was free to use looked like one they
+    // were not. It is a field now, with 任意 as a tag on its own heading.
+    optional.appendChild(ui.field({
+      id: "diagnosis-concern",
+      name: "diagnosis-concern",
+      label: "気になっていることを書き足す",
+      optional: true,
+      rows: 3,
+      value: state.diagnosisConcern,
+      disabled: state.busyAction !== null,
+      note: "書かなくても診断はできます。書いた内容は依頼文の最後に足されます。",
+      placeholder: "例) 月末だけ失敗します。実行時エラー 1004 が出ます。"
+    }));
     if (state.diagnosisRequestId &&
         global.MacroStudioState.isDiagnosisRequestDirty()) {
-      var rebuild = actionButton(
-        "依頼を作り直す",
+      rebuild = actionButton(
+        "依頼文を作り直す",
         "rebuild-diagnosis-request",
         false);
       rebuild.disabled = state.busyAction !== null;
-      concernBox.appendChild(actionRow(rebuild));
+      optional.appendChild(ui.note(
+        "いま書いた内容は、依頼文を作り直すと反映されます。"));
+      optional.appendChild(actionRow(rebuild));
     }
-    optional.appendChild(createDisclosure(
-      "diagnose-concern",
-      "気になっていることを書き足す",
-      concernBox,
-      global.MacroStudioState.isDiagnosisRequestDirty() === true,
-      state.diagnosisConcern ? "記入あり" : "任意",
-      true));
 
     root.appendChild(optional);
     return root;
@@ -1895,39 +1925,42 @@
   // thing to quote when reporting that a chat cannot be made to comply.
   function appendIntakeError(root, state, stage) {
     var error = state.intakeError ? state.intakeError[stage] : null;
-    var box;
-    var steps;
+    var evidence = error && error.evidence ? error.evidence : null;
+    var facts = [];
 
     if (!error) {
       return root;
     }
-    box = element("div", "intake-error");
-    box.setAttribute("role", "alert");
-    box.appendChild(element(
-      "h3",
-      "intake-error-title",
-      "この返答は取り込めませんでした"));
-    if (error.detail) {
-      box.appendChild(element("p", "intake-error-detail", error.detail));
+    // The checker knows what it wanted and what it got. Printing all
+    // three - wanted, got, change this - is what turns "取り込めません
+    // でした" into something the reader can act on without guessing.
+    if (evidence) {
+      if (evidence.expected) {
+        facts.push({name: "求めている形", value: evidence.expected});
+      }
+      if (evidence.actual) {
+        facts.push({name: "返ってきた形", value: evidence.actual});
+      }
+      if (evidence.fix) {
+        facts.push({name: "直すところ", value: evidence.fix});
+      }
+    } else if (error.detail) {
+      facts.push({name: "断った理由", value: error.detail});
     }
-    if (error.message) {
-      box.appendChild(element("p", "intake-error-message", error.message));
-    }
-    steps = element("ul", "intake-error-steps");
-    [
-      "AIの返答のコードブロックを、先頭から末尾まで全部コピーし直す",
-      "うまくいかないときは、依頼文をもう一度そのまま渡してやり直す",
-      "それでも同じなら、同じ依頼文を別のAIへ渡す"
-    ].forEach(function (text) {
-      steps.appendChild(element("li", "", text));
-    });
-    box.appendChild(steps);
-    box.appendChild(element(
-      "p",
-      "intake-error-check",
-      "検査番号 " + (error.validationId || "-") +
-        "／" + error.count + " 回目"));
-    root.appendChild(box);
+    root.appendChild(ui.alert({
+      tone: "error",
+      title: "この返答は取り込めませんでした",
+      body: error.message || "",
+      facts: facts,
+      steps: [
+        "AIの返答のコードブロックを、先頭から末尾まで全部コピーし直す",
+        "うまくいかないときは、依頼文をもう一度そのまま渡してやり直す",
+        "それでも同じなら、同じ依頼文を別のAIへ渡す"
+      ],
+      footer: (error.validationId
+        ? "検査番号 " + error.validationId + "／"
+        : "") + error.count + " 回目"
+    }));
     return root;
   }
 
@@ -2277,37 +2310,51 @@
     return row;
   }
 
-  function createGradeTile(bucket) {
-    var tile = element(
-      "div",
-      "grade-tile grade-tile--" + bucket.grade.toLowerCase());
+  // How the letters relate to each other, in one sentence, so the single
+  // letter above it can be read without a legend.
+  var GRADE_SCALE =
+    "判定はマクロ全体にひとつだけ付きます。" +
+    "いちばん重い指摘がそのまま全体の判定になります（重い順に D → C → B → A）。";
 
-    tile.appendChild(element("span", "grade-tile-letter", bucket.grade));
-    tile.appendChild(element(
-      "span",
-      "grade-tile-count",
-      String(bucket.groups.length)));
-    tile.appendChild(element("span", "grade-tile-label", bucket.label));
-    return tile;
+  // What the diagnosis found, counted, for the line under the verdict.
+  // Only the grades that actually occur are named: a category with
+  // nothing in it is not a result.
+  function gradeBreakdown(buckets) {
+    var parts = (buckets || []).filter(function (bucket) {
+      return bucket.groups.length > 0;
+    }).map(function (bucket) {
+      return bucket.label + " " + bucket.groups.length + "件";
+    });
+
+    return parts.length === 0 ? "" : parts.join("・");
   }
 
-  // Two lines that give the whole diagnosis, then the four letters. All
-  // four are shown even at zero: the reader is asking "what do I have to
-  // do", and "要改修 0" answers that question where "不具合 0" only
-  // described a category.
-  function createDiagnosisHeadline(state, occurrences, buckets) {
-    var box = element("div", "diagnosis-conclusion");
-    var tiles = element("div", "grade-tiles");
-    var worst = null;
+  // The verdict, and there is one of it.
+  //
+  // A-D is not a tally of findings. It is one judgement about the whole
+  // workbook: the heaviest thing the diagnosis found is what the workbook
+  // is. A hundred repairable problems with nothing worse is still B; one
+  // finding with nowhere to go makes the whole thing D.
+  //
+  // It used to be four cards of counts, in a row, worst first. That said
+  // the opposite - that the reader had four results, one of which
+  // happened to be zero - and the red D card was the loudest thing on the
+  // page while its count read 0. The one letter that is true is now the
+  // size of an answer, and the counts are a line of text beneath it.
+  function createDiagnosisHeadline(state, findings, buckets) {
+    var box = element("div", "diagnosis-summary");
+    var grade = worstGrade(findings);
+    var breakdown = gradeBreakdown(buckets);
 
-    (buckets || []).some(function (bucket) {
-      if (bucket.groups.length > 0) {
-        worst = bucket;
-        return true;
-      }
-      return false;
-    });
-    box.setAttribute("aria-live", "polite");
+    box.appendChild(ui.verdict({
+      grade: grade,
+      headline: "このマクロの判定は " + grade + "（" +
+        GRADE_LABELS[grade] + "）",
+      reason: findings.length === 0
+        ? "対象の環境で動かなくなるところは見つかりませんでした。"
+        : GRADE_NOTES[grade],
+      scale: GRADE_SCALE
+    }));
     box.appendChild(element(
       "p",
       "diagnosis-conclusion-text",
@@ -2318,51 +2365,39 @@
         "diagnosis-conclusion-text",
         firstSentence(state.diagnosis.sections.ENVIRONMENT)));
     }
-    box.appendChild(element(
-      "p",
-      "diagnosis-conclusion-verdict",
-      worst === null
-        ? "対象の環境で動かなくなるところは見つかりませんでした。"
-        : worst.note));
-    (buckets || []).forEach(function (bucket) {
-      tiles.appendChild(createGradeTile(bucket));
-    });
-    box.appendChild(tiles);
-    box.appendChild(element(
-      "p",
-      "diagnosis-conclusion-note",
-      "指摘は原因ごとに1件です。該当箇所は合わせて " + occurrences + " か所。"));
+    if (breakdown) {
+      box.appendChild(element(
+        "p",
+        "diagnosis-conclusion-note",
+        "指摘は原因ごとに1件で、内訳は " + breakdown + "。" +
+          "該当箇所は合わせて " + findings.length + " か所。下に一覧があります。"));
+    }
     return box;
   }
 
   // The other kind of diagnosis: one grade for the workbook and the
-  // reasoning in prose. It is a judgement, and the screen says so - the
-  // macro-repair result does not, because that one is a fact.
+  // reasoning in prose. Same component, because it is the same kind of
+  // answer - one letter for the whole book. It is a judgement, and the
+  // screen says so; the macro-repair result does not, because that one is
+  // a fact.
   function createGradeResult(state) {
-    var box = element("div", "diagnosis-conclusion diagnosis-conclusion--grade");
+    var box = element("div", "diagnosis-summary");
     var grade = String(state.diagnosis.grade || "");
-    var head = element("div", "value-head");
 
-    head.appendChild(element(
-      "span",
-      "grade-badge grade-badge--" + grade.toLowerCase(),
-      grade));
     // What the run was graded on is the diagnosis template's own name,
     // which is authored in its own file. The app supplies only what the
     // letter means.
-    head.appendChild(element(
-      "h2",
-      "value-title",
-      diagnosisName(state) + "の判定は " + (VALUE_LABELS[grade] || "")));
-    box.appendChild(head);
+    box.appendChild(ui.verdict({
+      grade: grade,
+      headline: diagnosisName(state) + "の判定は " + grade + "（" +
+        (VALUE_LABELS[grade] || "") + "）",
+      reason: "これは AI の見立てです。同じコードでも AI によって変わります。",
+      scale: ""
+    }));
     box.appendChild(element(
       "p",
       "diagnosis-conclusion-text",
       firstSentence(state.diagnosis.sections.PURPOSE)));
-    box.appendChild(element(
-      "p",
-      "value-judgement",
-      "これは AI の見立てです。同じコードでも AI によって変わります。"));
     return box;
   }
 
@@ -2406,7 +2441,7 @@
       buckets = gradesOf(categories);
       root.appendChild(createDiagnosisHeadline(
         state,
-        sortedFindings(state.diagnosis).length,
+        sortedFindings(state.diagnosis),
         buckets));
       if (allGroups(categories).length === 0) {
         empty = createEmptyFindings(state);
@@ -2453,16 +2488,24 @@
     if (tasks.length === 0) {
       return root;
     }
+    // What this said before named two facts about the tool - that the
+    // information came from the workbook, and that the AI only reads code
+    // - and left the reader to work out what either meant for them. It
+    // now says the one thing that follows: these will not be fixed here,
+    // so somebody has to check them on the target machine before the
+    // repaired workbook is handed on.
     box = element("div", "outside-code");
     box.appendChild(element(
       "h2",
       "task-step",
-      "コードの外にあり、この診断が見ていないこと"));
+      "このツールでは直らないもの（人が確かめます）"));
     box.appendChild(element(
       "p",
       "task-note",
-      "ブックから読み取った事実です。AIはコードしか見ていないので、" +
-        "ここは人が決めます。"));
+      "ブックから読み取った事実です。VBA のコードの外にあるので、" +
+        "AIも このツールも書き換えません。" +
+        "改修済みブックを配る前に、対象の端末で次を確かめてください。" +
+        "同じ一覧は最後の引渡しメモにも載ります。"));
     rows = element("ul", "outside-code-list");
     tasks.forEach(function (item) {
       rows.appendChild(element(
@@ -2511,59 +2554,58 @@
     return box;
   }
 
-  function createChangeScopeOption(state, entry) {
-    var chosen = state.changeScope &&
-      state.changeScope.file === entry.file;
-    var card;
-    var body;
-    var box;
+  // A scope file names one of two answers to "may the shape of the
+  // project change". Those two are the whole setting; this list is the
+  // order they are shown in, and it is the only thing this file knows
+  // about them. The names, the one-line effects and the instructions the
+  // AI is given all live in the files.
+  var STRUCTURE_STATES = ["forbidden", "allowed"];
 
-    if (!entry.valid) {
-      return element(
-        "p",
-        "preset-invalid-item",
-        entry.file + " — " + entry.message);
-    }
-    card = element("button", "choice-card scope-card");
-    body = element("span", "choice-body");
-    box = element("span", "option-checkbox choice-checkbox");
-    card.type = "button";
-    card.setAttribute("data-action", "select-change-scope");
-    card.setAttribute("data-scope-file", entry.file);
-    card.setAttribute("role", "radio");
-    card.setAttribute("aria-checked", chosen ? "true" : "false");
-    card.disabled = state.busyAction !== null;
-    if (chosen) {
-      card.classList.add("is-selected");
-      box.appendChild(icon("check", "flow-icon--small"));
-    }
-    card.appendChild(box);
-    card.appendChild(icon("template", "choice-icon"));
-    body.appendChild(element("span", "choice-title", entry.name));
-    if (entry.description) {
-      body.appendChild(element(
-        "span",
-        "choice-description",
-        entry.description));
-    }
-    card.appendChild(body);
-    return card;
+  function changeScopeModes(state) {
+    var seen = {};
+    var modes = [];
+
+    scopePresets(state).forEach(function (entry) {
+      if (!entry.valid ||
+          STRUCTURE_STATES.indexOf(entry.structure) < 0 ||
+          Object.prototype.hasOwnProperty.call(seen, entry.structure)) {
+        return;
+      }
+      seen[entry.structure] = true;
+      modes.push(entry);
+    });
+    modes.sort(function (left, right) {
+      return STRUCTURE_STATES.indexOf(left.structure) -
+        STRUCTURE_STATES.indexOf(right.structure);
+    });
+    return modes;
   }
 
-  // How far the code may change. The first choice is the default and is
-  // shown outright; the rest sit behind one row that opens, because
-  // allowing the shape of the project to change is the unusual answer and
-  // should be a deliberate one. The labels are the files' own, and every
-  // one of them is written as something it permits - no option here is
-  // phrased as a negative to be turned off.
+  // How far the code may change.
+  //
+  // This is not one of the operations. It is a setting that applies to
+  // every operation chosen, so it is a two-state switch and not another
+  // card in the list above it.
+  //
+  // It used to be two controls for one binary: a card offering the
+  // default, and a row called 詳細オプション holding the other answer. The
+  // reader had to open the second to find out what the first was
+  // refusing, and both were on screen saying different halves of the same
+  // thing. One state, one control, one place it is written.
   function createChangeScopeSection(state) {
     var box = section("変更範囲", "change-scope");
-    var scopes = scopePresets(state);
+    var modes = changeScopeModes(state);
     var chosen = state.changeScope;
-    var rest = scopes.slice(1);
-    var others;
 
-    if (scopes.length === 0) {
+    scopePresets(state).forEach(function (entry) {
+      if (!entry.valid) {
+        box.appendChild(element(
+          "p",
+          "preset-invalid-item",
+          entry.file + " — " + entry.message));
+      }
+    });
+    if (modes.length === 0) {
       box.appendChild(element(
         "p",
         "preset-invalid-item",
@@ -2571,29 +2613,26 @@
           "どこまで変えてよいかが決まらないので、依頼を作れません。"));
       return box;
     }
-    box.appendChild(element(
-      "p",
-      "task-note",
-      "改修でコードをどこまで変えてよいかを決めます。"));
-    box.appendChild(createChangeScopeOption(state, scopes[0]));
-    if (rest.length > 0) {
-      others = element("div", "choice-list");
-      rest.forEach(function (entry) {
-        others.appendChild(createChangeScopeOption(state, entry));
-      });
-      box.appendChild(createDisclosure(
-        "change-scope-detail",
-        "詳細オプション",
-        others,
-        Boolean(chosen) && chosen.file !== scopes[0].file,
-        chosen && chosen.file !== scopes[0].file ? chosen.name : ""));
-    }
+    box.appendChild(ui.note(
+      "上で選んだ改修すべてに掛かる設定です。ふだんは既定のまま進めます。",
+      true));
+    box.appendChild(ui.modeSwitch({
+      label: "変更範囲",
+      action: "select-change-scope",
+      disabled: state.busyAction !== null,
+      options: modes.map(function (entry) {
+        return {
+          name: entry.name,
+          effect: entry.description,
+          selected: Boolean(chosen) && chosen.file === entry.file,
+          data: {"scope-file": entry.file}
+        };
+      })
+    }));
     if (global.MacroStudioScreens.isStructureForbidden(state)) {
       box.appendChild(createStructureGuardNote());
     } else if (chosen) {
-      box.appendChild(element(
-        "p",
-        "task-note",
+      box.appendChild(ui.note(
         "この設定のあいだ、構造の検査は行いません。" +
           "返ってきた変更は差分で確かめてください。"));
     }
@@ -2606,8 +2645,9 @@
     if (!state.diagnosis) {
       return missingDiagnosis(root);
     }
-    root.appendChild(intro(
-      "診断から出てきた操作を選びます。複数選べます。"));
+    // The line under the window already says what this screen is for.
+    // A second copy of it at the top of the page was the same sentence
+    // twice, six lines apart.
     root.appendChild(createPresetCards(state));
     root.appendChild(createChangeScopeSection(state));
     return root;
@@ -2963,35 +3003,30 @@
         "診断を行っていないので、直したいことを下の欄に書いてください。"));
     }
 
-    var extraContent = element("div", "extra-request-content");
-    var extra = element("textarea", "form-textarea");
+    // One field, two jobs. A template that exists so the reader writes
+    // the work themselves names the field and requires it; otherwise this
+    // is the optional extra alongside the ticked problems.
+    //
+    // Either way it is the same component, open, with a normal border and
+    // normal text. Folding the optional one behind a grey row said it
+    // could not be used, which was never true.
     var writeInLabel = writeInFieldLabel(state);
-    extra.rows = 4;
-    extra.value = state.extraRequest;
-    extra.disabled = state.busyAction !== null;
-    extra.setAttribute("data-workflow-input", "extra-request");
-    extra.id = "repair-write-in";
-    extraContent.appendChild(extra);
-    // A template that exists so the reader can write the work themselves
-    // says what to call the field. Then it is on the screen, open, under
-    // its own name - not folded away behind the word "任意".
-    if (writeInLabel) {
-      var writeIn = section(writeInLabel, "repair-write-in");
-      writeIn.appendChild(element(
-        "p",
-        "task-note",
-        "ここに書いた内容が、そのままAIへの改修指示になります。"));
-      writeIn.appendChild(extraContent);
-      root.appendChild(writeIn);
-    } else {
-      root.appendChild(createDisclosure(
-        "extra-request",
-        "追加の要望を書く（任意）",
-        extraContent,
-        false,
-        String(state.extraRequest || "").trim() ? "記入あり" : "未記入",
-        true));
-    }
+    root.appendChild(ui.field({
+      id: "repair-write-in",
+      name: "extra-request",
+      label: writeInLabel || "追加の要望を書く",
+      optional: !writeInLabel,
+      rows: 4,
+      value: state.extraRequest,
+      disabled: state.busyAction !== null,
+      note: writeInLabel
+        ? "ここに書いた内容が、そのままAIへの改修指示になります。"
+        : "選んだ指摘のほかに伝えたいことがあれば書きます。" +
+          "書かなくても依頼はできます。",
+      placeholder: writeInLabel
+        ? ""
+        : "例) 変数名は今のままにしてください。"
+    }));
 
     if (state.splitOutputRules) {
       root.appendChild(optionRow(
@@ -3009,13 +3044,8 @@
   function createRepairScreen(state) {
     var root = task(true);
 
-    root.appendChild(element("h2", "task-step", "1. 依頼をAIへ渡す"));
-    root.appendChild(element(
-      "p",
-      "task-note",
-      "依頼文をコピーして貼り付け、開いたフォルダの " + AI_CODE_FILE + " を" +
-        "添付します。"));
-    root.appendChild(attachmentHint());
+    root.appendChild(element("h2", "task-step", "1. 依頼文をAIへ渡す"));
+    handoffInstruction(root);
     root.appendChild(createHandoffActions(state, "repair"));
 
     root.appendChild(element("h2", "task-step", "2. 返答を取り込む"));
@@ -3399,6 +3429,10 @@
     applyRepairText: applyRepairText,
     restartRepairIntake: restartRepairIntake,
     retryCopyPrompt: retryCopyPrompt,
+    // The text put on the clipboard after a refusal. Exported so a test
+    // can hold it to the same standard the screen is held to: it has to
+    // name what failed, not restate the contract and hope.
+    retryText: retryText,
     formatDiagnosisForPrompt: formatDiagnosisForPrompt,
     formatSelectedFindings: formatSelectedFindings,
     composeDiagnosisRequestText: composeDiagnosisRequestText,

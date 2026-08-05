@@ -51,8 +51,8 @@ macrostudio/
 │   └── 09_BookInventory.cs  # コードの外にある事実（参照設定・クエリ・外部リンク・ActiveX・フォント・署名・ハッシュ）
 ├── assets/                  # UI 実体
 │   ├── fonts/               # Noto Sans JP / UDEV Gothic の TTF と OFL
-│   ├── css/                 # variables / layout / flow / module-list / diff / findings / path-map / code-view
-│   └── js/                  # 画面・状態・契約・lexer・決定的 path mapping
+│   ├── css/                 # variables / components / layout / flow / module-list / diff / findings / path-map / code-view
+│   └── js/                  # 画面・状態・契約・部品・lexer・決定的 path mapping
 ├── environment/             # 想定動作環境のJSON正本と出典・改訂履歴
 ├── presets/                 # 01_診断（singleton）/ 02_改修 / 03_変更範囲 の依頼正本
 ├── templates/               # 依頼文（チャット貼付用）の中立な組み立て枠
@@ -84,8 +84,28 @@ macrostudio/
   束ねるのは表示だけで、依頼文・差分・run manifest では別項目のまま残る。
   アプリは渡された文字列で束ねるだけで、見出しの一覧を持たない
   （`tests\test-shortest-path.js` が分類名の非在を検査する）。
+- **見た目の語彙は `assets/js/components.js` と `assets/css/components.css`
+  だけが持つ**（SPEC §6.1.1）。情報と操作は 11 種のどれかで、同じ種類は
+  どの画面でも同じ形をしている。画面が自分だけの強調を発明しない
+  （その 1 つが、診断依頼の 1 段落にだけ付いていてボタンと重なっていた
+  アクセントレールだった）。字の大きさは `--type-title/body/meta` の 3 段へ
+  解決すること。4 つ目を作らず、強調は太さと色で行う。総合判定の 1 文字だけが
+  `--type-display-size` を使い、これは 1 か所しか無い。
+  `tests\test-design-tokens.js` が段数と 11 種の登録を検査する。
+- **グレーアウトは「操作不能」だけを意味する**（SPEC §6.1.2）。任意入力は
+  枠も地も文字色も通常のまま、`任意` の文字タグと置き場所で優先度を下げる。
+  折りたたみの奥へ隠さない。`:disabled` を使ってよいのは実質 `busyAction` の
+  ときだけである。
+- **総合判定はブック全体に 1 つ**（SPEC §2.2.1.1）。`worstGrade()` が唯一の
+  判定で、指摘 0 件は A。画面は `ui.verdict` を 1 つだけ描き、到達していない
+  等級の色を出さない。等級ごとの件数カードを並べる形へ戻さないこと
+  （0 件の D が最も目立ち、「このマクロは D」と読めた）。
 - **変更範囲は `presets/03_変更範囲/` が持つ**。ファイルの `## 構造変更` が
   `禁止` か `許可` を名乗り、フォルダの先頭のファイルが既定になる。
+  画面はこれを**操作カードではなく 2 状態のモード切替**として出す
+  （`ui.modeSwitch`）。1 つの二択に控えを 2 つ置かないこと（既定のカード＋
+  「詳細オプション」の折りたたみ、という形へ戻さない）。どちらが有効かは
+  色だけでなく `いま有効` / `切り替える` の語でも言う。
   `禁止` のあいだ、取り込みは 4 つだけを機械的に検査する（モジュール追加・
   手続きの削除・手続きの移動・モジュールの全面書き換え）。検査していない
   ものを検査したとは表示しない（`tests\test-change-scope.js` と
@@ -129,8 +149,18 @@ macrostudio/
   照合、統合（`addPart` / `mergeParts`）も同じファイルが持つ。`app.js` は
   「全部そろったら統合結果をワンペーストと同じ経路へ流す」だけにする。
 - **第 1 AI 診断の返答契約は `assets/js/diagnosis-package.js` だけが持つ**。
-  D01〜D28、0 件結論、診断 `PART` の受理と構造統合を `app.js` や C# へ複製しない。
+  D01〜D29、0 件結論、診断 `PART` の受理と構造統合を `app.js` や C# へ複製しない。
   診断ひな形の完全記入例をテストの文字列へ複製せず、実 Markdown から抽出して検査する。
+- **契約が必要としない形を要求しない**（SPEC §4.4.1.1）。`META` は `key=value` の
+  集合で、読む側は名前で引いている。だから**キーの順序は検査しない**。
+  6 個ちょうど・既知のキーのみ・重複なし・空値なし・`PROC` の識別子検査は
+  そのまま厳格に残す。ひな形の `## 出力指示` も「並べる順番は問いません」と
+  揃えること。片方だけを直すと、ひな形が求め検査が求めない状態になる。
+- **拒否は言い直せる形で返す**（SPEC §4.5.2）。検査は `evidence`
+  （`expected` / `actual` / `fix`）を持ち、画面の `alert` と
+  クリップボードへ入る再送文が**同じ 1 つの出どころ**から書かれる。
+  一般論だけの再送文にしない。`evidence` は契約自身の語彙（キー名・タグ名・
+  件数・モジュール名）だけで書き、返答の本文を引用しない（§8.4）。
 - **字句解析は `assets/js/vba-lexer.js`、検出・集約・検証・適用は
   `assets/js/path-map.js` だけが持つ**。前者は UTF-16 座標で原文へ可逆な token を返し、
   後者は private brand を持つ検出結果だけを受け取る。適用直前に全 occurrence を再字句解析し、
@@ -341,9 +371,11 @@ node tests\test-diagnosis-compact.js
 node tests\test-diagnosis-headline.js
 node tests\test-diagnosis-package.js
 node tests\test-diagnosis-preset-cardinality.js
+node tests\test-diagnosis-key-order.js
 node tests\test-diagnosis-recovery.js
 node tests\test-no-domain-knowledge.js
 node tests\test-diagnosis-split.js
+node tests\test-design-tokens.js
 node tests\test-diff-report-toggle.js
 node tests\test-diff-report.js
 node tests\test-diff-view.js
@@ -385,6 +417,17 @@ node tests\test-verdict-result.js
 
 回帰の見張り番:
 
+- `tests\test-design-tokens.js` … デザインシステムの契約。UI の字は 3 段へ、
+  強調は太さ 3 段へ、行間 3 段・角丸 2 段へ解決すること。標準部品が 11 種
+  ちょうどで、それぞれが `data-component` を名乗ること。**グレーは disabled
+  だけ**（任意入力が `opacity` で薄くされていない・`disabled` でない）。
+  2 状態スイッチがどちらが有効かを語で言うこと。警告が色以外の手掛かりを
+  持つこと。撤去した 1 回限りの見た目（`.attachment-hint` 等）が戻っていないこと。
+- `tests\test-diagnosis-key-order.js` … 2026-08-05 の実失敗（D09 が 3 連続で
+  正しい診断を捨てた）の回帰。同梱ひな形の記入例が一度で通ること、キー順を
+  入れ替えても**同一の診断**になること、キーの欠落・未知キー・重複・空値は
+  引き続き拒否され**そのキー名が出る**こと、再送文と画面が
+  「求めている形／返ってきた形／直すところ」を運ぶこと、直した返答が通ること。
 - `tests\test-diagnosis-package.js` … 同梱診断ひな形の実ファイルから完全記入例を
   抽出し、依頼 ID だけを差し込んで製品 parser へ通す。D01〜D28 は通る fixture と
   落ちる fixture の両方を持ち、失敗側の `validationId` まで固定する。
@@ -585,8 +628,30 @@ node tests\test-verdict-result.js
   再読一致、原本非破壊を検査する。AI 改修依頼を作らず改修入力から差分確認へ進む。
 - `tests\test-p9-preset.ps1` と `tests\test-flow-webview.ps1` は
   `test-p9-distribution.ps1` からも呼ばれ、配布物のコピーへ同じ検証を回す。
+  **`test-p9-preset.ps1` は単独の runner ではない。** `-ProductRoot` に
+  `testdata\` の外を渡すと自分で拒否する（`Test path is outside the expected
+  directory`）。配布物のコピーに対してだけ走る検証で、キャッシュを実リポジトリの
+  隣へ作らないための門である。単独で回そうとせず、`test-p9-distribution.ps1`
+  を実行すること。§5 冒頭の runner 一覧に載せていないのはこのためである。
 - `tests\test-excel-macro.ps1` は Excel 実機確認用。`WorkbookPath` と `MacroName` の
   明示指定が必要。
+
+### 実画面のキャプチャ（目視用）
+
+数え上げでは見えないもの（重なり・見切れ・不自然な空白・行間・面積配分・
+任意入力が使えるように見えるか）は、実画面を撮って人が見るしかない。
+`test-flow-webview.ps1` は環境変数が置かれたときだけ撮る。
+
+```powershell
+$env:MACROSTUDIO_SMOKE_SHOTS = '<出力先フォルダ>'
+$env:MACROSTUDIO_SMOKE_WINDOW = '4x3'
+powershell.exe -NoProfile -ExecutionPolicy Bypass `
+  -File tests\test-flow-webview.ps1 -BookPath testdata\input_win32_sleep.xlsm
+```
+
+撮影点は `tests\P10FlowSmoke.cs` の `Shot()` / `ShotAt()`。環境変数が無ければ
+1 枚も撮らず、通常の実行は変わらない。2026-08-06 の証拠は
+`docs\beta2\evidence\redesign-20260806\`。
 
 注意:
 

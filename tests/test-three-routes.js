@@ -52,7 +52,7 @@ var context = vm.createContext({
 windowObject.window = windowObject;
 windowObject.document = documentObject;
 
-["icons.js", "response-package.js", "diagnosis-package.js", "diff.js",
+["icons.js", "components.js", "response-package.js", "diagnosis-package.js", "diff.js",
   "vba-lexer.js", "path-map.js", "preset-document.js", "prompt-template.js",
   "handover.js", "screens.js", "state.js", "screens/workflow.js"]
   .forEach(function (name) {

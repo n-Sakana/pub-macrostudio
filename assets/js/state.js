@@ -731,8 +731,15 @@
   // What the contract found wrong, in the words the screen shows. Never
   // the reply itself (SPEC 8.4): a check number, a reason code and the
   // two sentences that go with them.
+  //
+  // `evidence` is the same refusal said three ways - what was asked for,
+  // what this reply carried instead, and the one edit that settles it.
+  // The screen prints it, and the retry text put on the clipboard is
+  // written from it, so the reader and the chat are told the same thing.
+  // It names keys, tag names and counts; it never carries reply text.
   function setIntakeError(stage, error) {
     var key = stage === "repair" ? "repair" : "diagnose";
+    var evidence = error && error.evidence ? error.evidence : null;
 
     state.intakeError[key] = error
       ? {
@@ -741,6 +748,13 @@
         reason: String(error.reason || ""),
         message: String(error.message || ""),
         detail: String(error.detail || ""),
+        evidence: evidence
+          ? {
+            expected: String(evidence.expected || ""),
+            actual: String(evidence.actual || ""),
+            fix: String(evidence.fix || "")
+          }
+          : null,
         count: Number(error.count || 1)
       }
       : null;

@@ -42,7 +42,7 @@ var context = vm.createContext({window: windowObject, document: documentObject})
 windowObject.window = windowObject;
 windowObject.document = documentObject;
 
-["icons.js", "preset-document.js", "handover.js", "screens.js",
+["icons.js", "components.js", "preset-document.js", "handover.js", "screens.js",
   "screens/workflow.js"].forEach(
   function (name) {
     vm.runInContext(readUtf8(path.join(root, "assets", "js", name)), context,
@@ -168,37 +168,34 @@ summaryRows.forEach(function (row) {
 assert(dom.text(screen).indexOf("帳票を作ります。") >= 0,
   "The summary bodies must still carry the section text.");
 
-// The band shows all four letters, including the empty ones. The reader
-// is asking "what do I have to do", and 「要改修 0」 answers that where
-// 「不具合 0」 only described a category. Five findings that name one
-// constraint are one problem, so the letters count problems, not lines.
-var tiles = dom.collect(screen.querySelector(".grade-tiles"),
-  function (node) {
-    return node.classList && node.classList.contains("grade-tile");
-  });
+// One verdict for the workbook. This fixture has a D finding, so the
+// verdict is D - and it is the letter itself that is large, with the
+// sentence beside it. Five findings naming one constraint are one
+// problem, so the breakdown counts problems, not lines.
+var verdict = screen.querySelector(".verdict");
 
-assert(tiles.length === 4,
-  "All four grades must have a tile, even at zero: " + tiles.length);
-assert(tiles.map(function (tile) {
-  return dom.text(tile.querySelector(".grade-tile-letter"));
-}).join("") === "DCBA",
-"The letters must run worst first: " + tiles.map(function (tile) {
-  return dom.text(tile.querySelector(".grade-tile-letter"));
-}).join(""));
-assert(dom.text(tiles[0].querySelector(".grade-tile-count")) === "1" &&
-  dom.text(tiles[3].querySelector(".grade-tile-count")) === "0",
-"The tiles must count problems, not occurrences: " +
-  tiles.map(function (tile) {
-    return dom.text(tile.querySelector(".grade-tile-count"));
-  }).join(","));
-assert(dom.text(tiles[0].querySelector(".grade-tile-label")) === "改修不可" &&
-  dom.text(tiles[2].querySelector(".grade-tile-label")) === "要改修",
-"Each tile must say what its letter means.");
-// The worst grade present is what the headline states, so the reader is
-// not left to work out what D among A-D implies.
-assert(dom.text(screen.querySelector(".diagnosis-conclusion-verdict"))
+assert(verdict !== null, "The result page must carry a verdict.");
+assert(dom.collect(screen, function (node) {
+  return node.classList && node.classList.contains("verdict");
+}).length === 1, "There is one verdict, not one per grade.");
+assert(dom.text(verdict.querySelector(".verdict-letter")) === "D",
+  "The verdict is the worst grade present: " +
+    dom.text(verdict.querySelector(".verdict-letter")));
+assert(verdict.classList.contains("verdict--d"),
+  "A workbook that cannot be made to run is drawn in the D tone.");
+assert(dom.text(verdict.querySelector(".verdict-headline"))
+  .indexOf("D（改修不可）") >= 0,
+"The headline names the letter and what it means.");
+assert(dom.text(verdict.querySelector(".verdict-reason"))
   .indexOf("動かすことはできません") >= 0,
-"The headline must state the worst grade in a sentence.");
+"The verdict states in a sentence what that grade means for this book.");
+// The counts are a line of text under it, naming only grades that occur.
+var note = dom.text(screen.querySelector(".diagnosis-conclusion-note"));
+
+assert(note.indexOf("改修不可 1件") >= 0 && note.indexOf("5 か所") >= 0,
+  "The breakdown counts problems, and the places separately: " + note);
+assert(note.indexOf("支障なし") < 0 && note.indexOf("不明") < 0,
+  "A grade with nothing in it is not counted at the reader: " + note);
 assert(dom.text(screen).indexOf("想定環境: 新しい業務端末（2026-08-01 版）") >= 0,
   "The conclusion band must name the actual environment.");
 // One block per grade that has anything in it, worst first.
@@ -263,20 +260,22 @@ var graded = workflow.createFindingsScreen({
   }
 });
 
-assert(dom.text(graded.querySelector(".grade-badge")) === "D" &&
-  dom.text(graded.querySelector(".value-title")) ===
-    "リファクタの価値の判定は 大きい",
+// The other kind of diagnosis returns one letter for the whole workbook
+// and no findings at all. It is the same kind of answer, so it is the
+// same component: one letter, one headline, one reason.
+assert(dom.text(graded.querySelector(".verdict-letter")) === "D" &&
+  dom.text(graded.querySelector(".verdict-headline")) ===
+    "リファクタの価値の判定は D（大きい）",
 "The graded result must state the letter and what it is worth: " +
-  dom.text(graded.querySelector(".value-title")));
-assert(dom.text(graded.querySelector(".value-judgement"))
+  dom.text(graded.querySelector(".verdict-headline")));
+assert(dom.text(graded.querySelector(".verdict-reason"))
   .indexOf("AI の見立て") >= 0,
 "A qualitative grade must be shown as a judgement, not as a fact.");
 assert(dom.text(graded).indexOf("ワークシートとの往復が多い") >= 0,
   "The reasoning the template asked for must be on the screen.");
-assert(graded.querySelector(".grade-tiles") === null &&
-  dom.collect(graded, function (node) {
-    return node.classList && node.classList.contains("group-row");
-  }).length === 0,
+assert(dom.collect(graded, function (node) {
+  return node.classList && node.classList.contains("group-row");
+}).length === 0,
 "A graded diagnosis has no findings, so it shows no finding rows.");
 
 // ---- the star is drawn from the diagnosis, never from the template ----
@@ -310,13 +309,12 @@ function titlesOf(className) {
 }
 
 var headings = titlesOf("category-heading");
-// The change scope is drawn on the same screen and its options are cards
-// too, so the operations are the cards that are not scope cards.
+// The change scope is drawn on the same screen, but it is a mode switch
+// rather than a card, so every card here is an operation.
 var orderedTitles = dom.collect(
   workflow.createNextStepScreen(state),
   function (node) {
-    return node.classList && node.classList.contains("choice-card") &&
-      !node.classList.contains("scope-card");
+    return node.classList && node.classList.contains("choice-card");
   }).map(function (card) {
   return dom.text(card.querySelector(".choice-title"));
 });
@@ -358,8 +356,7 @@ state.diagnosis.findings[0].environmentKey = "WIN32API_BLOCKED";
 var cards = dom.collect(
   workflow.createNextStepScreen(state),
   function (node) {
-    return node.classList && node.classList.contains("choice-card") &&
-      !node.classList.contains("scope-card");
+    return node.classList && node.classList.contains("choice-card");
   });
 
 assert(cards.length === shippedPresets.length,
@@ -372,17 +369,27 @@ cards.forEach(function (card) {
   assert(card.querySelector(".choice-checkbox") !== null,
     "A checkbox card must draw its box.");
 });
-// The change scope is one answer, not a set of them, so its options say
-// radio. A screen that drew both as checkboxes would be telling the
-// reader they could allow and forbid at the same time.
-dom.collect(
+// The change scope is one answer, not a set of them, and it applies to
+// every operation ticked above rather than being another operation. So
+// it is a two-state switch whose segments say radio, drawn once. A screen
+// that drew it as more cards would be telling the reader they could
+// allow and forbid at the same time.
+var scopeSegments = dom.collect(
   workflow.createNextStepScreen(state),
   function (node) {
-    return node.classList && node.classList.contains("scope-card");
-  }).forEach(function (card) {
-  assert(card.getAttribute("role") === "radio",
-    "A change-scope option must say it is one of a set.");
+    return node.classList &&
+      node.classList.contains("mode-switch-option");
+  });
+
+assert(scopeSegments.length === 2,
+  "The change scope has exactly two states: " + scopeSegments.length);
+scopeSegments.forEach(function (segment) {
+  assert(segment.getAttribute("role") === "radio",
+    "A change-scope state must say it is one of a set.");
 });
+assert(scopeSegments.filter(function (segment) {
+  return segment.getAttribute("aria-checked") === "true";
+}).length === 1, "Exactly one change-scope state is in force.");
 var markColumn = cards[0].querySelector(".choice-state");
 
 assert(markColumn && markColumn.children.some(function (child) {

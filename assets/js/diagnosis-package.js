@@ -91,8 +91,8 @@
     D06: "指摘の開始行と終了行が対になっていません。",
     D07: "同じ番号の指摘が2つ以上あります。",
     D08: "指摘に META の行がないか、2つ以上あります。",
-    D09: "META は GRADE CONFIDENCE MODULE PROC LINES ENVKEY の" +
-      "6つを、この順番で書く必要があります。",
+    D09: "META には GRADE CONFIDENCE MODULE PROC LINES ENVKEY の" +
+      "6つを、それぞれ1回ずつ書きます。並べる順番は問いません。",
     D10: "GRADE または CONFIDENCE に、決まっていない値が書かれています。" +
       "GRADE は A / B / C / D のどれかです。",
     D11: "GRADE=D は「直しようがないことが確定している」という判定なので、" +
@@ -130,7 +130,15 @@
     DP05: "同じ番号の返答が、前に取り込んだものと内容が違います。"
   };
 
-  function failure(validationId, reason, message) {
+  // A refusal, and enough of the contract to ask again with.
+  //
+  // `evidence` is what the retry text is written from: what the contract
+  // asked for, what this reply carried instead, and the one edit that
+  // would settle it. It names keys, counts and tag names - the vocabulary
+  // of the contract itself - and never the reply's prose, which is what
+  // SPEC 8.4 keeps out of the log and out of every message this file
+  // hands upward.
+  function failure(validationId, reason, message, evidence) {
     return brand({
       ok: false,
       code: "E-DIAG-01",
@@ -138,6 +146,7 @@
       reason: reason || "malformed",
       message: message || MESSAGES.malformed,
       detail: DETAILS[validationId] || "",
+      evidence: evidence || null,
       diagnosis: null
     });
   }
@@ -295,12 +304,29 @@
   // How many whitespace-separated tokens a sentinel occupies after the
   // marker, including the request id. Everything past that on a collapsed
   // line is body text that belongs on its own line.
+  // How many key=value pairs a line carries from `start` onwards.
+  //
+  // How many there are supposed to be is the contract's business (D09),
+  // not this function's. Counting what is actually there means a reply
+  // with five pairs or seven is named by the checker rather than cut in
+  // half here and refused for a shape it never had.
+  var META_PAIR = /^[A-Z][A-Z0-9_]*=/;
+
+  function metaPairCount(parts, start) {
+    var index = start;
+
+    while (index < parts.length && META_PAIR.test(parts[index])) {
+      index += 1;
+    }
+    return index - start;
+  }
+
   function sentinelArity(parts) {
     var directive = (parts[1] || "").toUpperCase();
     var second = (parts[2] || "").toUpperCase();
 
     if (directive === "META") {
-      return 8;
+      return 2 + metaPairCount(parts, 2);
     }
     if (directive === "PART") {
       return 5;
@@ -311,7 +337,9 @@
       return second === "BEGIN" || second === "END" ? 4 : 3;
     }
     if (directive === "FINDING") {
-      return second === "BEGIN" || second === "END" ? 4 : 9;
+      return second === "BEGIN" || second === "END"
+        ? 4
+        : 3 + metaPairCount(parts, 3);
     }
     if (directive === "TEXT") {
       return 4;
@@ -561,30 +589,166 @@
     return invalid || ranges.length === 0 ? null : ranges;
   }
 
+  var META_EXPECTED = "META に " + META_NAMES.join(" ") +
+    " の6つを、それぞれ1回ずつ（並べる順番は問いません）";
+
+  function joinKeys(names) {
+    return names.join("、");
+  }
+
+  // What the META line carried, said in the contract's own words: which
+  // of the six keys were missing, which names are not part of the
+  // contract, which appeared twice, which were left empty. No value is
+  // repeated back (SPEC 8.4) - naming the key is enough to fix the line.
+  function metaEvidence(problem) {
+    var actual = [];
+    var fix = [];
+
+    if (problem.missing.length > 0) {
+      actual.push(joinKeys(problem.missing) + " が書かれていません");
+      fix.push(joinKeys(problem.missing) + " を足す");
+    }
+    if (problem.unknown.length > 0) {
+      actual.push("契約にない " + joinKeys(problem.unknown) + " が入っています");
+      fix.push(joinKeys(problem.unknown) + " を外す");
+    }
+    if (problem.duplicate.length > 0) {
+      actual.push(joinKeys(problem.duplicate) + " が2回以上あります");
+      fix.push(joinKeys(problem.duplicate) + " を1つにする");
+    }
+    if (problem.empty.length > 0) {
+      actual.push(joinKeys(problem.empty) + " の値が空です");
+      fix.push(joinKeys(problem.empty) + " に値を書く（無いときは - ）");
+    }
+    if (problem.malformed > 0) {
+      actual.push("key=value の形になっていない項目が " +
+        String(problem.malformed) + " 個あります");
+      fix.push("各項目を キー=値 の形にし、値に空白と = を入れない");
+    }
+    if (problem.procedure) {
+      actual.push("PROC が VBA の手続き名として読めません");
+      fix.push("PROC を手続き名か - にする");
+    }
+    if (actual.length === 0) {
+      actual.push("6つの key=value になっていません");
+      fix.push("META の行を書き直す");
+    }
+    return {
+      expected: META_EXPECTED,
+      actual: "この返答の META は " + actual.join("。") + "。",
+      fix: "次の返答では、" + fix.join("、") + "。ほかの行は変えないでください。"
+    };
+  }
+
+  // Which of the four texts a finding is short of, and which arrived with
+  // nothing in them. Names only - the bodies stay where they are.
+  function textEvidence(raw) {
+    var absent = [];
+    var blank = [];
+    var trouble = [];
+
+    TEXT_NAMES.forEach(function (name) {
+      if (!Object.prototype.hasOwnProperty.call(raw.texts, name)) {
+        absent.push(name);
+      } else if (bodyText(raw.texts[name]) === "") {
+        blank.push(name);
+      }
+    });
+    if (absent.length > 0) {
+      trouble.push(joinKeys(absent) + " がありません");
+    }
+    if (blank.length > 0) {
+      trouble.push(joinKeys(blank) + " の本文が空です");
+    }
+    if (trouble.length === 0) {
+      trouble.push("4 つが 1 回ずつになっていません");
+    }
+    return {
+      expected: "指摘 1 件に " + TEXT_NAMES.join(" / ") +
+        " を 1 つずつ、本文付きで",
+      actual: "指摘 " + raw.number + " は " + trouble.join("。") + "。",
+      fix: "次の返答では、指摘 " + raw.number +
+        " に 4 つとも本文付きで書いてください。ほかの指摘は変えないでください。"
+    };
+  }
+
+  // The six facts a finding carries, as key=value pairs.
+  //
+  // They used to be read by position - pair 1 had to be GRADE, pair 2
+  // CONFIDENCE, and so on. Nothing downstream depends on that: every
+  // value is looked up by name. The order was a rule the contract
+  // enforced without needing it, and on 2026-08-05 it refused three
+  // otherwise correct diagnoses in a row (D09 / metaShape in the product
+  // log). Keys are now read wherever they stand.
+  //
+  // Nothing else is relaxed. Six keys, every one of them known, each
+  // exactly once, none empty, and PROC still has to look like a VBA
+  // identifier. A reply that drops a key or invents one is still refused,
+  // and now it is told which.
   function parseMeta(token) {
     var values = {};
+    var problem = {
+      missing: [],
+      unknown: [],
+      duplicate: [],
+      empty: [],
+      malformed: 0,
+      procedure: false
+    };
+    var pairs = token && Array.isArray(token.parts)
+      ? token.parts.slice(2)
+      : [];
     var index;
     var pair;
+    var key;
 
-    if (!token || token.parts.length !== 8) {
-      return null;
-    }
-    for (index = 0; index < META_NAMES.length; index += 1) {
-      pair = token.parts[index + 2].split("=");
-      if (pair.length !== 2 || pair[0] !== META_NAMES[index] ||
-          pair[1] === "") {
-        return null;
+    for (index = 0; index < pairs.length; index += 1) {
+      pair = pairs[index].split("=");
+      if (pair.length !== 2 || pair[0] === "") {
+        problem.malformed += 1;
+        continue;
       }
-      values[pair[0]] = pair[1];
+      key = pair[0];
+      if (META_NAMES.indexOf(key) < 0) {
+        if (problem.unknown.indexOf(key) < 0) {
+          problem.unknown.push(key);
+        }
+        continue;
+      }
+      if (Object.prototype.hasOwnProperty.call(values, key)) {
+        if (problem.duplicate.indexOf(key) < 0) {
+          problem.duplicate.push(key);
+        }
+        continue;
+      }
+      if (pair[1] === "") {
+        problem.empty.push(key);
+        continue;
+      }
+      values[key] = pair[1];
+    }
+    META_NAMES.forEach(function (name) {
+      if (!Object.prototype.hasOwnProperty.call(values, name) &&
+          problem.empty.indexOf(name) < 0 &&
+          problem.duplicate.indexOf(name) < 0) {
+        problem.missing.push(name);
+      }
+    });
+    if (problem.missing.length > 0 || problem.unknown.length > 0 ||
+        problem.duplicate.length > 0 || problem.empty.length > 0 ||
+        problem.malformed > 0) {
+      return { ok: false, evidence: metaEvidence(problem) };
     }
     if (values.PROC !== "-" && !VBA_IDENTIFIER.test(values.PROC)) {
-      return null;
+      problem.procedure = true;
+      return { ok: false, evidence: metaEvidence(problem) };
     }
-    return values;
+    return { ok: true, values: values };
   }
 
   function validateFinding(raw, context) {
     var meta;
+    var parsedMeta;
     var ranges;
     var module;
     var lineLimit;
@@ -595,20 +759,41 @@
       return failure("D28", "findingNumber");
     }
     if (raw.meta.length !== 1) {
-      return failure("D08", "metaCardinality");
+      return failure("D08", "metaCardinality", undefined, {
+        expected: "指摘 1 件につき META の行はちょうど 1 行",
+        actual: "この返答の指摘 " + raw.number + " には META の行が " +
+          String(raw.meta.length) + " 行あります。",
+        fix: "次の返答では、指摘 " + raw.number +
+          " の META を 1 行だけにしてください。"
+      });
     }
-    meta = parseMeta(raw.meta[0]);
-    if (meta === null) {
-      return failure("D09", "metaShape");
+    parsedMeta = parseMeta(raw.meta[0]);
+    if (!parsedMeta.ok) {
+      return failure("D09", "metaShape", undefined, parsedMeta.evidence);
     }
+    meta = parsedMeta.values;
     if (GRADES.indexOf(meta.GRADE) < 0 ||
         CONFIDENCES.indexOf(meta.CONFIDENCE) < 0) {
-      return failure("D10", "metaEnum");
+      return failure("D10", "metaEnum", undefined, {
+        expected: "GRADE は " + GRADES.join(" / ") + "、CONFIDENCE は " +
+          CONFIDENCES.join(" / "),
+        actual: "指摘 " + raw.number + " の " +
+          (GRADES.indexOf(meta.GRADE) < 0 ? "GRADE" : "CONFIDENCE") +
+          " が、決まっている値のどれでもありません。",
+        fix: "次の返答では、指摘 " + raw.number +
+          " の GRADE と CONFIDENCE を上の値から選び直してください。"
+      });
     }
     // "Nothing can be done about this" is the heaviest thing a diagnosis
     // can say, so it cannot be said tentatively. A guess is a C.
     if (meta.GRADE === "D" && meta.CONFIDENCE !== "CONFIRMED") {
-      return failure("D11", "gradeConfidence");
+      return failure("D11", "gradeConfidence", undefined, {
+        expected: "GRADE=D の指摘は CONFIDENCE=CONFIRMED",
+        actual: "指摘 " + raw.number +
+          " は GRADE=D なのに CONFIDENCE が CONFIRMED ではありません。",
+        fix: "置き換え先が無いと確認できているなら CONFIDENCE=CONFIRMED に、" +
+          "確認できていないなら GRADE=C にしてください。"
+      });
     }
     module = meta.MODULE === "-"
       ? null
@@ -617,24 +802,44 @@
       return failure(
         "D13",
         "unknownModule",
-        MESSAGES.unknownReference);
+        MESSAGES.unknownReference,
+        {
+          expected: "MODULE は依頼文の【対象モジュール】にある名前か -",
+          actual: "指摘 " + raw.number +
+            " の MODULE が、そのどれとも一致しません。",
+          fix: "次の返答では、指摘 " + raw.number +
+            " の MODULE を依頼文にある名前へ直すか、-  にしてください。"
+        });
     }
     if (meta.ENVKEY !== "-" && !context.environmentMap[meta.ENVKEY]) {
       return failure(
         "D14",
         "unknownEnvironmentKey",
-        MESSAGES.unknownReference);
+        MESSAGES.unknownReference,
+        {
+          expected: "ENVKEY は依頼文の想定動作環境にあるキーか -",
+          actual: "指摘 " + raw.number +
+            " の ENVKEY が、そのどれとも一致しません。",
+          fix: "次の返答では、指摘 " + raw.number +
+            " の ENVKEY を依頼文にあるキーへ直すか、環境と関係ない故障なら - " +
+            "にしてください。"
+        });
     }
     ranges = parseLineRanges(meta.LINES);
     if (ranges === null) {
-      return failure("D15", "lineShape");
+      return failure("D15", "lineShape", undefined, {
+        expected: "LINES は 8 / 8,21 / 42-47 の形か -",
+        actual: "指摘 " + raw.number + " の LINES がその形になっていません。",
+        fix: "次の返答では、指摘 " + raw.number +
+          " の LINES を半角数字・カンマ・ハイフンだけで書いてください。"
+      });
     }
     if (raw.textOrder.length !== TEXT_NAMES.length ||
         TEXT_NAMES.some(function (name) {
           return !Object.prototype.hasOwnProperty.call(raw.texts, name) ||
             bodyText(raw.texts[name]) === "";
         })) {
-      return failure("D16", "textCardinality");
+      return failure("D16", "textCardinality", undefined, textEvidence(raw));
     }
     TEXT_NAMES.forEach(function (name) {
       textValues[name] = bodyText(raw.texts[name]);
@@ -652,12 +857,28 @@
             return range.start === "0" ||
               compareDecimals(range.end, String(lineLimit)) > 0;
           })) {
-        return failure("D25", "lineBounds");
+        return failure("D25", "lineBounds", undefined, {
+          expected: "LINES は " + meta.MODULE + " に実在する行番号（1 以上 " +
+            String(module ? module.lineCount : 0) + " 以下）",
+          actual: "指摘 " + raw.number +
+            " の LINES が、そのモジュールに無い行を指しています。",
+          fix: "添付テキスト全体の通し行番号ではなく、" +
+            meta.MODULE + " の中の行番号で書き直してください。"
+        });
       }
     }
     if (textValues.TITLE.indexOf(CRLF) >= 0 ||
         Array.from(textValues.TITLE).length > 120) {
-      return failure("D27", "titleShape");
+      return failure("D27", "titleShape", undefined, {
+        expected: "TITLE は改行なしの 1 行で 120 文字以内",
+        actual: "指摘 " + raw.number + " の TITLE は " +
+          String(Array.from(textValues.TITLE).length) + " 文字" +
+          (textValues.TITLE.indexOf(CRLF) >= 0 ? "で、改行を含みます" : "です") +
+          "。",
+        fix: "次の返答では、指摘 " + raw.number +
+          " の TITLE を 1 行 120 文字以内に縮めてください。" +
+          "続きは IMPACT へ書けます。"
+      });
     }
 
     result = {
@@ -906,7 +1127,11 @@
         // pairs on the same line, then TITLE: / CONDITION: / IMPACT: /
         // EVIDENCE: on four plain lines.
         if (action !== "BEGIN" && action !== "END") {
-          if (token.parts.length !== 9) {
+          // Enough for a number and at least one pair. How many pairs
+          // there should be, and which, is D09's answer to give - it can
+          // name the key that is missing, where a bare arity check here
+          // could only say "the shape is wrong".
+          if (token.parts.length < 4) {
             return failure("D06", "findingShape");
           }
           name = token.parts[2];
@@ -925,8 +1150,9 @@
           findingNumbers[normalizedNumber] = true;
           openCompact = {
             number: name,
-            // The same eight-word shape parseMeta reads from a META
-            // line, so both forms are validated by one function.
+            // The same shape parseMeta reads from a META line - the
+            // request id, the word META, then the key=value pairs - so
+            // both forms are validated by one function.
             meta: [{
               parts: [token.parts[0], "META"].concat(token.parts.slice(3))
             }],
@@ -1091,12 +1317,25 @@
     }
     complete = completes[0];
     if (complete !== String(validated.length)) {
-      return failure("D19", "completeCount");
+      return failure("D19", "completeCount", undefined, {
+        expected: "DIAG COMPLETE の数字は、書いた FINDING の件数",
+        actual: "この返答は FINDING を " + String(validated.length) +
+          " 件書いて、DIAG COMPLETE " + complete + " で終えています。",
+        fix: "次の返答では DIAG COMPLETE " + String(validated.length) +
+          " にするか、足りない指摘を書き足して件数を合わせてください。"
+      });
     }
     // The reply says how many findings it carries twice, at the top and
     // at the bottom. Both have to be the number actually written.
     if (envelope.declaredCount !== String(validated.length)) {
-      return failure("D29", "beginCount");
+      return failure("D29", "beginCount", undefined, {
+        expected: "DIAG BEGIN の数字は、書いた FINDING の件数",
+        actual: "この返答は DIAG BEGIN " + envelope.declaredCount +
+          " で始まり、FINDING は " + String(validated.length) +
+          " 件書かれています。",
+        fix: "次の返答では DIAG BEGIN " + String(validated.length) +
+          " にするか、足りない指摘を書き足して件数を合わせてください。"
+      });
     }
     if (part && part.total > 1 && noFindings.length > 0) {
       return failure("D20", "prematureNoFinding");

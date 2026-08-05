@@ -36,7 +36,7 @@ Object.assign(windowObject, {
   Uint8Array: Uint8Array
 });
 
-["icons.js", "target-environment.js", "preset-document.js", "response-package.js",
+["icons.js", "components.js", "target-environment.js", "preset-document.js", "response-package.js",
   "diagnosis-package.js", "prompt-template.js", "diff.js", "screens.js",
   "state.js", "screens/workflow.js"].forEach(function (name) {
   vm.runInContext(readUtf8(path.join(root, "assets", "js", name)), context,

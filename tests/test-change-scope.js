@@ -46,7 +46,7 @@ var context = vm.createContext({
 windowObject.window = windowObject;
 windowObject.document = documentObject;
 
-["icons.js", "handover.js", "preset-document.js", "response-package.js",
+["icons.js", "components.js", "handover.js", "preset-document.js", "response-package.js",
   "diagnosis-package.js", "prompt-template.js", "diff.js", "vba-lexer.js",
   "path-map.js", "code-view.js", "screens.js", "state.js",
   "screens/workflow.js"]
@@ -327,7 +327,8 @@ store.commitDiagnosis(contracts.diagnosis(
   windowObject.MacroStudioDiagnosis,
   {requestId: requestId, modules: store.getState().modules}), "diagnosis.md");
 
-var screenText = dom.text(workflow.createNextStepScreen(store.getState()));
+var nextStep = workflow.createNextStepScreen(store.getState());
+var screenText = dom.text(nextStep);
 
 assert(screenText.indexOf(minimal.name) >= 0,
   "The default scope must be visible without opening anything.");
@@ -335,15 +336,64 @@ assert(screenText.indexOf("検査していないものを「検査した」と�
   "The screen must say what the checks do not cover.");
 assert(screenText.indexOf("検査できません") >= 0,
   "The screen must name the limit of the checks in the reader's words.");
-// The permissive option sits behind the detail row rather than beside the
-// default, so allowing more is a deliberate act.
-assert(screenText.indexOf("詳細オプション") >= 0,
-  "The other scopes must sit behind a row that opens.");
+
+// ---- one setting, one control, two named states ----
+//
+// This is not one of the operations above it: it is a mode that applies
+// to whichever of them were chosen. It used to be two controls for one
+// binary - a card offering the default, and a row called 詳細オプション
+// holding the other answer - so the same yes/no was on screen twice and
+// the reader had to open the second to learn what the first refused.
+function switchOf(screen) {
+  return dom.collect(screen, function (node) {
+    return node.getAttribute &&
+      node.getAttribute("data-component") === "modeSwitch";
+  });
+}
+
+function segmentsOf(screen) {
+  return dom.collect(screen, function (node) {
+    return node.classList &&
+      node.classList.contains("mode-switch-option");
+  });
+}
+
+var switches = switchOf(nextStep);
+var segments = segmentsOf(nextStep);
+
+assert(switches.length === 1,
+  "How far the code may change is one control: " + switches.length);
+assert(screenText.indexOf("詳細オプション") < 0,
+  "The duplicate detail row is gone.");
+assert(segments.length === 2,
+  "The setting has exactly two states: " + segments.length);
+assert(segments[0].getAttribute("aria-checked") === "true" &&
+  segments[1].getAttribute("aria-checked") === "false",
+"Exactly one state is in force, and it is the default.");
+// Which one is on must be readable as words, not inferred from a
+// highlighted side.
+assert(dom.text(segments[0]).indexOf("いま有効") >= 0 &&
+  dom.text(segments[1]).indexOf("切り替える") >= 0,
+"Both segments say in words whether they are the state in force.");
+assert(dom.text(segments[0]).indexOf(minimal.name) >= 0 &&
+  dom.text(segments[1]).indexOf(permissive.name) >= 0,
+"Each segment is named by its own file, worst-permission last.");
+assert(dom.text(segments[1]).indexOf(permissive.description) >= 0,
+  "Each segment says what switching to it would permit.");
+assert(segments.every(function (segment) {
+  return segment.getAttribute("data-action") === "select-change-scope" &&
+    segment.getAttribute("data-scope-file") !== null;
+}), "Both segments are the same control, addressing their own file.");
 
 store.setChangeScope(permissive);
-screenText = dom.text(workflow.createNextStepScreen(store.getState()));
+nextStep = workflow.createNextStepScreen(store.getState());
+screenText = dom.text(nextStep);
+segments = segmentsOf(nextStep);
 assert(screenText.indexOf("構造の検査は行いません") >= 0,
   "With structural change allowed the screen must not imply a check.");
+assert(segments[0].getAttribute("aria-checked") === "false" &&
+  segments[1].getAttribute("aria-checked") === "true",
+"Switching moves the one state rather than adding a second answer.");
 
 // ---- how long the answer lasts ----
 // A second diagnosis of the same workbook does not un-answer "how far

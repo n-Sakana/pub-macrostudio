@@ -107,20 +107,6 @@
   margin: var(--space-1) 0;
 }
 
-.environment-summary,
-.diagnosis-conclusion {
-  padding: var(--space-4);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-}
-
-.environment-name {
-  color: var(--text);
-}
-
-.environment-description,
 .diagnosis-conclusion-text {
   margin: 0;
   color: var(--text-sub);
@@ -157,7 +143,10 @@
   color: var(--text-sub);
 }
 
-.diagnosis-conclusion {
+/* The top of the result page: the verdict, then the two sentences that
+   summarise the diagnosis, then the counts. Not a card - the verdict
+   inside it is the card, and a box around a box is one border too many. */
+.diagnosis-summary {
   display: grid;
   gap: var(--space-3);
 }
@@ -235,12 +224,6 @@
   border-left: var(--rail-w) solid var(--border-strong);
   color: var(--text-sub);
   font-size: var(--type-meta-size);
-}
-
-.diagnosis-conclusion-verdict {
-  margin: 0;
-  color: var(--text);
-  font-weight: var(--weight-semibold);
 }
 
 .findings-empty {
@@ -644,68 +627,10 @@
   line-height: var(--type-micro-line);
 }
 
-/* ---- the result: one letter per problem ---- */
-/* A good, D bad, and the same direction in both entrances. All four are
-   on the strip even at zero: the reader is asking "what do I have to do",
-   and "要改修 0" answers that where "不具合 0" only described a category. */
-
-.grade-tiles {
-  display: grid;
-  gap: var(--space-3);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.grade-tile {
-  display: grid;
-  padding: var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--surface-sunken);
-  gap: var(--space-1);
-  justify-items: center;
-}
-
-.grade-tile-letter {
-  color: var(--text-muted);
-  font-family: var(--font-code);
-  font-size: var(--type-label-size);
-  font-weight: var(--weight-bold);
-}
-
-.grade-tile-count {
-  color: var(--text);
-  font-size: var(--type-title-size);
-  font-weight: var(--weight-bold);
-  line-height: var(--type-title-line);
-}
-
-.grade-tile-label {
-  color: var(--text-sub);
-  font-size: var(--type-micro-size);
-  text-align: center;
-}
-
-.grade-tile--b {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.grade-tile--b .grade-tile-letter,
-.grade-tile--b .grade-tile-count,
-.grade-tile--b .grade-tile-label {
-  color: var(--accent-text);
-}
-
-.grade-tile--d {
-  border-color: var(--danger);
-  background: var(--danger-soft);
-}
-
-.grade-tile--d .grade-tile-letter,
-.grade-tile--d .grade-tile-count,
-.grade-tile--d .grade-tile-label {
-  color: var(--danger-text);
-}
+/* ---- the detail below the verdict: one block per grade ----
+   A good, D bad. The workbook's own verdict is the single letter above
+   (.verdict in components.css); these are the problems that produced it,
+   heaviest first, and a grade with nothing in it draws no block. */
 
 .grade-block {
   display: grid;
@@ -713,20 +638,14 @@
   gap: var(--space-2);
 }
 
-.grade-head,
-.value-head {
+.grade-head {
   display: grid;
   align-items: center;
   gap: var(--space-3);
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
 
-.value-head {
-  grid-template-columns: auto minmax(0, 1fr);
-}
-
-.grade-title,
-.value-title {
+.grade-title {
   margin: 0;
   min-width: 0;
   color: var(--text);
@@ -787,18 +706,10 @@
   color: var(--text-on-accent);
 }
 
-.grade-note,
-.value-judgement {
+.grade-note {
   margin: 0;
   color: var(--text-sub);
   font-size: var(--type-meta-size);
-}
-
-/* The refactoring result is a judgement and says so. The macro-repair
-   result does not carry this line, because that one is a fact. */
-.value-judgement {
-  color: var(--text-muted);
-  font-style: normal;
 }
 
 .diagnosis-conclusion-note {
@@ -846,68 +757,15 @@
   font-size: var(--type-meta-size);
 }
 
-/* Why the last paste was refused, left on the screen while it is being
-   fixed. A toast has faded by then. */
-.intake-error {
-  display: grid;
-  margin: var(--space-3) 0;
-  padding: var(--space-4);
-  border: 1px solid var(--danger);
-  border-radius: var(--radius-md);
-  background: var(--danger-soft);
-  gap: var(--space-2);
-}
+/* Why the last paste was refused is drawn by .alert in components.css -
+   the same box every refusal on every screen uses. It used to be a
+   second error card that only this screen knew how to draw. */
 
-.intake-error-title {
-  margin: 0;
-  color: var(--danger-text);
-  font-size: var(--type-label-size);
-  font-weight: var(--weight-semibold);
-}
-
-.intake-error-detail {
-  margin: 0;
-  color: var(--text);
-}
-
-.intake-error-message {
-  margin: 0;
-  color: var(--text-sub);
-  font-size: var(--type-meta-size);
-}
-
-.intake-error-steps {
-  margin: 0;
-  padding-left: var(--space-5);
-  color: var(--text-sub);
-  font-size: var(--type-meta-size);
-}
-
-.intake-error-steps li {
+.alert-steps li {
   margin: var(--space-1) 0;
 }
 
-.intake-error-check {
-  margin: 0;
-  color: var(--text-muted);
-  font-family: var(--font-code);
-  font-size: var(--type-micro-size);
-}
-
-/* Everything the reader may add to the hand-off besides the code. */
-.attachment-hint {
-  margin: var(--space-2) 0 0;
-  padding-left: var(--space-3);
-  border-left: var(--rail-w) solid var(--accent);
-  color: var(--text-sub);
-  font-size: var(--type-meta-size);
-}
-
 @media (max-width: 48em) {
-  .grade-tiles {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .grade-head {
     grid-template-columns: auto minmax(0, 1fr);
   }

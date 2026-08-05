@@ -199,22 +199,19 @@ namespace MacroStudio.Tests
                 await SelectPreset(false);
                 await ClickNext();
                 await WaitForScreen("repairInputScreen");
-                await Execute(
-                    "document.querySelector(" +
-                    "'[data-action=\"toggle-workflow-disclosure\"]" +
-                    "[data-disclosure-key=\"extra-request\"]')" +
-                    ".click();");
-                // The β1 disclosure opens by data-open on its box, and its
-                // closed body is visibility:hidden rather than [hidden].
-                // Wait for what the field actually needs: a field that is
-                // still visibility:hidden cannot take the focus.
+                // The optional field is on the screen, not folded away: it
+                // is usable, and a control that is usable does not have to
+                // be uncovered first. Nothing is clicked here now; the
+                // wait is only for the render to have happened.
+                //
+                // What is checked is what the field actually needs to take
+                // the focus - visible, and not disabled. It must also not
+                // look disabled, so the enabled state is asserted rather
+                // than assumed.
                 await WaitFor(
-                    "(function(){var box=document.querySelector(" +
-                    "'[data-disclosure-box=\"extra-request\"]');" +
-                    "var field=document.querySelector(" +
+                    "(function(){var field=document.querySelector(" +
                     "'[data-workflow-input=\"extra-request\"]');" +
-                    "return box !== null && field !== null && " +
-                    "box.getAttribute('data-open') === 'true' && " +
+                    "return field !== null && !field.disabled && " +
                     "getComputedStyle(field).visibility === 'visible';}())");
                 phase.Add("extra", await Probe(
                     "[data-workflow-input=\"extra-request\"]"));

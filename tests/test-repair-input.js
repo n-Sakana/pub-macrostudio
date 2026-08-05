@@ -24,7 +24,7 @@ var context = vm.createContext({window: windowObject, document: documentObject})
 windowObject.window = windowObject;
 windowObject.document = documentObject;
 
-["icons.js", "diagnosis-package.js", "screens.js", "state.js",
+["icons.js", "components.js", "diagnosis-package.js", "screens.js", "state.js",
   "screens/workflow.js"].forEach(function (name) {
   vm.runInContext(readUtf8(path.join(root, "assets", "js", name)), context,
     {filename: name});
@@ -159,25 +159,39 @@ assert(requested.indexOf("希望する動作") < 0,
   "The request must not ask for a desired-behaviour line that is no " +
   "longer collected.");
 
-// ---- a folded row that opens onto a field says so ----
-// Every other row on this screen opens onto more reading and carries a
-// chevron. This one opens onto somewhere to write, and the reader should
-// not have to click it to find that out.
+// ---- the optional field is a field, not a grey row ----
+// It used to be folded behind a row that wore the sunken grey a disabled
+// control wears, labelled 任意. A reader cannot tell that apart from
+// "you may not use this", and this one is always usable. So: on the
+// screen, open, marked optional in words, and never disabled except
+// while the app is busy.
 var writeIn = dom.collect(inputScreen, function (node) {
-  return node.classList && node.classList.contains("disclosure--writein");
+  return node.getAttribute &&
+    node.getAttribute("data-component") === "optionalInput";
 });
 
 assert(writeIn.length === 1,
-  "The extra-request row is the one place on this screen to write: " +
+  "The extra-request field is the one place on this screen to write: " +
   writeIn.length);
-assert(writeIn[0].querySelector(".disclosure-pencil") !== null &&
-  writeIn[0].querySelector(".disclosure-chevron") === null,
-"A row that opens onto a field must not wear the same chevron as the " +
-  "rows that open onto more reading.");
-assert(writeIn[0].querySelector("textarea") !== null,
-  "The write-in row must actually hold the field it advertises.");
+assert(writeIn[0].querySelector(".field-optional-tag") !== null,
+  "An optional field says 任意 in words on its own heading.");
+assert(dom.text(writeIn[0].querySelector(".field-optional-tag")) === "任意",
+  "The optional tag must be the word, not a symbol or a shade.");
+
+var writeInField = writeIn[0].querySelector("textarea");
+
+assert(writeInField !== null,
+  "The optional field must actually hold the box it advertises.");
+assert(writeInField.disabled === false,
+  "An optional field is usable. Only busyAction may disable it.");
+assert(writeInField.getAttribute("data-workflow-input") === "extra-request",
+  "The optional field keeps the input name the handlers bind to.");
+assert(dom.collect(inputScreen, function (node) {
+  return node.classList && node.classList.contains("disclosure--writein");
+}).length === 0,
+"The write-in disclosure is gone: a field is not something to unfold.");
 
 console.log("test-repair-input: PASS");
 console.log("question/finding rules, extra-only work, the removal of the " +
   "per-finding form, candidates, supplement and preserve list, and the " +
-  "folded write-in row reading as a field behave as specified");
+  "optional write-in field reading as an enabled field behave as specified");
