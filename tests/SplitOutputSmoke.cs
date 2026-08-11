@@ -390,6 +390,9 @@ namespace MacroStudio.Tests
                         "document.querySelector(" +
                         "'[data-workflow-input=\"repair-split-output\"]')" +
                         " !== null"));
+                // The option is the same track-and-thumb switch the
+                // change scope uses; its state is aria-checked, and the
+                // word beside the label moves with it.
                 report.Add(
                     "optionOffByDefault",
                     await ReadBool(
@@ -397,7 +400,7 @@ namespace MacroStudio.Tests
                         "=== false && " +
                         "document.querySelector(" +
                         "'[data-workflow-input=\"repair-split-output\"]')" +
-                        ".checked === false"));
+                        ".getAttribute('aria-checked') === 'false'"));
                 await Execute(
                     "document.querySelector(" +
                     "'[data-workflow-input=\"repair-split-output\"]')" +
@@ -409,7 +412,7 @@ namespace MacroStudio.Tests
                     await ReadBool(
                         "document.querySelector(" +
                         "'[data-workflow-input=\"repair-split-output\"]')" +
-                        ".checked === true"));
+                        ".getAttribute('aria-checked') === 'true'"));
             }
 
             // Leaving the request screen writes the run folder and its

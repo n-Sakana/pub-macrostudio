@@ -52,9 +52,10 @@
       diagnosisVersion: 0,
       diagnosisFilePath: null,
 
-      // How many times in a row a reply could not be taken in. The first
-      // failure is worth a retry; a second means retrying the same way
-      // is not the answer.
+      // How many times in a row a reply could not be taken in. The count
+      // is information (the screen prints it, the log carries it), never
+      // a budget: every failure gets a fresh asking-again, however many
+      // came before it.
       intakeFailures: {diagnose: 0, repair: 0},
 
       // Why the last reply was refused, kept on the screen until one is

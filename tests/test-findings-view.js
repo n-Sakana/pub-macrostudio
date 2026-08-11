@@ -105,10 +105,11 @@ assert(dom.text(groupRows[0].querySelector(".group-title")) ===
 assert(dom.text(groupRows[0].querySelector(".group-count")) ===
   "該当 5 か所",
 "The row must say how many places the problem was found in.");
-assert(dom.text(groupRows[0].querySelector(".grade-chip")) === "D",
-  "The row must carry the worst grade among its occurrences.");
+assert(groupRows[0].querySelector(".grade-chip") === null,
+  "No letter chip on the row: the section heading already says, in " +
+  "words, what this class of problem means.");
 assert(groupRows[0].getAttribute("data-grade") === "D",
-  "The row must say which grade block it belongs to.");
+  "The row must say which class block it belongs to.");
 assert(groupRows[0].querySelector(".group-toggle")
   .getAttribute("aria-expanded") === "false" &&
   groupRows[0].querySelector(".group-panel").hidden === true,
@@ -169,26 +170,43 @@ assert(dom.text(screen).indexOf("帳票を作ります。") >= 0,
   "The summary bodies must still carry the section text.");
 
 // One verdict for the workbook. This fixture has a D finding, so the
-// verdict is D - and it is the letter itself that is large, with the
-// sentence beside it. Five findings naming one constraint are one
-// problem, so the breakdown counts problems, not lines.
+// verdict phrase is the D answer - in words, never as a bare letter.
+// The letter survives as data-grade and the tone. Five findings naming
+// one constraint are one problem, so the breakdown counts problems.
 var verdict = screen.querySelector(".verdict");
 
 assert(verdict !== null, "The result page must carry a verdict.");
 assert(dom.collect(screen, function (node) {
   return node.classList && node.classList.contains("verdict");
 }).length === 1, "There is one verdict, not one per grade.");
-assert(dom.text(verdict.querySelector(".verdict-letter")) === "D",
-  "The verdict is the worst grade present: " +
-    dom.text(verdict.querySelector(".verdict-letter")));
-assert(verdict.classList.contains("verdict--d"),
-  "A workbook that cannot be made to run is drawn in the D tone.");
+assert(dom.text(verdict.querySelector(".verdict-label")) === "総合判定",
+  "The card says what it is: the whole-workbook verdict.");
+assert(dom.text(verdict.querySelector(".verdict-answer")) ===
+  "この環境では動かせない",
+"The verdict is the answer in words: " +
+  dom.text(verdict.querySelector(".verdict-answer")));
+assert(verdict.querySelector(".verdict-letter") === null &&
+  dom.text(verdict).indexOf("判定は D") < 0,
+"The bare letter is no longer the display.");
+assert(verdict.getAttribute("data-grade") === "D" &&
+  verdict.classList.contains("verdict--d"),
+"The internal grade still travels with the verdict, as data and tone.");
 assert(dom.text(verdict.querySelector(".verdict-headline"))
-  .indexOf("D（改修不可）") >= 0,
-"The headline names the letter and what it means.");
-assert(dom.text(verdict.querySelector(".verdict-reason"))
-  .indexOf("動かすことはできません") >= 0,
-"The verdict states in a sentence what that grade means for this book.");
+  .indexOf("動かす手段が無い") >= 0,
+"The verdict explains in a sentence why, not just that.");
+// The reason names the first place that goes wrong - module, procedure,
+// lines - and the environment assumption it collides with.
+var verdictReason = dom.text(verdict.querySelector(".verdict-reason"));
+
+assert(verdictReason.indexOf("Main の Run") >= 0 &&
+  verdictReason.indexOf("1 行目") >= 0,
+"The verdict names the first failing module and procedure: " +
+  verdictReason);
+assert(verdictReason.indexOf("Excel は 64 bit") >= 0,
+  "And the environment assumption the code collides with.");
+assert(dom.text(verdict).indexOf("ひとつだけ") < 0,
+  "The how-grading-works legend is gone: the screen shows meaning, " +
+  "not mechanics.");
 // The counts are a line of text under it, naming only grades that occur.
 var note = dom.text(screen.querySelector(".diagnosis-conclusion-note"));
 
@@ -204,11 +222,16 @@ var blocks = dom.collect(screen, function (node) {
 });
 
 assert(blocks.length === 1,
-  "One problem in one grade means one block: " + blocks.length);
-assert(dom.text(blocks[0].querySelector(".grade-badge")) === "D" &&
-  dom.text(blocks[0].querySelector(".grade-title")) === "改修不可" &&
+  "One problem in one class means one block: " + blocks.length);
+assert(blocks[0].querySelector(".grade-badge") === null &&
+  dom.text(blocks[0].querySelector(".grade-title")) ===
+    "この環境では動かせないもの" &&
   dom.text(blocks[0].querySelector(".grade-count")) === "1 件",
-"The block must carry its letter, what it means and how many.");
+"The block is headed by what its class means, in words, and how many - " +
+  "never by the bare letter.");
+assert(blocks[0].classList.contains("result-card"),
+  "The class block stands on the same card surface the rest of the " +
+  "flow draws cards on.");
 
 state.diagnosis.findings = [];
 state.diagnosis.noFinding = "SCOPE_CLEAR";
@@ -260,15 +283,19 @@ var graded = workflow.createFindingsScreen({
   }
 });
 
-// The other kind of diagnosis returns one letter for the whole workbook
-// and no findings at all. It is the same kind of answer, so it is the
-// same component: one letter, one headline, one reason.
-assert(dom.text(graded.querySelector(".verdict-letter")) === "D" &&
-  dom.text(graded.querySelector(".verdict-headline")) ===
-    "リファクタの価値の判定は D（大きい）",
-"The graded result must state the letter and what it is worth: " +
-  dom.text(graded.querySelector(".verdict-headline")));
-assert(dom.text(graded.querySelector(".verdict-reason"))
+// The other kind of diagnosis returns one judgement for the whole
+// workbook and no findings at all. It is the same kind of answer, so it
+// is the same component: the answer in words, under the template's own
+// name.
+assert(dom.text(graded.querySelector(".verdict-label")) ===
+    "リファクタの価値の判定" &&
+  dom.text(graded.querySelector(".verdict-answer")) === "大きい",
+"The graded result must state, in words, what the judgement is worth: " +
+  dom.text(graded.querySelector(".verdict-answer")));
+assert(graded.querySelector(".verdict-letter") === null &&
+  graded.querySelector(".verdict").getAttribute("data-grade") === "D",
+"The letter is data, not display, on the graded result too.");
+assert(dom.text(graded.querySelector(".verdict-headline"))
   .indexOf("AI の見立て") >= 0,
 "A qualitative grade must be shown as a judgement, not as a fact.");
 assert(dom.text(graded).indexOf("ワークシートとの往復が多い") >= 0,
@@ -371,25 +398,25 @@ cards.forEach(function (card) {
 });
 // The change scope is one answer, not a set of them, and it applies to
 // every operation ticked above rather than being another operation. So
-// it is a two-state switch whose segments say radio, drawn once. A screen
-// that drew it as more cards would be telling the reader they could
-// allow and forbid at the same time.
-var scopeSegments = dom.collect(
-  workflow.createNextStepScreen(state),
-  function (node) {
-    return node.classList &&
-      node.classList.contains("mode-switch-option");
-  });
-
-assert(scopeSegments.length === 2,
-  "The change scope has exactly two states: " + scopeSegments.length);
-scopeSegments.forEach(function (segment) {
-  assert(segment.getAttribute("role") === "radio",
-    "A change-scope state must say it is one of a set.");
+// it is the ordinary on/off switch, drawn once. A screen that drew it
+// as more cards would be telling the reader they could allow and forbid
+// at the same time.
+var scopeScreen = workflow.createNextStepScreen(state);
+var scopeToggles = dom.collect(scopeScreen, function (node) {
+  return node.getAttribute &&
+    node.getAttribute("data-component") === "toggleSwitch";
 });
-assert(scopeSegments.filter(function (segment) {
-  return segment.getAttribute("aria-checked") === "true";
-}).length === 1, "Exactly one change-scope state is in force.");
+
+assert(scopeToggles.length === 1,
+  "The change scope is one switch: " + scopeToggles.length);
+var scopeControl = scopeToggles[0].querySelector(".toggle-control");
+
+assert(scopeControl.getAttribute("role") === "switch" &&
+  scopeControl.getAttribute("aria-checked") === "false",
+"The switch says it is a switch, and the default scope reads as OFF.");
+assert(dom.text(scopeScreen).indexOf("いまの設定") >= 0 &&
+  dom.text(scopeScreen).indexOf(catalog.scope[0].name) >= 0,
+"The value in force is written out above the switch, in words.");
 var markColumn = cards[0].querySelector(".choice-state");
 
 assert(markColumn && markColumn.children.some(function (child) {

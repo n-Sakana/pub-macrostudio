@@ -30,8 +30,8 @@
     multiChoice: "option-row",
     // 動的リストからの選択
     listChoice: "picker-row",
-    // モード切替
-    modeSwitch: "mode-switch",
+    // 2状態の設定切替
+    toggleSwitch: "toggle",
     // 編集可能な入力
     input: "field",
     // 任意入力
@@ -173,65 +173,62 @@
     return mark(box, optional ? "optionalInput" : "input");
   }
 
-  // ---- モード切替 ----
+  // ---- 2状態の設定切替 ----
   //
-  // Two states of one setting, side by side, both named and both saying
-  // what they permit. The one in force carries a tick, the word いま有効
-  // and the accent colour - three signals, so no single one of them has
-  // to be seen for the reader to know where they are.
+  // The ordinary track-and-thumb switch every other app has taught. One
+  // label names the thing being permitted; the state is carried three
+  // ways at once - the thumb's position, aria-checked, and a word next to
+  // the label - so no single signal has to be seen for the reader to know
+  // where they are. It is a real button: Space and Enter flip it, and the
+  // focus ring is the shared one.
   //
-  // What this is not: a switch with one label and an on/off position.
-  // Nobody can tell which side of that is on, and nobody can tell what on
-  // would mean.
-  function modeSwitch(options) {
+  // What ON means is never left to guesswork: the label is the thing
+  // switched on, and the caller writes the state words (許可する／
+  // 許可しないなど) in the vocabulary of that setting.
+  function toggleSwitch(options) {
     var settings = options || {};
-    var box = element("div", KINDS.modeSwitch);
-    var group = element("div", "mode-switch-options");
+    var checked = settings.checked === true;
+    var box = element("div", KINDS.toggleSwitch);
+    var control = element("button", "toggle-control");
+    var track = element("span", "toggle-track");
+    var words = element("span", "toggle-words");
+    var stateWord = checked
+      ? String(settings.onWord || "オン")
+      : String(settings.offWord || "オフ");
 
-    group.setAttribute("role", "radiogroup");
-    if (settings.label) {
-      group.setAttribute("aria-label", settings.label);
+    control.type = "button";
+    control.setAttribute("role", "switch");
+    control.setAttribute("aria-checked", checked ? "true" : "false");
+    control.setAttribute(
+      "aria-label",
+      String(settings.label || "") + "（いまは" + stateWord + "）");
+    control.disabled = settings.disabled === true;
+    if (settings.action) {
+      control.setAttribute("data-action", settings.action);
     }
-    (settings.options || []).forEach(function (entry) {
-      var chosen = entry.selected === true;
-      var button = element("button", "mode-switch-option");
-      var name = element("span", "mode-switch-name");
-
-      button.type = "button";
-      button.setAttribute("role", "radio");
-      button.setAttribute("aria-checked", chosen ? "true" : "false");
-      button.disabled = settings.disabled === true;
-      if (settings.action) {
-        button.setAttribute("data-action", settings.action);
-      }
-      Object.keys(entry.data || {}).forEach(function (key) {
-        button.setAttribute("data-" + key, entry.data[key]);
-      });
-      if (chosen) {
-        name.appendChild(icon("check", "flow-icon--small"));
-      }
-      name.appendChild(element("span", "", entry.name));
-      button.appendChild(name);
-      button.appendChild(element(
-        "span",
-        "mode-switch-state",
-        chosen ? "いま有効" : "切り替える"));
-      if (entry.effect) {
-        button.appendChild(element(
-          "span",
-          "mode-switch-effect",
-          entry.effect));
-      }
-      group.appendChild(button);
+    Object.keys(settings.data || {}).forEach(function (key) {
+      control.setAttribute("data-" + key, settings.data[key]);
     });
-    box.appendChild(group);
-    return mark(box, "modeSwitch");
+    track.setAttribute("aria-hidden", "true");
+    track.appendChild(element("span", "toggle-thumb"));
+    control.appendChild(track);
+    words.appendChild(element("span", "toggle-label", settings.label || ""));
+    words.appendChild(element("span", "toggle-state", stateWord));
+    control.appendChild(words);
+    box.appendChild(control);
+    if (settings.description) {
+      box.appendChild(note(settings.description, true));
+    }
+    return mark(box, "toggleSwitch");
   }
 
   // ---- 総合判定 ----
   //
-  // One letter, one headline, one reason. A whole workbook gets one of
-  // these, which is why it is a single component and not a row of them.
+  // One answer for the whole workbook, in words the reader came to get:
+  // does this need repairing or not. The internal grade still travels
+  // with the component - as the tone and as data-grade - but it is not
+  // the display. A bare letter was the display once, and "判定は B" told
+  // nobody anything until they found the legend.
   function verdict(options) {
     var settings = options || {};
     var letter = String(settings.grade || "");
@@ -241,13 +238,23 @@
     var body = element("div", "verdict-body");
 
     box.setAttribute("aria-live", "polite");
-    box.appendChild(element("div", "verdict-letter", letter));
-    body.appendChild(element("p", "verdict-headline", settings.headline || ""));
+    box.setAttribute("data-grade", letter);
+    box.appendChild(element(
+      "p",
+      "verdict-label",
+      settings.label || "総合判定"));
+    box.appendChild(element("p", "verdict-answer", settings.answer || ""));
+    if (settings.headline) {
+      body.appendChild(element(
+        "p",
+        "verdict-headline",
+        settings.headline));
+    }
     if (settings.reason) {
       body.appendChild(element("p", "verdict-reason", settings.reason));
     }
-    if (settings.scale) {
-      body.appendChild(element("p", "verdict-scale", settings.scale));
+    if (settings.next) {
+      body.appendChild(element("p", "verdict-next", settings.next));
     }
     box.appendChild(body);
     return mark(box, "verdict");
@@ -260,7 +267,7 @@
     status: status,
     alert: alert,
     field: field,
-    modeSwitch: modeSwitch,
+    toggleSwitch: toggleSwitch,
     verdict: verdict
   };
 }(window));

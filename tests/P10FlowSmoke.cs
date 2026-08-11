@@ -514,8 +514,20 @@ namespace MacroStudio.Tests
                         ".getAttribute('data-preset-file') : ''," +
                         "headings:document.querySelectorAll(" +
                         "'.category-heading').length," +
-                        "scopeOptions:document.querySelectorAll(" +
-                        "'.mode-switch-option').length," +
+                        // The change scope is one track-and-thumb
+                        // switch, OFF by default, with the value in
+                        // force written out above it.
+                        "scopeSwitch:document.querySelectorAll(" +
+                        "'.change-scope [data-component=\"toggleSwitch\"]" +
+                        " .toggle-control').length," +
+                        "scopeOff:(function(){var control=" +
+                        "document.querySelector('.change-scope " +
+                        "[data-component=\"toggleSwitch\"] " +
+                        ".toggle-control');return control !== null && " +
+                        "control.getAttribute('aria-checked') === " +
+                        "'false';}())," +
+                        "scopeNamed:document.querySelector(" +
+                        "'.change-scope .scope-current') !== null," +
                         "nextReady:!document.querySelector(" +
                         "'[data-action=\"go-next\"]').disabled};}())"));
                     await Shot("03-nextstep-and-scope");
@@ -866,6 +878,76 @@ namespace MacroStudio.Tests
                         "rows:document.querySelectorAll('.diff-row').length," +
                         "twoColumn:document.querySelectorAll(" +
                         "'.diff-code--left,.diff-code--right').length" +
+                        "})"));
+
+                    // The in-app maximize: the code area takes the whole
+                    // client area and comes back. Nothing on the way may
+                    // be rebuilt, so the scroll position, the selected
+                    // module and the diff counter ride through both
+                    // crossings; Esc is the keyboard way back while the
+                    // frame is hidden.
+                    await Execute(
+                        "(function(){var host=document.querySelector(" +
+                        "'.diff-table-host');host.scrollTop=999;" +
+                        "window.__msMaxScroll=host.scrollTop;" +
+                        "window.__msMaxCounter=document.querySelector(" +
+                        "'.diff-change-counter').textContent;}())");
+                    await Execute(
+                        "document.querySelector(" +
+                        "'[data-action=\"toggle-code-max\"]').click();");
+                    await WaitFor(
+                        "document.body.classList.contains(" +
+                        "'code-maximized')");
+                    result.Add("codeMax", await ReadJson(
+                        "({" +
+                        "pressed:document.querySelector(" +
+                        "'[data-action=\"toggle-code-max\"]')" +
+                        ".getAttribute('aria-pressed') === 'true'," +
+                        "named:document.querySelector(" +
+                        "'[data-action=\"toggle-code-max\"]')" +
+                        ".getAttribute('aria-label') !== null," +
+                        "topbarHidden:getComputedStyle(" +
+                        "document.querySelector('.topbar'))" +
+                        ".display === 'none'," +
+                        "actionbarHidden:getComputedStyle(" +
+                        "document.querySelector('.actionbar'))" +
+                        ".display === 'none'," +
+                        "headerHidden:getComputedStyle(" +
+                        "document.querySelector('.screen-header'))" +
+                        ".display === 'none'," +
+                        "scrollKept:document.querySelector(" +
+                        "'.diff-table-host').scrollTop === " +
+                        "window.__msMaxScroll," +
+                        "counterKept:document.querySelector(" +
+                        "'.diff-change-counter').textContent === " +
+                        "window.__msMaxCounter," +
+                        "module:MacroStudioState.getState()" +
+                        ".selectedModuleName" +
+                        "})"));
+                    await Shot("06a-code-maximized");
+                    await Execute(
+                        "document.dispatchEvent(new KeyboardEvent(" +
+                        "'keydown',{key:'Escape',bubbles:true}));");
+                    await WaitFor(
+                        "!document.body.classList.contains(" +
+                        "'code-maximized')");
+                    result.Add("codeMaxRestore", await ReadJson(
+                        "({" +
+                        "pressed:document.querySelector(" +
+                        "'[data-action=\"toggle-code-max\"]')" +
+                        ".getAttribute('aria-pressed') === 'false'," +
+                        "topbarShown:getComputedStyle(" +
+                        "document.querySelector('.topbar'))" +
+                        ".display !== 'none'," +
+                        "actionbarShown:getComputedStyle(" +
+                        "document.querySelector('.actionbar'))" +
+                        ".display !== 'none'," +
+                        "scrollKept:document.querySelector(" +
+                        "'.diff-table-host').scrollTop === " +
+                        "window.__msMaxScroll," +
+                        "counterKept:document.querySelector(" +
+                        "'.diff-change-counter').textContent === " +
+                        "window.__msMaxCounter" +
                         "})"));
                     await Capture(darkScreenshot, true);
 

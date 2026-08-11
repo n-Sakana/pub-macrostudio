@@ -19,6 +19,16 @@
     arrowUp: '<path d="m6 15 6-6 6 6"/>',
     arrowDown: '<path d="m6 9 6 6 6-6"/>',
     restart: '<path d="M4 4v6h6"/><path d="M5.5 15a8 8 0 1 0 .8-7.7L4 10"/>',
+    // The house every toolbar means by "back to the start". Roof, walls,
+    // door - the shape readers already know from every other app.
+    home: '<path d="m3 11 9-8 9 8"/><path d="M5 9.5V21h14V9.5"/>' +
+      '<path d="M10 21v-6h4v6"/>',
+    // Grow to the whole client area, and come back. The two are the
+    // usual expand / shrink arrow pairs, not invented marks.
+    maximize: '<path d="M14 4h6v6"/><path d="m20 4-7 7"/>' +
+      '<path d="M10 20H4v-6"/><path d="m4 20 7-7"/>',
+    restore: '<path d="M20 10h-6V4"/><path d="m14 10 7-7"/>' +
+      '<path d="M4 14h6v6"/><path d="m10 14-7 7"/>',
     chevron: '<path d="m9 6 6 6-6 6"/>',
     // The workbook the reader is asked to drop.
     drop: '<path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5"/>' +

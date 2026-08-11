@@ -340,60 +340,71 @@ assert(screenText.indexOf("検査できません") >= 0,
 // ---- one setting, one control, two named states ----
 //
 // This is not one of the operations above it: it is a mode that applies
-// to whichever of them were chosen. It used to be two controls for one
-// binary - a card offering the default, and a row called 詳細オプション
-// holding the other answer - so the same yes/no was on screen twice and
-// the reader had to open the second to learn what the first refused.
+// to whichever of them were chosen. It is the ordinary track-and-thumb
+// switch: OFF is the default scope that keeps the shape of the project,
+// ON is the one that permits structural change. The value in force is
+// also written out in words above the switch, so nobody decodes a thumb.
 function switchOf(screen) {
   return dom.collect(screen, function (node) {
     return node.getAttribute &&
-      node.getAttribute("data-component") === "modeSwitch";
+      node.getAttribute("data-component") === "toggleSwitch";
   });
 }
 
-function segmentsOf(screen) {
-  return dom.collect(screen, function (node) {
-    return node.classList &&
-      node.classList.contains("mode-switch-option");
-  });
+function controlOf(screen) {
+  var switches = switchOf(screen);
+
+  return switches.length === 1
+    ? switches[0].querySelector(".toggle-control")
+    : null;
 }
 
 var switches = switchOf(nextStep);
-var segments = segmentsOf(nextStep);
+var control = controlOf(nextStep);
 
 assert(switches.length === 1,
   "How far the code may change is one control: " + switches.length);
 assert(screenText.indexOf("詳細オプション") < 0,
   "The duplicate detail row is gone.");
-assert(segments.length === 2,
-  "The setting has exactly two states: " + segments.length);
-assert(segments[0].getAttribute("aria-checked") === "true" &&
-  segments[1].getAttribute("aria-checked") === "false",
-"Exactly one state is in force, and it is the default.");
-// Which one is on must be readable as words, not inferred from a
-// highlighted side.
-assert(dom.text(segments[0]).indexOf("いま有効") >= 0 &&
-  dom.text(segments[1]).indexOf("切り替える") >= 0,
-"Both segments say in words whether they are the state in force.");
-assert(dom.text(segments[0]).indexOf(minimal.name) >= 0 &&
-  dom.text(segments[1]).indexOf(permissive.name) >= 0,
-"Each segment is named by its own file, worst-permission last.");
-assert(dom.text(segments[1]).indexOf(permissive.description) >= 0,
-  "Each segment says what switching to it would permit.");
-assert(segments.every(function (segment) {
-  return segment.getAttribute("data-action") === "select-change-scope" &&
-    segment.getAttribute("data-scope-file") !== null;
-}), "Both segments are the same control, addressing their own file.");
+assert(control.getAttribute("role") === "switch" &&
+  control.getAttribute("aria-checked") === "false",
+"The default reads as OFF: nothing beyond the minimal scope is allowed.");
+assert(control.tagName === "BUTTON",
+  "The switch is a real button, so keyboard and focus come for free.");
+// Which state is in force must be readable as words, not inferred from
+// a thumb position or a colour.
+assert(dom.text(control.querySelector(".toggle-state")) === "許可しない",
+  "The OFF state says what it refuses, in the setting's own words.");
+assert(dom.text(control.querySelector(".toggle-label")) ===
+  permissive.name,
+"The switch is labelled by the permissive file's own name - the thing " +
+  "being permitted.");
+assert(screenText.indexOf("いまの設定") >= 0 &&
+  screenText.indexOf(minimal.name) >= 0 &&
+  screenText.indexOf(minimal.description) >= 0,
+"The value in force - the default scope, by its own name and effect - " +
+  "is written out above the switch.");
+assert(screenText.indexOf("既定") >= 0,
+  "The default is marked as the default.");
+assert(screenText.indexOf(permissive.description) >= 0,
+  "What turning the switch on would permit is written under it.");
+assert(control.getAttribute("data-action") === "select-change-scope" &&
+  control.getAttribute("data-scope-file") === permissive.file,
+"Flipping the switch selects the other scope file.");
 
 store.setChangeScope(permissive);
 nextStep = workflow.createNextStepScreen(store.getState());
 screenText = dom.text(nextStep);
-segments = segmentsOf(nextStep);
+control = controlOf(nextStep);
 assert(screenText.indexOf("構造の検査は行いません") >= 0,
   "With structural change allowed the screen must not imply a check.");
-assert(segments[0].getAttribute("aria-checked") === "false" &&
-  segments[1].getAttribute("aria-checked") === "true",
-"Switching moves the one state rather than adding a second answer.");
+assert(control.getAttribute("aria-checked") === "true" &&
+  dom.text(control.querySelector(".toggle-state")) === "許可する",
+"Switching moves the one state, and the word moves with it.");
+assert(control.getAttribute("data-scope-file") === minimal.file,
+  "Flipping back addresses the default scope file.");
+assert(screenText.indexOf(permissive.name) >= 0,
+  "The value in force is still written out after switching.");
 
 // ---- how long the answer lasts ----
 // A second diagnosis of the same workbook does not un-answer "how far

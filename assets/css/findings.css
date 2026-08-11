@@ -143,12 +143,27 @@
   color: var(--text-sub);
 }
 
-/* The top of the result page: the verdict, then the two sentences that
-   summarise the diagnosis, then the counts. Not a card - the verdict
-   inside it is the card, and a box around a box is one border too many. */
+/* The top of the result page: the verdict card, then the context card
+   with the two sentences that summarise the diagnosis and the counts. */
 .diagnosis-summary {
   display: grid;
   gap: var(--space-3);
+}
+
+/* The surface every section of the result page stands on - the same
+   card the disclosures and panels of the earlier screens use, so this
+   page stops being the one flat screen in an app of cards. */
+.result-card {
+  display: grid;
+  padding: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  gap: var(--space-2);
+}
+
+.diagnosis-context {
+  gap: var(--space-1);
 }
 
 .confidence-chip,
@@ -488,7 +503,7 @@
   color: var(--text);
   cursor: pointer;
   gap: var(--space-3);
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   text-align: left;
 }
 
@@ -627,22 +642,21 @@
   line-height: var(--type-micro-line);
 }
 
-/* ---- the detail below the verdict: one block per grade ----
-   A good, D bad. The workbook's own verdict is the single letter above
-   (.verdict in components.css); these are the problems that produced it,
-   heaviest first, and a grade with nothing in it draws no block. */
+/* ---- the detail below the verdict: one card per class ----
+   Worst first. Each card is headed by what its class means in words
+   (改修対象、環境側の確認が必要なもの…), never by a bare letter: the
+   letter chips that used to repeat the verdict's "B" on every row are
+   gone, and the internal grade survives as data-grade and the tone. */
 
 .grade-block {
-  display: grid;
-  margin-top: var(--space-5);
-  gap: var(--space-2);
+  margin-top: var(--space-3);
 }
 
 .grade-head {
   display: grid;
   align-items: center;
   gap: var(--space-3);
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .grade-title {
@@ -660,50 +674,22 @@
   white-space: nowrap;
 }
 
-/* The letter itself, in the row and in the block heading. It is the
-   whole label: "B" beside a title says more than "要改修 B" does. */
-.grade-badge,
-.grade-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  color: var(--text-sub);
-  font-family: var(--font-code);
-  font-weight: var(--weight-bold);
+/* The class's tone, on the card's edge - one quiet signal, not a badge
+   per row. */
+.grade-block--b {
+  border-left: calc(var(--rail-w) + 1px) solid var(--accent);
 }
 
-.grade-badge {
-  min-width: var(--space-7);
-  min-height: var(--space-7);
-  font-size: var(--type-title-size);
+.grade-block--c {
+  border-left: calc(var(--rail-w) + 1px) solid var(--caution);
 }
 
-.grade-chip {
-  min-width: var(--icon-lg);
-  min-height: var(--icon-lg);
-  font-size: var(--type-label-size);
+.grade-block--d {
+  border-left: calc(var(--rail-w) + 1px) solid var(--danger);
 }
 
-.grade-badge--b,
-.grade-chip--b {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--text-on-accent);
-}
-
-.grade-badge--c,
-.grade-chip--c {
-  border-color: var(--caution-text);
-  color: var(--caution-text);
-}
-
-.grade-badge--d,
-.grade-chip--d {
-  border-color: var(--danger);
-  background: var(--danger);
-  color: var(--text-on-accent);
+.grade-block--a {
+  border-left: calc(var(--rail-w) + 1px) solid var(--success);
 }
 
 .grade-note {
@@ -767,12 +753,80 @@
 
 @media (max-width: 48em) {
   .grade-head {
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .grade-count {
-    grid-column: 2;
+    grid-column: 1;
   }
+}
+
+/* ---- the change-scope setting: current value, then the switch ---- */
+
+.scope-current {
+  display: grid;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  gap: var(--space-1);
+}
+
+.scope-current-name {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin: 0;
+  gap: var(--space-2);
+}
+
+.scope-current-caption {
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+}
+
+.scope-current-value {
+  min-width: 0;
+  color: var(--text);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: break-word;
+}
+
+.scope-current-default {
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  font-size: var(--type-micro-size);
+  font-weight: var(--type-micro-weight);
+  line-height: var(--line-normal);
+  white-space: nowrap;
+}
+
+.scope-current-effect {
+  margin: 0;
+  color: var(--text-sub);
+  font-size: var(--type-meta-size);
+}
+
+/* The guard that belongs to the strict scope, drawn attached to the
+   setting it describes rather than as loose sentences on the canvas. */
+.scope-guard {
+  display: grid;
+  padding: var(--space-3) var(--space-4);
+  border-left: var(--rail-w) solid var(--border-strong);
+  gap: var(--space-2);
+}
+
+.scope-guard-list {
+  margin: 0;
+  padding-left: var(--space-5);
+  color: var(--text-sub);
+}
+
+.scope-guard-item {
+  margin: var(--space-1) 0;
 }
 
 /* Text the app did not write, shown the way it was written: the target

@@ -275,7 +275,9 @@ try {
     # than one heading is what makes the grouping worth having.
     Assert-True (
         $nextStep.headings -ge 2 -and
-        $nextStep.scopeOptions -ge 2
+        $nextStep.scopeSwitch -eq 1 -and
+        $nextStep.scopeOff -and
+        $nextStep.scopeNamed
     ) 'The choice page must group the operations and offer the change scope.'
     # More than one template may be carried in one run, and one of them
     # arrives already ticked when the diagnosis pointed at it. What has
@@ -342,6 +344,32 @@ try {
         $diff.rows -gt 0 -and
         $diff.twoColumn -eq 0
     ) 'The production inline diff must show both imported modules.'
+
+    # ---- the in-app maximize on the review screen ----
+    # The code area grows to the client area (the top bar, the screen
+    # header and the action bar step aside) and Esc brings the frame
+    # back. Nothing is rebuilt on the way: the scroll position and the
+    # change counter ride through both crossings.
+    $codeMax = $result.codeMax | ConvertFrom-Json
+    $codeMaxRestore = $result.codeMaxRestore | ConvertFrom-Json
+    Assert-True (
+        $codeMax.pressed -and
+        $codeMax.named -and
+        $codeMax.topbarHidden -and
+        $codeMax.actionbarHidden -and
+        $codeMax.headerHidden -and
+        $codeMax.scrollKept -and
+        $codeMax.counterKept
+    ) ('Maximizing must hide the frame around the code and preserve ' +
+        'the reading state: ' + $result.codeMax)
+    Assert-True (
+        $codeMaxRestore.pressed -and
+        $codeMaxRestore.topbarShown -and
+        $codeMaxRestore.actionbarShown -and
+        $codeMaxRestore.scrollKept -and
+        $codeMaxRestore.counterKept
+    ) ('Esc must restore the frame with nothing lost: ' +
+        $result.codeMaxRestore)
 
     $expectedArtifacts = @(
         'diagnose-request.md',

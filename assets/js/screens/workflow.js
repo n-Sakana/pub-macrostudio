@@ -37,13 +37,57 @@
     C: "不明",
     D: "改修不可"
   };
-  var GRADE_NOTES = {
-    A: "動作に支障はありません。読むだけで結構です。",
-    B: "動きません。このツールのひな形で改修を依頼できます。",
-    C: "動きません。原因がコードの外にあるので、このツールでは直せません。" +
-      "環境の側で手を打つことになります。",
-    D: "動きません。置き換え先が無いことが確定しています。" +
-      "このマクロをこの環境で動かすことはできません。"
+  // The letters stay in the data and in the record; the screen files
+  // each class of problem under what it means and what it asks of the
+  // reader, so nobody needs the legend to read the page. The old form -
+  // a "B" chip repeated on the section and on every row - said the code
+  // twice and the meaning nowhere.
+  var GRADE_SECTIONS = {
+    A: {
+      heading: "動作に支障がないもの",
+      note: "対象の環境でもそのまま動きます。読むだけで結構です。"
+    },
+    B: {
+      heading: "改修対象",
+      note: "動かない原因が VBA コードの中にあり、" +
+        "このツールから改修を依頼できます。"
+    },
+    C: {
+      heading: "環境側の確認が必要なもの",
+      note: "動かない原因が VBA コードの外にあるので、コードの改修では" +
+        "直りません。対象の端末や設定の側で手を打ちます。"
+    },
+    D: {
+      heading: "この環境では動かせないもの",
+      note: "置き換え先が無いことが確定しています。" +
+        "コードの改修でも環境側でも対応できません。"
+    }
+  };
+  // The whole-workbook answer, in the reader's words: does this need
+  // repairing or not. One phrase, one explanation, one next move. The
+  // phrase follows the heaviest thing the diagnosis found, which is what
+  // the workbook is.
+  var VERDICT_ANSWERS = {
+    A: "改修は不要",
+    B: "改修が必要",
+    C: "環境側の対応が必要",
+    D: "この環境では動かせない"
+  };
+  var VERDICT_EXPLANATIONS = {
+    A: "対象の環境で動かなくなるところは見つかりませんでした。",
+    B: "このままでは対象の環境で動きません。原因は VBA コードの中に" +
+      "あり、このツールから改修を依頼できます。",
+    C: "このままでは対象の環境で動きません。VBA コードの外に原因がある" +
+      "問題を含むため、コードの改修だけでは解決しません。",
+    D: "対象の環境で動かす手段が無い処理を含みます。置き換え先が" +
+      "無いことが確定しています。"
+  };
+  var VERDICT_NEXT = {
+    A: "改修せずにこのまま使えます。",
+    B: "次へ進むと、改修する項目を選べます。",
+    C: "環境側で確かめることは、下の一覧に出ています。コードで直せる" +
+      "項目があれば、次へ進んで依頼できます。",
+    D: "詳しい根拠は下の一覧で読めます。"
   };
   // The refactoring diagnosis grades the workbook as a whole, and the
   // letters mean something else there: how much there is to gain.
@@ -335,6 +379,12 @@
   // One problem, however many places it shows up in. Thirteen findings
   // that all say "this macro calls Sleep" are one thing to decide about
   // and thirteen places to look at, so they are shown that way.
+  //
+  // Only an environment key can vouch that two findings are one problem.
+  // Findings without one (`ENVKEY=-`) used to be merged anyway, which
+  // filed a broken sheet name and an uninitialised variable under the
+  // first one's title as "the same problem, two places". They stay one
+  // row each now.
   function groupFindings(state, findings) {
     var byKey = {};
     var order = [];
@@ -342,7 +392,9 @@
     var axisOrder = [];
 
     findings.forEach(function (finding) {
-      var key = finding.environmentKey === "-" ? "" : finding.environmentKey;
+      var key = finding.environmentKey === "-"
+        ? "finding-" + finding.number
+        : finding.environmentKey;
 
       if (!Object.prototype.hasOwnProperty.call(byKey, key)) {
         byKey[key] = [];
@@ -402,7 +454,8 @@
       return {
         grade: name,
         label: GRADE_LABELS[name],
-        note: GRADE_NOTES[name],
+        heading: GRADE_SECTIONS[name].heading,
+        note: GRADE_SECTIONS[name].note,
         groups: buckets[name]
       };
     });
@@ -893,9 +946,13 @@
     writeLog("WARN", parts.join(" "));
   }
 
-  // Twice in a row means the chat is not going to produce the shape this
-  // request needs, so asking it the same way a third time wastes the
-  // reader's turn. Say why, and point somewhere else.
+  // However many times this has failed, the way forward stays open: every
+  // refusal writes a fresh asking-again onto the clipboard, built from the
+  // failure that just happened - not the one before it. There is no retry
+  // budget. A cap was tried (two, then advice to change AIs) and it is how
+  // a reader ended up with no retry text, no way to move, and a reply they
+  // finally had to reshape by hand. From the third failure on, trying
+  // another AI is offered as an extra option, never as the replacement.
   function handleIntakeFailure(stage, message, detail) {
     var store = global.MacroStudioState;
     var count = store.noteIntakeFailure(stage);
@@ -919,14 +976,6 @@
       evidence: detail && detail.evidence,
       count: count
     });
-    if (count >= 2) {
-      global.MacroStudioApp.showToast(
-        message + CRLF +
-          "同じAIで2回続けて形が崩れました。返答の形を直せないAIもあります。" +
-          "別のAIに、同じ依頼文をそのまま渡してみてください。",
-        "error");
-      return false;
-    }
     text = retryText(stage, detail);
     if (!text) {
       global.MacroStudioApp.showToast(message, "error");
@@ -937,7 +986,11 @@
         global.MacroStudioApp.showToast(
           message + CRLF +
             "言い直す文をクリップボードに入れました。" +
-            "同じチャットにそのまま貼り付けてください。",
+            "同じチャットにそのまま貼り付けてください。" +
+            (count >= 3
+              ? CRLF + "形を直せないAIもあります。同じ依頼文を" +
+                "別のAIへ渡して、その返答を取り込むこともできます。"
+              : ""),
           "error");
         return false;
       },
@@ -954,6 +1007,38 @@
       toastAction || null);
     global.MacroStudioState.setBusyAction(null);
     return null;
+  }
+
+  // Put the latest refusal back on the clipboard, as often as asked. The
+  // text is rebuilt from the refusal on screen, so what is copied is
+  // always the current failure, not a stale one.
+  function copyIntakeRetry(stage) {
+    var store = global.MacroStudioState;
+    var state = store.getState();
+    var error = state.intakeError ? state.intakeError[stage] : null;
+    var text;
+
+    if (!error || state.busyAction) {
+      return Promise.resolve(null);
+    }
+    text = retryText(stage, error);
+    if (!text) {
+      global.MacroStudioApp.showToast(
+        "言い直す文を作れませんでした。依頼文をもう一度そのまま渡してください。",
+        "error");
+      return Promise.resolve(null);
+    }
+    store.setBusyAction("copyIntakeRetry");
+    return global.hostBridge.request("writeClipboard", {text: text}).then(
+      function (result) {
+        store.setBusyAction(null);
+        global.MacroStudioApp.showToast(
+          "言い直す依頼文をコピーしました。" +
+            "同じチャットにそのまま貼り付けてください。",
+          "success");
+        return result;
+      },
+      failHost);
   }
 
   // What the diagnosis is asked to grade against. It is not written here
@@ -1657,7 +1742,7 @@
 
     root.appendChild(intro(state.book
       ? "対象ブックと読み取り結果を確認してください。"
-      : "対象のブックを、ここへドラッグするか選んでください。"));
+      : "対象のブックを、ここへドラッグするか、フォルダから選んでください。"));
     if (global.MacroStudioApp.isBlockingAttachError(state.lastError)) {
       root.appendChild(global.MacroStudioApp.createAttachErrorCard(
         state.lastError,
@@ -1675,7 +1760,10 @@
         state.busyAction === "attachBook"
           ? "読み込んでいます"
           : "Excelブックをここにドロップ"));
-      zone.appendChild(element("p", "", "またはクリックしてファイルを選ぶ"));
+      zone.appendChild(element(
+        "p",
+        "",
+        "またはクリックして、フォルダからファイルを選ぶ"));
       root.appendChild(zone);
       return root;
     }
@@ -1751,8 +1839,9 @@
   //
   // A row has to earn its place. The reader is one press from the
   // diagnosis and will ask "so what do I do?", so each row says what was
-  // found and why it matters somewhere else. What to do about it is
-  // answered once, underneath, for all of them: nothing, here.
+  // found and why it matters somewhere else - and nothing more. The
+  // heading already says these are outside the code, and a row that
+  // asks nothing of the reader gets no instructions.
   // The wording of each fact belongs to handover.js; this lays them out.
   // Nothing is coloured as a warning: having a reference is not a fault.
   function appendOutsideCode(root, state) {
@@ -1778,12 +1867,6 @@
       rows.appendChild(row);
     });
     body.appendChild(rows);
-    body.appendChild(element(
-      "p",
-      "task-note",
-      "どれも VBA のコードの外にあるので、このツールは書き換えません。" +
-        "診断の依頼文には自動で入るので、ここで操作は要りません。" +
-        "確認が要るものは、診断結果と最後の引渡しメモに一覧で出ます。"));
     root.appendChild(createDisclosure(
       "book-outside-code",
       "コードのほかに読み取ったもの",
@@ -1927,6 +2010,7 @@
     var error = state.intakeError ? state.intakeError[stage] : null;
     var evidence = error && error.evidence ? error.evidence : null;
     var facts = [];
+    var retryCopy;
 
     if (!error) {
       return root;
@@ -1953,14 +2037,26 @@
       body: error.message || "",
       facts: facts,
       steps: [
-        "AIの返答のコードブロックを、先頭から末尾まで全部コピーし直す",
-        "うまくいかないときは、依頼文をもう一度そのまま渡してやり直す",
-        "それでも同じなら、同じ依頼文を別のAIへ渡す"
+        "言い直す依頼文をAIへ貼り付けて、直した返答を受け取る" +
+          "（断るたびに、最新の失敗理由を入れた言い直し文を作ります）",
+        "返ってきたコードブロックを、先頭から末尾まで全部コピーして取り込む",
+        "同じAIで形が直らないときは、同じ依頼文を別のAIへ渡す"
       ],
       footer: (error.validationId
         ? "検査番号 " + error.validationId + "／"
         : "") + error.count + " 回目"
     }));
+    // The asking-again is already on the clipboard, but a clipboard is
+    // one paste deep: the moment something else is copied it is gone.
+    // However many refusals it takes, this button rewrites the latest
+    // one - the retry lane never closes.
+    retryCopy = actionButton(
+      "言い直す依頼文をコピー",
+      "copy-intake-retry",
+      false);
+    retryCopy.setAttribute("data-intake-stage", stage);
+    retryCopy.disabled = state.busyAction !== null;
+    root.appendChild(actionRow(retryCopy));
     return root;
   }
 
@@ -2086,8 +2182,8 @@
     button.setAttribute("aria-expanded", open ? "true" : "false");
     button.setAttribute("aria-controls", id);
     button.appendChild(icon("chevron", "flow-icon--small disclosure-chevron"));
-    button.appendChild(element("span", "grade-chip grade-chip--" +
-      group.grade.toLowerCase(), group.grade));
+    // No letter chip on the row: the section this row sits in already
+    // says what its class means, once, in words.
     button.appendChild(element("span", "group-title", group.title));
     button.appendChild(element("span", "group-count",
       "該当 " + group.findings.length + " か所"));
@@ -2102,20 +2198,19 @@
     return row;
   }
 
-  // One block per grade: the letter, what it means in a sentence, then
-  // the problems that carry it. Worst first, so a workbook that cannot
-  // be made to run is read before a list of things that can be fixed.
+  // One card per class of problem: what it means in a heading, what it
+  // asks of the reader in a sentence, then the problems that carry it.
+  // Worst first, so a workbook that cannot be made to run is read before
+  // a list of things that can be fixed. The card wears the same surface
+  // the rest of the flow draws cards on - this page stopped being the
+  // one flat screen in an app of cards.
   function createGradeSection(state, bucket, prefix) {
-    var box = element("div", "grade-block grade-block--" +
+    var box = element("section", "result-card grade-block grade-block--" +
       bucket.grade.toLowerCase());
     var head = element("div", "grade-head");
     var list = element("div", "findings-list findings-list--result");
 
-    head.appendChild(element(
-      "span",
-      "grade-badge grade-badge--" + bucket.grade.toLowerCase(),
-      bucket.grade));
-    head.appendChild(element("h2", "grade-title", bucket.label));
+    head.appendChild(element("h2", "grade-title", bucket.heading));
     head.appendChild(element(
       "span",
       "grade-count",
@@ -2310,14 +2405,8 @@
     return row;
   }
 
-  // How the letters relate to each other, in one sentence, so the single
-  // letter above it can be read without a legend.
-  var GRADE_SCALE =
-    "判定はマクロ全体にひとつだけ付きます。" +
-    "いちばん重い指摘がそのまま全体の判定になります（重い順に D → C → B → A）。";
-
   // What the diagnosis found, counted, for the line under the verdict.
-  // Only the grades that actually occur are named: a category with
+  // Only the classes that actually occur are named: a category with
   // nothing in it is not a result.
   function gradeBreakdown(buckets) {
     var parts = (buckets || []).filter(function (bucket) {
@@ -2329,75 +2418,118 @@
     return parts.length === 0 ? "" : parts.join("・");
   }
 
+  // Why the verdict is what it is, pinned to a place. The heaviest
+  // finding with the lowest number is the diagnosis's own representative
+  // (the template asks for the first-failing place to come first), so
+  // the verdict names the module and procedure that go wrong instead of
+  // a bare "動きません". Everything in the sentence is the AI's or the
+  // environment file's own words; nothing is judged here.
+  function primaryCause(state, findings) {
+    var grade = worstGrade(findings);
+    var first = null;
+    var constraint;
+    var location = "";
+    var sentence;
+
+    findings.some(function (finding) {
+      if (finding.grade === grade) {
+        first = finding;
+        return true;
+      }
+      return false;
+    });
+    if (!first || grade === "A") {
+      return "";
+    }
+    if (first.module !== "-") {
+      location = first.module +
+        (first.procedure !== "-" ? " の " + first.procedure : "") +
+        (first.lines !== "-" ? "（" + first.lines + " 行目）" : "");
+    }
+    sentence = "まず問題になる箇所: " +
+      (location ? location + " — " : "") +
+      firstSentence(first.texts.title);
+    constraint = first.environmentKey !== "-"
+      ? environmentConstraint(state, first.environmentKey)
+      : null;
+    if (constraint && constraint.title) {
+      sentence += "対象環境の前提「" + constraint.title + "」に当たります。";
+    }
+    return sentence;
+  }
+
   // The verdict, and there is one of it.
   //
   // A-D is not a tally of findings. It is one judgement about the whole
   // workbook: the heaviest thing the diagnosis found is what the workbook
-  // is. A hundred repairable problems with nothing worse is still B; one
-  // finding with nowhere to go makes the whole thing D.
+  // is. A hundred repairable problems with nothing worse is still "needs
+  // repair"; one finding with nowhere to go makes the whole thing
+  // unmovable.
   //
-  // It used to be four cards of counts, in a row, worst first. That said
-  // the opposite - that the reader had four results, one of which
-  // happened to be zero - and the red D card was the loudest thing on the
-  // page while its count read 0. The one letter that is true is now the
-  // size of an answer, and the counts are a line of text beneath it.
+  // It used to lead with the bare letter ("このマクロの判定は B") and a
+  // legend explaining how letters work. The letter said nothing until
+  // the legend was read, so the card now leads with the answer in words,
+  // explains why, names the first place that goes wrong, and says what
+  // to do next. The letter stays in the data and in the record.
   function createDiagnosisHeadline(state, findings, buckets) {
     var box = element("div", "diagnosis-summary");
+    var context = element("section", "result-card diagnosis-context");
     var grade = worstGrade(findings);
     var breakdown = gradeBreakdown(buckets);
 
     box.appendChild(ui.verdict({
       grade: grade,
-      headline: "このマクロの判定は " + grade + "（" +
-        GRADE_LABELS[grade] + "）",
-      reason: findings.length === 0
-        ? "対象の環境で動かなくなるところは見つかりませんでした。"
-        : GRADE_NOTES[grade],
-      scale: GRADE_SCALE
+      label: "総合判定",
+      answer: VERDICT_ANSWERS[grade],
+      headline: VERDICT_EXPLANATIONS[grade],
+      reason: primaryCause(state, findings),
+      next: VERDICT_NEXT[grade]
     }));
-    box.appendChild(element(
+    // What this macro is and what happens to it over there - the two
+    // sentences that make the verdict about something. They share one
+    // quiet card instead of lying loose on the canvas.
+    context.appendChild(element(
       "p",
       "diagnosis-conclusion-text",
       firstSentence(state.diagnosis.sections.PURPOSE)));
     if (state.diagnosis.sections.ENVIRONMENT) {
-      box.appendChild(element(
+      context.appendChild(element(
         "p",
         "diagnosis-conclusion-text",
         firstSentence(state.diagnosis.sections.ENVIRONMENT)));
     }
     if (breakdown) {
-      box.appendChild(element(
+      context.appendChild(element(
         "p",
         "diagnosis-conclusion-note",
-        "指摘は原因ごとに1件で、内訳は " + breakdown + "。" +
+        "問題は原因ごとにまとめて " + breakdown + "。" +
           "該当箇所は合わせて " + findings.length + " か所。下に一覧があります。"));
     }
+    box.appendChild(context);
     return box;
   }
 
-  // The other kind of diagnosis: one grade for the workbook and the
+  // The other kind of diagnosis: one judgement for the workbook and the
   // reasoning in prose. Same component, because it is the same kind of
-  // answer - one letter for the whole book. It is a judgement, and the
-  // screen says so; the macro-repair result does not, because that one is
-  // a fact.
+  // answer - one verdict for the whole book. What the run was graded on
+  // is the diagnosis template's own name, authored in its own file; the
+  // app supplies only the words the letter resolves to.
   function createGradeResult(state) {
     var box = element("div", "diagnosis-summary");
+    var context = element("section", "result-card diagnosis-context");
     var grade = String(state.diagnosis.grade || "");
 
-    // What the run was graded on is the diagnosis template's own name,
-    // which is authored in its own file. The app supplies only what the
-    // letter means.
     box.appendChild(ui.verdict({
       grade: grade,
-      headline: diagnosisName(state) + "の判定は " + grade + "（" +
-        (VALUE_LABELS[grade] || "") + "）",
-      reason: "これは AI の見立てです。同じコードでも AI によって変わります。",
-      scale: ""
+      label: diagnosisName(state) + "の判定",
+      answer: VALUE_LABELS[grade] || "",
+      headline: "これは AI の見立てです。同じコードでも AI によって変わります。"
     }));
-    box.appendChild(element(
+    context.appendChild(element(
       "p",
       "diagnosis-conclusion-text",
       firstSentence(state.diagnosis.sections.PURPOSE)));
+    box.appendChild(context);
     return box;
   }
 
@@ -2420,6 +2552,8 @@
   function createFindingsScreen(state) {
     var root = task(true);
     var summaryList = element("div", "summary-list");
+    var detailCard = element("section", "result-card");
+    var reasonCard;
     var sectionNames;
     var categories;
     var buckets;
@@ -2434,8 +2568,14 @@
 
     if (state.diagnosis.shape === "grade") {
       root.appendChild(createGradeResult(state));
-      root.appendChild(element("h2", "task-step", "そう判断した理由"));
-      root.appendChild(sourceBlock(state.diagnosis.sections.REASON || ""));
+      reasonCard = element("section", "result-card");
+      reasonCard.appendChild(element(
+        "h2",
+        "grade-title",
+        "そう判断した理由"));
+      reasonCard.appendChild(
+        sourceBlock(state.diagnosis.sections.REASON || ""));
+      root.appendChild(reasonCard);
     } else {
       categories = groupFindings(state, sortedFindings(state.diagnosis));
       buckets = gradesOf(categories);
@@ -2458,14 +2598,19 @@
     }
     appendOutsideCodeWork(root, state);
 
-    root.appendChild(element("h2", "task-step", "このマクロの詳細"));
+    // Background reading, not a decision: what the macro is and how it
+    // works, in the diagnosis's own sections. Same card surface as
+    // everything above it, so this page keeps the vocabulary of the flow
+    // instead of ending on a flat wall of text.
+    detailCard.appendChild(element("h2", "grade-title", "このマクロの詳細"));
     sectionNames.filter(function (name) {
       // The reasoning is already the body of the page above it.
       return name !== "REASON";
     }).forEach(function (name) {
       summaryList.appendChild(createSummaryRow(state, name));
     });
-    root.appendChild(summaryList);
+    detailCard.appendChild(summaryList);
+    root.appendChild(detailCard);
 
     root.appendChild(element(
       "p",
@@ -2476,8 +2621,14 @@
 
   // A diagnosis reads code. Some of what this workbook depends on is not
   // in the code, so no diagnosis could have found it, and it changes what
-  // the reader decides here. It is put in front of them once, flat, at
-  // the point where the deciding happens - not held back to the end.
+  // the reader decides here. It is put in front of them once, at the
+  // point where the deciding happens - not held back to the end.
+  //
+  // Only checks that actually ask something of somebody appear: the
+  // reference row, for example, exists only when the workbook uses a
+  // library beyond the ones every Office install carries (handover.js
+  // owns that narrowing). No tasks, no section - an empty checklist
+  // headline is not information.
   function appendOutsideCodeWork(root, state) {
     var tasks = global.MacroStudioHandover
       ? global.MacroStudioHandover.humanTasks(state)
@@ -2488,24 +2639,18 @@
     if (tasks.length === 0) {
       return root;
     }
-    // What this said before named two facts about the tool - that the
-    // information came from the workbook, and that the AI only reads code
-    // - and left the reader to work out what either meant for them. It
-    // now says the one thing that follows: these will not be fixed here,
-    // so somebody has to check them on the target machine before the
-    // repaired workbook is handed on.
-    box = element("div", "outside-code");
+    box = element("section", "result-card outside-code");
     box.appendChild(element(
       "h2",
-      "task-step",
-      "このツールでは直らないもの（人が確かめます）"));
+      "grade-title",
+      "人の確認が必要なこと"));
     box.appendChild(element(
       "p",
-      "task-note",
-      "ブックから読み取った事実です。VBA のコードの外にあるので、" +
-        "AIも このツールも書き換えません。" +
-        "改修済みブックを配る前に、対象の端末で次を確かめてください。" +
-        "同じ一覧は最後の引渡しメモにも載ります。"));
+      "grade-note",
+      "ブックから読み取った、VBA のコードの外にある事実です。" +
+        "AIの診断にもこのツールの改修にも含まれないため、" +
+        "改修済みブックを配る前に、対象の端末で確かめてください。" +
+        "同じ一覧は完了画面の引渡しメモにも載ります。"));
     rows = element("ul", "outside-code-list");
     tasks.forEach(function (item) {
       rows.appendChild(element(
@@ -2538,14 +2683,18 @@
     "手続きの中身の作り替え、変数の整理、コメントの書き直しは検査できません。" +
     "検査していないものを「検査した」とは表示しません。";
 
-  function createStructureGuardNote() {
+  // The guard, said with its subject. "この設定のあいだ" left the reader
+  // to work out which setting; the sentence now names the scope it
+  // belongs to and the moment it runs.
+  function createStructureGuardNote(scopeName) {
     var box = element("div", "scope-guard");
     var list = element("ul", "scope-guard-list");
 
     box.appendChild(element(
       "p",
       "task-note",
-      "この設定のあいだ、取り込みで次を検査します。"));
+      "「" + scopeName + "」のあいだは、AIの返答を取り込むときに" +
+        "次の4つを機械的に検査します。"));
     STRUCTURE_GUARD_CHECKS.forEach(function (line) {
       list.appendChild(element("li", "scope-guard-item", line));
     });
@@ -2584,20 +2733,26 @@
   // How far the code may change.
   //
   // This is not one of the operations. It is a setting that applies to
-  // every operation chosen, so it is a two-state switch and not another
-  // card in the list above it.
-  //
-  // It used to be two controls for one binary: a card offering the
-  // default, and a row called 詳細オプション holding the other answer. The
-  // reader had to open the second to find out what the first was
-  // refusing, and both were on screen saying different halves of the same
-  // thing. One state, one control, one place it is written.
+  // every operation chosen, so it is the ordinary on/off switch: OFF is
+  // the scope that keeps the shape of the project (the folder's default),
+  // ON is the scope that permits structural change. Both states, their
+  // names, their one-line effects and the instructions the AI is given
+  // all come from the two files in presets/03_変更範囲 - nothing here
+  // invents a mode, and the current value is written out above the
+  // switch so the reader never has to decode a thumb position.
   function createChangeScopeSection(state) {
     var box = section("変更範囲", "change-scope");
     var modes = changeScopeModes(state);
     var chosen = state.changeScope;
+    var forbidden = null;
+    var allowed = null;
+    var current = null;
+    var files = scopePresets(state);
+    var isAllowed;
+    var currentRow;
+    var nameRow;
 
-    scopePresets(state).forEach(function (entry) {
+    files.forEach(function (entry) {
       if (!entry.valid) {
         box.appendChild(element(
           "p",
@@ -2613,28 +2768,61 @@
           "どこまで変えてよいかが決まらないので、依頼を作れません。"));
       return box;
     }
+    modes.forEach(function (entry) {
+      if (entry.structure === "forbidden") {
+        forbidden = entry;
+      }
+      if (entry.structure === "allowed") {
+        allowed = entry;
+      }
+      if (chosen && chosen.file === entry.file) {
+        current = entry;
+      }
+    });
+    isAllowed = Boolean(current) && current.structure === "allowed";
     box.appendChild(ui.note(
       "上で選んだ改修すべてに掛かる設定です。ふだんは既定のまま進めます。",
       true));
-    box.appendChild(ui.modeSwitch({
-      label: "変更範囲",
-      action: "select-change-scope",
-      disabled: state.busyAction !== null,
-      options: modes.map(function (entry) {
-        return {
-          name: entry.name,
-          effect: entry.description,
-          selected: Boolean(chosen) && chosen.file === entry.file,
-          data: {"scope-file": entry.file}
-        };
-      })
-    }));
+
+    // The value in force, in words, before the control that changes it.
+    currentRow = element("div", "scope-current");
+    nameRow = element("p", "scope-current-name");
+    nameRow.appendChild(element("span", "scope-current-caption", "いまの設定"));
+    nameRow.appendChild(element(
+      "strong",
+      "scope-current-value",
+      current ? current.name : "未選択"));
+    if (current && files.length > 0 && current.file === files[0].file) {
+      nameRow.appendChild(element("span", "scope-current-default", "既定"));
+    }
+    currentRow.appendChild(nameRow);
+    if (current && current.description) {
+      currentRow.appendChild(element(
+        "p",
+        "scope-current-effect",
+        current.description));
+    }
+    box.appendChild(currentRow);
+
+    if (forbidden && allowed) {
+      box.appendChild(ui.toggleSwitch({
+        label: allowed.name,
+        checked: isAllowed,
+        disabled: state.busyAction !== null,
+        action: "select-change-scope",
+        data: {"scope-file": isAllowed ? forbidden.file : allowed.file},
+        onWord: "許可する",
+        offWord: "許可しない",
+        description: allowed.description
+      }));
+    }
     if (global.MacroStudioScreens.isStructureForbidden(state)) {
-      box.appendChild(createStructureGuardNote());
-    } else if (chosen) {
+      box.appendChild(createStructureGuardNote(
+        current ? current.name : ""));
+    } else if (current) {
       box.appendChild(ui.note(
-        "この設定のあいだ、構造の検査は行いません。" +
-          "返ってきた変更は差分で確かめてください。"));
+        "「" + current.name + "」のあいだ、取り込みでの構造の検査は" +
+          "行いません。返ってきた変更は差分で確かめてください。"));
     }
     return box;
   }
@@ -2700,8 +2888,8 @@
     checkbox.setAttribute("data-workflow-input", "finding-group-select");
     checkbox.setAttribute("data-finding-ids", ids.join(","));
     header.appendChild(checkbox);
-    header.appendChild(element("span", "grade-chip grade-chip--" +
-      group.grade.toLowerCase(), group.grade));
+    // No grade chip here: everything on this list is repairable by
+    // definition, and the note above the list already says so once.
     header.appendChild(element("span", "finding-title", group.title));
     header.appendChild(element("span", "group-count",
       "該当 " + ids.length + " か所"));
@@ -2726,7 +2914,7 @@
   function appendRepairFindings(root, state) {
     var buckets = gradesOf(
       groupFindings(state, sortedFindings(state.diagnosis)));
-    var box = section("改修する指摘", "repair-findings");
+    var box = section("改修する項目", "repair-findings");
     var sendable = null;
     var blocked = 0;
 
@@ -2743,22 +2931,23 @@
       box.appendChild(element(
         "p",
         "task-note",
-        "診断で B（要改修）になった指摘です。" +
+        "診断で「改修対象」になった項目です。" +
           "チェックしたものが、そのまま依頼文になります。"));
       box.appendChild(createRepairGradeRows(state, sendable));
     } else {
       box.appendChild(element(
         "p",
         "task-note",
-        "このツールで直せる指摘はありませんでした。" +
+        "このツールで直せる項目はありませんでした。" +
           "下の欄に書けば、それだけを依頼できます。"));
     }
     if (blocked > 0) {
       box.appendChild(element(
         "p",
         "task-note",
-        "C（不明）と D（改修不可）の " + blocked + " 件は、" +
-          "このツールでは直せないので依頼に入りません。" +
+        "このツールで直せない " + blocked + " 件" +
+          "（原因がコードの外にあるもの・改修不可のもの）は" +
+          "依頼に入りません。" +
           "完了画面の引渡しメモへ、人がやることとして残ります。"));
     }
     root.appendChild(box);
@@ -3029,13 +3218,23 @@
     }));
 
     if (state.splitOutputRules) {
-      root.appendChild(optionRow(
-        "repair-split-output",
-        "コードが長い場合は、モジュール単位で返答を受け取る",
-        state.splitOutput === true,
-        state.busyAction !== null,
-        "repair-split-output",
-        "repair-split-option"));
+      // The same on/off control the change scope uses. It used to be the
+      // one checkbox in a flow of switches, with no word about why it
+      // exists; the description now says what turns on and when to want
+      // it. Default stays OFF. The data-workflow-input marker stays so
+      // the smoke tests keep finding the same control.
+      root.appendChild(ui.toggleSwitch({
+        label: "コードが長い場合は、モジュール単位で返答を受け取る",
+        checked: state.splitOutput === true,
+        disabled: state.busyAction !== null,
+        action: "toggle-split-output",
+        data: {"workflow-input": "repair-split-output"},
+        onWord: "受け取る",
+        offWord: "受け取らない",
+        description: "1回の返答が長すぎて途中で切れるときのための設定です。" +
+          "オンにすると、AIは1回に1モジュールずつ順番に返し、" +
+          "全モジュールがそろったときだけ1つの改修として取り込みます。"
+      }));
     }
 
     return root;
@@ -3209,8 +3408,19 @@
     if (action === "import-diagnosis") {
       importDiagnosisFromClipboard(); return true;
     }
+    if (action === "copy-intake-retry") {
+      copyIntakeRetry(
+        button.getAttribute("data-intake-stage") === "repair"
+          ? "repair"
+          : "diagnose");
+      return true;
+    }
     if (action === "select-change-scope") {
       selectChangeScope(button.getAttribute("data-scope-file"));
+      return true;
+    }
+    if (action === "toggle-split-output") {
+      store.setSplitOutput(store.getState().splitOutput !== true);
       return true;
     }
     if (action === "select-repair-preset") {
@@ -3254,8 +3464,6 @@
         });
     } else if (kind === "extra-request") {
       store.setExtraRequest(target.value);
-    } else if (kind === "repair-split-output") {
-      store.setSplitOutput(target.checked === true);
     } else if (kind === "path-map-include") {
       if (target.checked === true) {
         disclosureState[target.getAttribute("data-evidence-key")] = true;

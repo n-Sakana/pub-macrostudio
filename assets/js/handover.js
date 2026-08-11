@@ -34,6 +34,21 @@
     return Array.isArray(value) ? value : [];
   }
 
+  // References every Office install carries. "Confirm Office exists on
+  // an Office machine" asks nothing of anybody, so these never become a
+  // task for a person. The complete list - these included - still shows
+  // on the book screen and still travels to the diagnosis request; only
+  // the to-do is narrowed to the libraries that can actually be missing.
+  var STANDARD_REFERENCES = ["VBA", "Excel", "stdole", "Office", "MSForms"];
+
+  function externalReferences(inventory) {
+    return list(inventory.references).filter(function (name) {
+      return !STANDARD_REFERENCES.some(function (standard) {
+        return standard.toLowerCase() === String(name).toLowerCase();
+      });
+    });
+  }
+
   // Work this tool cannot do, and only the work that is actually there.
   // A thing the workbook does not carry is not a task, so it is not
   // listed: an absence tells the reader nothing to do. Each line names
@@ -58,9 +73,11 @@
       return tasks;
     }
     add("references", "参照設定が対象の端末にあるか確かめる",
-      list(inventory.references).length > 0,
-      "このブックが参照しているライブラリ: " +
-        list(inventory.references).join("、"));
+      externalReferences(inventory).length > 0,
+      "このブックが参照している標準外のライブラリ: " +
+        externalReferences(inventory).join("、") +
+        "。この名前のライブラリが無い端末では、実行前のコンパイルで" +
+        "止まります。");
     add("powerQuery", "クエリの接続先と資格情報を設定し直す",
       inventory.hasPowerQuery === true ||
         list(inventory.connections).length > 0,

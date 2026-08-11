@@ -369,7 +369,7 @@ workflow.selectRepairPreset("02_改修\\\\90_ai.md").then(function () {
   screen = workflow.build(screens.repairInputScreen, store.getState());
   assert(dom.text(screen).indexOf("置換の候補") < 0,
     "Both: once the table has run, screen 4 stops showing it.");
-  assert(dom.text(screen).indexOf("改修する指摘") >= 0,
+  assert(dom.text(screen).indexOf("改修する項目") >= 0,
     "Both: screen 4 now asks what the chat should repair.");
   return workflow.prepareRepairRequest();
 }).then(function () {

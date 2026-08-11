@@ -262,8 +262,18 @@ assert(parsedPreset.valid, "The diagnosis template must parse.");
 });
 assert(parsedPreset.instruction.body.indexOf("添付されている場合") >= 0,
   "The instruction must tell the AI to read whatever else was attached.");
-assert(parsedPreset.instruction.body.indexOf("原因ごと") >= 0,
-  "The instruction must ask for one finding per cause, not per place.");
+// One finding names one module and one procedure. A cause that spans
+// procedures is split into one finding per procedure, all wearing the
+// same ENVKEY, and the screen reunites them. The old instruction -
+// "merge by cause" - contradicted the single-value META and taught a
+// real chat to hide a known location behind PROC=-.
+assert(parsedPreset.instruction.body.indexOf("手続きごとに指摘を分けて") >= 0,
+  "The instruction must ask for one finding per procedure.");
+assert(parsedPreset.instruction.body.indexOf("同じ ENVKEY") >= 0,
+  "And say that the split findings share their environment key.");
+assert(parsedPreset.output.body.indexOf(
+  "複数の手続きにまたがることは `-` の理由になりません") >= 0,
+"And close the PROC=- escape: a known procedure is never written as -.");
 
 var example = /```\s*\r?\n([\s\S]*?)\r?\n```/.exec(parsedPreset.output.body);
 

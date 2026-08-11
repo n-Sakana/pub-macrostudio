@@ -251,16 +251,34 @@ function zeroFindingPackage(requestId) {
       toast.message.indexOf("クリップボードに入れました") >= 0;
   }), "The first failure must tell the reader what is on the clipboard.");
 
-  // Twice in a row means asking the same chat again is not the answer.
+  // However many times it fails, the retry lane stays open: the second
+  // failure gets a fresh asking-again exactly like the first. A cap was
+  // tried here once (two failures, then advice to change AIs instead of
+  // a retry text) and it is how a real reader ended up with no way to
+  // move except editing the reply by hand.
   toasts.length = 0;
   await workflow.applyDiagnosisText("not a package either");
   assert(calls.filter(function (call) {
     return call.action === "writeClipboard";
-  }).length === retryWrites.length,
-  "A second failure must not put the same retry on the clipboard again.");
+  }).length === retryWrites.length + 1,
+  "A second failure must put a fresh retry on the clipboard.");
   assert(toasts.some(function (toast) {
-    return toast.tone === "error" && toast.message.indexOf("別のAI") >= 0;
-  }), "A second failure must point somewhere other than the same chat.");
+    return toast.tone === "error" &&
+      toast.message.indexOf("クリップボードに入れました") >= 0;
+  }), "And still tell the reader the retry text is there.");
+  // From the third consecutive failure the toast also offers another AI
+  // - as an extra road, never as the replacement for the retry.
+  toasts.length = 0;
+  await workflow.applyDiagnosisText("still not a package");
+  assert(calls.filter(function (call) {
+    return call.action === "writeClipboard";
+  }).length === retryWrites.length + 2,
+  "A third failure still writes the retry.");
+  assert(toasts.some(function (toast) {
+    return toast.tone === "error" &&
+      toast.message.indexOf("クリップボードに入れました") >= 0 &&
+      toast.message.indexOf("別のAI") >= 0;
+  }), "The third failure adds the other-AI option beside the retry.");
 
   // Split progress is product collection data, including exact missing parts.
   var collection = diagnosisApi.createPartCollection();

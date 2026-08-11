@@ -156,26 +156,28 @@ function collectClass(node, name) {
 var blocks = collectClass(screen, "grade-block");
 
 assert(blocks.length === 3,
-  "Each grade that has something in it gets a block: " + blocks.length);
+  "Each class that has something in it gets a block: " + blocks.length);
 assert(blocks[0].classList.contains("grade-block--c") &&
   blocks[1].classList.contains("grade-block--b") &&
   blocks[2].classList.contains("grade-block--a"),
 "Worst first: C is read before B, and B before A.");
 
-["C", "B", "A"].forEach(function (letter, index) {
-  assert(dom.text(blocks[index].querySelector(".grade-badge")) === letter,
-    "Block " + index + " must carry the " + letter + " badge.");
-});
-["不明", "要改修", "支障なし"].forEach(function (label, index) {
-  assert(dom.text(blocks[index].querySelector(".grade-title")) === label,
-    "Block " + index + " must say what its letter means: " + label);
-});
-// Each block says, in a sentence, what the letter asks of the reader.
+// No letter badges anywhere: each block is headed by what its class
+// means, in words, and the letter survives only as data and tone.
+assert(collectClass(screen, "grade-badge").length === 0 &&
+  collectClass(screen, "grade-chip").length === 0,
+"The letter badges are gone from the result page.");
+["環境側の確認が必要なもの", "改修対象", "動作に支障がないもの"]
+  .forEach(function (heading, index) {
+    assert(dom.text(blocks[index].querySelector(".grade-title")) === heading,
+      "Block " + index + " must say what its class means: " + heading);
+  });
+// Each block says, in a sentence, what its class asks of the reader.
 assert(dom.text(blocks[0].querySelector(".grade-note"))
-  .indexOf("このツールでは直せません") >= 0,
+  .indexOf("コードの改修では直りません") >= 0,
 "C must say that the cause is outside what this tool can rewrite.");
 assert(dom.text(blocks[1].querySelector(".grade-note"))
-  .indexOf("ひな形で改修を依頼できます") >= 0,
+  .indexOf("改修を依頼できます") >= 0,
 "B must say that the repair can be asked for here.");
 
 // The row under each block is the problem it belongs to.
@@ -204,22 +206,29 @@ var verdicts = collectClass(screen, "verdict");
 
 assert(verdicts.length === 1,
   "The workbook gets exactly one verdict: " + verdicts.length);
-assert(dom.text(verdicts[0].querySelector(".verdict-letter")) === "C",
-  "The verdict is the worst grade present, which here is C: " +
-    dom.text(verdicts[0].querySelector(".verdict-letter")));
-assert(verdicts[0].classList.contains("verdict--c"),
-  "The tone follows the verdict actually reached, not the worst letter " +
-  "that exists.");
+assert(dom.text(verdicts[0].querySelector(".verdict-label")) === "総合判定",
+  "The card names itself: this is the whole-workbook verdict.");
+assert(dom.text(verdicts[0].querySelector(".verdict-answer")) ===
+  "環境側の対応が必要",
+"The verdict is the worst class present, written as its answer: " +
+  dom.text(verdicts[0].querySelector(".verdict-answer")));
+assert(verdicts[0].querySelector(".verdict-letter") === null,
+  "The bare letter is not the display any more.");
+assert(verdicts[0].getAttribute("data-grade") === "C" &&
+  verdicts[0].classList.contains("verdict--c"),
+"The tone and data follow the verdict actually reached, not the worst " +
+  "letter that exists.");
 assert(dom.text(verdicts[0].querySelector(".verdict-headline"))
-  .indexOf("C（不明）") >= 0,
-"The headline names the letter and what it means.");
+  .indexOf("コードの改修だけでは解決しません") >= 0,
+"The verdict explains what that class means for this workbook.");
+assert(dom.text(verdicts[0]).indexOf("ひとつだけ") < 0,
+  "The how-grading-works legend is deleted, not reworded.");
+// The reason names the first place that goes wrong. The heaviest class
+// here is C and its finding names no module, so the reason still opens
+// with the finding's own words rather than inventing a location.
 assert(dom.text(verdicts[0].querySelector(".verdict-reason"))
-  .indexOf("環境の側で手を打つ") >= 0,
-"The verdict says what that grade asks of the reader.");
-assert(dom.text(verdicts[0].querySelector(".verdict-scale"))
-  .indexOf("ひとつだけ") >= 0,
-"The verdict says that a workbook gets one grade, so the letter can be " +
-  "read without a legend.");
+  .indexOf("指摘 2") >= 0,
+"The verdict cites the heaviest finding as its reason.");
 // Nothing at the top may present a grade nobody reached.
 assert(collectClass(screen, "grade-tile").length === 0,
   "The per-grade count cards are gone.");
@@ -325,10 +334,11 @@ var selectable = dom.collect(inputScreen, function (node) {
 
 assert(selectable.length === 1,
   "Only the B finding can be sent: " + selectable.length);
-assert(dom.text(inputScreen).indexOf("診断で B（要改修）になった指摘です。") >= 0,
-  "The screen says which grade it is carrying out.");
 assert(dom.text(inputScreen).indexOf(
-  "C（不明）と D（改修不可）の 1 件は、") >= 0,
+  "診断で「改修対象」になった項目です。") >= 0,
+"The screen says, in the result page's own words, what it is carrying.");
+assert(dom.text(inputScreen).indexOf(
+  "このツールで直せない 1 件") >= 0,
 "What is left out must be said, and counted, rather than silently absent.");
 assert(dom.text(inputScreen).indexOf("引渡しメモ") >= 0,
   "And the screen must say where the ones left out go instead.");
@@ -336,7 +346,7 @@ assert(dom.text(inputScreen).indexOf("引渡しメモ") >= 0,
 // With no B at all the screen says so and the write-in box is the run.
 state.diagnosis.findings = [finding(2, "C", "FIXED_HOST_NAME")];
 assert(dom.text(workflow.createRepairInputScreen(state)).indexOf(
-  "このツールで直せる指摘はありませんでした。") >= 0,
+  "このツールで直せる項目はありませんでした。") >= 0,
 "With nothing to send, the screen says so plainly.");
 
 console.log("test-verdict-result: PASS");

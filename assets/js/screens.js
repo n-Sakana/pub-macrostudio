@@ -402,7 +402,7 @@
       context: function (state) {
         return state.book
           ? "読み取った内容を確認し、診断へ進みます"
-          : "対象のブックをドラッグするか、選んでください";
+          : "対象のブックをドラッグするか、フォルダから選んでください";
       },
       ready: function (state) {
         return Boolean(state.book) && getModules(state).length > 0;
@@ -440,9 +440,11 @@
       title: function () { return "診断結果を確認します"; },
       meta: function (state) {
         // Two kinds of diagnosis, two kinds of answer: a list of
-        // problems, or one grade for the whole workbook.
+        // problems, or one judgement for the whole workbook. The letter
+        // itself is not shown here - the screen writes the judgement out
+        // in words.
         if (isGradeDiagnosis(state)) {
-          return "判定 " + String(state.diagnosis.grade);
+          return "判定を取り込み済み";
         }
         return findingCount(state) + "件の指摘";
       },
@@ -475,14 +477,14 @@
     {
       major: 3,
       sub: "3/5",
-      title: function () { return "直す指摘を選びます"; },
+      title: function () { return "改修する項目を選びます"; },
       meta: function (state) { return state.presetName || "未選択"; },
       context: function (state) {
         if (getEngine(state) === "対応表による置換" ||
             isReplacementPending(state)) {
           return "置き換える内容を確認します";
         }
-        return "AIへ送る指摘にチェックを入れます";
+        return "AIへ依頼する項目にチェックを入れます";
       },
       ready: isRepairInputReady
     },

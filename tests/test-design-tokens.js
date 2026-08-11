@@ -199,7 +199,7 @@ var ui = windowObject.MacroStudioComponents;
 // answer to "what does this look like", and that answer lives here.
 [
   "primaryAction", "secondaryAction", "singleChoice", "multiChoice",
-  "modeSwitch", "listChoice", "input", "optionalInput", "note",
+  "toggleSwitch", "listChoice", "input", "optionalInput", "note",
   "status", "alert"
 ].forEach(function (kind) {
   assert(typeof ui.kinds[kind] === "string" && ui.kinds[kind] !== "",
@@ -218,11 +218,10 @@ assert(Object.keys(ui.kinds).length === 11,
   ["input", ui.field({label: "書く", id: "a", name: "a"})],
   ["optionalInput", ui.field({label: "書く", id: "b", name: "b",
     optional: true})],
-  ["modeSwitch", ui.modeSwitch({label: "範囲", options: [
-    {name: "狭い", effect: "そのままにします", selected: true},
-    {name: "広い", effect: "作り替えを許します"}
-  ]})],
-  ["verdict", ui.verdict({grade: "B", headline: "判定は B", reason: "理由"})]
+  ["toggleSwitch", ui.toggleSwitch({label: "広く変えてよい",
+    onWord: "許可する", offWord: "許可しない"})],
+  ["verdict", ui.verdict({grade: "B", answer: "改修が必要",
+    headline: "理由"})]
 ].forEach(function (entry) {
   assert(entry[1].getAttribute("data-component") === entry[0],
     "A component must name its kind: " + entry[0]);
@@ -259,43 +258,52 @@ assert(!/\.field--optional[^{]*\{[^}]*opacity/.test(allCss),
   "looks like.");
 
 // ---- a two-state switch says which state it is in ----
+//
+// The ordinary track-and-thumb switch. The state must be legible three
+// ways at once - the thumb's position (aria-checked drives it), the
+// switch role, and a word beside the label written in the setting's own
+// vocabulary - so no single signal has to be seen.
 
-var modeSwitch = ui.modeSwitch({
-  label: "変更範囲",
+var toggleOff = ui.toggleSwitch({
+  label: "大きく変えてよい",
   action: "select-change-scope",
-  options: [
-    {name: "必要最小限", effect: "構成はそのままです", selected: true,
-      data: {"scope-file": "a.md"}},
-    {name: "大きく変えてよい", effect: "作り替えを許します",
-      data: {"scope-file": "b.md"}}
-  ]
+  data: {"scope-file": "b.md"},
+  onWord: "許可する",
+  offWord: "許可しない",
+  description: "作り替えを許します"
 });
-var segments = dom.collect(modeSwitch, function (node) {
-  return node.classList && node.classList.contains("mode-switch-option");
+var toggleOn = ui.toggleSwitch({
+  label: "大きく変えてよい",
+  checked: true,
+  onWord: "許可する",
+  offWord: "許可しない"
 });
+var offControl = toggleOff.querySelector(".toggle-control");
+var onControl = toggleOn.querySelector(".toggle-control");
 
-assert(segments.length === 2, "A mode switch has two states.");
-assert(modeSwitch.querySelector(".mode-switch-options")
-  .getAttribute("role") === "radiogroup",
-"The two states are one answer, so they are a radio group.");
-segments.forEach(function (segment) {
-  assert(segment.getAttribute("role") === "radio" &&
-    segment.getAttribute("aria-checked") !== null,
-  "Each state says it is one of a set, and whether it is the one.");
-  assert(segment.getAttribute("data-action") === "select-change-scope",
-    "Both states are the same control.");
-});
-assert(segments.filter(function (segment) {
-  return segment.getAttribute("aria-checked") === "true";
-}).length === 1, "Exactly one state is in force.");
-// Which one that is has to be legible without seeing the colour, and
-// switching has to say what it would permit.
-assert(dom.text(segments[0]).indexOf("いま有効") >= 0,
-  "The state in force says so in words.");
-assert(dom.text(segments[1]).indexOf("切り替える") >= 0,
-  "The other state says it is the one to switch to.");
-assert(dom.text(segments[1]).indexOf("作り替えを許します") >= 0,
-  "Each state says what it permits, so ON is never a guess.");
+assert(offControl.tagName === "BUTTON" &&
+  offControl.getAttribute("role") === "switch",
+"The toggle is a real button wearing the switch role, so Space and " +
+  "Enter flip it and the shared focus ring applies.");
+assert(offControl.getAttribute("aria-checked") === "false" &&
+  onControl.getAttribute("aria-checked") === "true",
+"aria-checked carries the state.");
+assert(offControl.querySelector(".toggle-track") !== null &&
+  offControl.querySelector(".toggle-thumb") !== null,
+"The track and thumb are there for the position signal.");
+assert(dom.text(offControl.querySelector(".toggle-state")) === "許可しない" &&
+  dom.text(onControl.querySelector(".toggle-state")) === "許可する",
+"The state is written in the setting's own words, not only drawn.");
+assert(dom.text(offControl.querySelector(".toggle-label")) ===
+  "大きく変えてよい",
+"The label names the thing being permitted, so ON is never a guess.");
+assert(offControl.getAttribute("data-action") === "select-change-scope" &&
+  offControl.getAttribute("data-scope-file") === "b.md",
+"The control carries its action and data like every other control.");
+assert(offControl.getAttribute("aria-label").indexOf("許可しない") >= 0,
+  "The accessible name carries the current state too.");
+assert(dom.text(toggleOff).indexOf("作り替えを許します") >= 0,
+  "The description under the switch says what turning it on permits.");
 
 // ---- an alert is not a colour ----
 
@@ -318,30 +326,33 @@ assert(dom.text(alertBox).indexOf("取り込めませんでした") >= 0,
 assert(alertBox.querySelector(".alert-fact-name") !== null,
   "The three facts are labelled, not run together into one paragraph.");
 
-// ---- the verdict is one letter, at the display step ----
+// ---- the verdict is one answer in words, at the display step ----
 
 var verdict = ui.verdict({
   grade: "B",
-  headline: "このマクロの判定は B（要改修）",
-  reason: "動きません。",
-  scale: "判定はひとつだけです。"
+  answer: "改修が必要",
+  headline: "このままでは対象の環境で動きません。",
+  reason: "まず問題になる箇所: CommonUtil の WaitSeconds"
 });
 
-assert(dom.text(verdict.querySelector(".verdict-letter")) === "B",
-  "The verdict is the letter itself.");
-assert(verdict.className.indexOf("verdict--b") >= 0,
-  "The tone follows the letter reached.");
+assert(dom.text(verdict.querySelector(".verdict-answer")) === "改修が必要",
+  "The verdict is the answer in words.");
+assert(verdict.querySelector(".verdict-letter") === null,
+  "No bare letter: a letter was an answer only after reading a legend.");
+assert(verdict.className.indexOf("verdict--b") >= 0 &&
+  verdict.getAttribute("data-grade") === "B",
+"The tone and data still follow the grade reached.");
 assert(verdict.getAttribute("aria-live") === "polite",
   "A verdict that changes must be announced.");
 
-var letterRule = /\.verdict-letter\s*\{([^}]*)\}/.exec(allCss);
+var answerRule = /\.verdict-answer\s*\{([^}]*)\}/.exec(allCss);
 
-assert(letterRule &&
-  letterRule[1].indexOf("var(--type-display-size)") >= 0,
-"The verdict letter must use the display step, not a size of its own.");
+assert(answerRule &&
+  answerRule[1].indexOf("var(--type-display-size)") >= 0,
+"The verdict answer must use the display step, not a size of its own.");
 
 console.log("test-design-tokens: PASS");
 console.log("three text tiers, three weights, three line heights, two " +
   "corners, eleven named component kinds, grey reserved for disabled, a " +
-  "two-state switch that says which state it is in, and an alert that " +
-  "does not rely on colour");
+  "track-and-thumb switch that says its state in words, and an alert " +
+  "that does not rely on colour");

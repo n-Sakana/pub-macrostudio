@@ -626,8 +626,14 @@
       fix.push("各項目を キー=値 の形にし、値に空白と = を入れない");
     }
     if (problem.procedure) {
-      actual.push("PROC が VBA の手続き名として読めません");
-      fix.push("PROC を手続き名か - にする");
+      actual.push("PROC が 1 つの VBA の手続き名として読めません");
+      // "-" is not offered here on purpose. The one real reply that hit
+      // this had listed several procedures, was told "a name or -", and
+      // chose "-" - hiding a location it actually knew. The way out of
+      // "it spans procedures" is one finding per procedure, never "-".
+      fix.push("PROC には手続き名を 1 つだけ書く。複数の手続きにまたがる" +
+        "指摘は、手続きごとに別の FINDING へ分ける（- にしてよいのは、" +
+        "該当行がどの手続きにも入っていないときだけ）");
     }
     if (actual.length === 0) {
       actual.push("6つの key=value になっていません");

@@ -245,124 +245,140 @@
   cursor: not-allowed;
 }
 
-/* ---- モード切替: .mode-switch ----
-   Two states, one control, both named. Not a toggle whose "on" side the
-   reader has to guess: each segment says what it is and what it permits,
-   and the one in force is marked with a tick and a word as well as a
-   colour. */
-.mode-switch {
+/* ---- 2状態の設定切替: .toggle ----
+   The ordinary track-and-thumb switch. The state is readable three ways:
+   where the thumb sits, aria-checked, and the word beside the label. The
+   word is written by the caller in the setting's own vocabulary, so ON
+   is never a guess. */
+.toggle {
   display: grid;
   margin-top: var(--space-2);
-  gap: var(--space-2);
+  gap: var(--space-1);
 }
 
-.mode-switch-options {
-  display: grid;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.mode-switch-option {
-  display: grid;
+.toggle-control {
+  display: flex;
   min-height: var(--switch-h);
-  padding: var(--space-3) var(--space-4);
+  align-items: center;
+  padding: var(--space-1) 0;
   border: 0;
   background: transparent;
-  color: var(--text-sub);
+  color: var(--text);
   cursor: pointer;
-  font-family: inherit;
-  gap: var(--space-1);
+  gap: var(--space-3);
   text-align: left;
-  transition: background var(--transition-fast);
 }
 
-.mode-switch-option + .mode-switch-option {
-  border-left: 1px solid var(--border);
+.toggle-track {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--toggle-track-w);
+  height: var(--toggle-track-h);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-sunken);
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
-.mode-switch-option:hover:not(:disabled) {
-  background: var(--surface-hover);
+.toggle-thumb {
+  position: absolute;
+  top: var(--space-half);
+  left: var(--space-half);
+  width: var(--toggle-thumb-size);
+  height: var(--toggle-thumb-size);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  transition: transform var(--transition-fast);
 }
 
-.mode-switch-option:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
+.toggle-control[aria-checked="true"] .toggle-track {
+  border-color: var(--accent);
+  background: var(--accent);
 }
 
-.mode-switch-option:disabled {
+.toggle-control[aria-checked="true"] .toggle-thumb {
+  border-color: var(--accent);
+  transform: translateX(var(--toggle-thumb-travel));
+}
+
+.toggle-control:hover:not(:disabled) .toggle-track {
+  border-color: var(--border-strong);
+  filter: brightness(.97);
+}
+
+.toggle-control:disabled {
   color: var(--text-disabled);
   cursor: not-allowed;
 }
 
-.mode-switch-option[aria-checked="true"] {
-  background: var(--accent-soft);
-  color: var(--accent-text);
-}
-
-.mode-switch-name {
+.toggle-words {
   display: flex;
-  align-items: center;
-  font-size: var(--type-body-size);
-  font-weight: var(--weight-semibold);
-  gap: var(--space-2);
-  line-height: var(--line-normal);
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
 }
 
-.mode-switch-state {
+.toggle-label {
+  min-width: 0;
+  font-weight: var(--weight-semibold);
+  overflow-wrap: break-word;
+}
+
+.toggle-state {
   color: var(--text-muted);
   font-size: var(--type-meta-size);
   font-weight: var(--type-micro-weight);
   line-height: var(--type-micro-line);
+  white-space: nowrap;
 }
 
-.mode-switch-option[aria-checked="true"] .mode-switch-state {
+.toggle-control[aria-checked="true"] .toggle-state {
   color: var(--accent-text);
 }
 
-.mode-switch-effect {
-  color: var(--text-muted);
-  font-size: var(--type-meta-size);
-  line-height: var(--type-meta-line);
-}
-
-.mode-switch-option[aria-checked="true"] .mode-switch-effect {
-  color: var(--accent-text);
+/* The description under the switch is the standard quiet note; the
+   switch only adds the indent that ties the two together. */
+.toggle > .note {
+  margin: 0 0 0 calc(var(--toggle-track-w) + var(--space-3));
 }
 
 /* ---- 総合判定: .verdict ----
-   One letter for the whole workbook, at a size that says it is the
-   answer, with the sentence that gives it meaning beside it. Four cards
-   of counts said something else: that the reader had four results, one of
-   which happened to be zero. */
+   One answer for the whole workbook, in words, at the display step. The
+   accent rail carries the tone of the grade actually reached; no letter
+   is printed, because "B" was an answer only to people who had already
+   read the legend. */
 .verdict {
   display: grid;
-  align-items: center;
   padding: var(--space-5);
   border: 1px solid var(--border);
+  border-left: calc(var(--rail-w) + 1px) solid var(--border-strong);
   border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: var(--shadow-1);
-  gap: var(--space-2) var(--space-5);
-  grid-template-columns: var(--verdict-letter-w) minmax(0, 1fr);
+  gap: var(--space-2);
 }
 
-.verdict-letter {
-  display: flex;
-  min-height: var(--verdict-letter-w);
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-sunken);
+.verdict-label {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--type-meta-size);
+  font-weight: var(--type-micro-weight);
+  letter-spacing: .06em;
+  line-height: var(--type-meta-line);
+}
+
+.verdict-answer {
+  margin: 0;
   color: var(--text);
-  font-family: var(--font-code);
   font-size: var(--type-display-size);
   font-weight: var(--type-display-weight);
-  grid-row: span 3;
   line-height: var(--type-display-line);
+  overflow-wrap: break-word;
 }
 
 .verdict-body {
@@ -373,9 +389,9 @@
 .verdict-headline {
   margin: 0;
   color: var(--text);
-  font-size: var(--type-title-size);
-  font-weight: var(--type-title-weight);
-  line-height: var(--type-title-line);
+  font-size: var(--type-body-size);
+  font-weight: var(--weight-semibold);
+  line-height: var(--type-body-line);
 }
 
 .verdict-reason {
@@ -385,7 +401,7 @@
   line-height: var(--type-body-line);
 }
 
-.verdict-scale {
+.verdict-next {
   margin: 0;
   color: var(--text-muted);
   font-size: var(--type-meta-size);
@@ -393,43 +409,29 @@
 }
 
 /* The tone follows the verdict that was actually reached. A workbook
-   with no D findings never shows a red D. */
-.verdict--b .verdict-letter {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+   with no D findings never shows the D tone. */
+.verdict--b {
+  border-left-color: var(--accent);
+}
+
+.verdict--b .verdict-answer {
   color: var(--accent-text);
 }
 
-.verdict--a .verdict-letter {
-  border-color: var(--success);
-  background: var(--success-soft);
+.verdict--a {
+  border-left-color: var(--success);
+}
+
+.verdict--a .verdict-answer {
   color: var(--success-text);
 }
 
-.verdict--c .verdict-letter,
-.verdict--d .verdict-letter {
-  border-color: var(--danger);
-  background: var(--danger-soft);
-  color: var(--danger-text);
+.verdict--c,
+.verdict--d {
+  border-left-color: var(--danger);
 }
 
-@media (max-width: 48em) {
-  .verdict {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .verdict-letter {
-    grid-row: auto;
-    justify-self: start;
-    width: var(--verdict-letter-w);
-  }
-
-  .mode-switch-options {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .mode-switch-option + .mode-switch-option {
-    border-top: 1px solid var(--border);
-    border-left: 0;
-  }
+.verdict--c .verdict-answer,
+.verdict--d .verdict-answer {
+  color: var(--danger-text);
 }

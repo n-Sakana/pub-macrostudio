@@ -160,9 +160,10 @@ try {
     # second to learn what the first refused.
     Assert-True (
         $scopeScreen.switches -eq 1 -and
-        $scopeScreen.options -eq 2 -and
-        $scopeScreen.radios -and
-        $scopeScreen.checked -eq 1 -and
+        $scopeScreen.isSwitch -and
+        $scopeScreen.offByDefault -and
+        $scopeScreen.thumb -and
+        $scopeScreen.currentNamed -and
         -not $scopeScreen.detail) (
         'How far the code may change must be one control with exactly ' +
         'two states and no duplicate detail row: ' + $result.scopeScreen)

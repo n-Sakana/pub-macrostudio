@@ -229,29 +229,38 @@ namespace MacroStudio.Tests
 
                     // What the reader is told the strict scope actually
                     // checks - and, in the same breath, what it does not.
-                    // One control, two named states. The detail row that
-                    // used to hold the second answer is gone; a setting
-                    // with two values is not two controls.
+                    // One ordinary on/off switch whose OFF is the default
+                    // scope, with the value in force written out in words
+                    // above it. The detail row that used to hold the
+                    // second answer is gone; a setting with two values is
+                    // not two controls.
                     result.Add("scopeScreen", await ReadJson(
                         "({" +
                         "switches:document.querySelectorAll(" +
-                        "'[data-component=\"modeSwitch\"]').length," +
-                        "options:document.querySelectorAll(" +
-                        "'.mode-switch-option').length," +
-                        "radios:Array.prototype.every.call(" +
-                        "document.querySelectorAll(" +
-                        "'.mode-switch-option')," +
-                        "function(c){return c.getAttribute('role') === " +
-                        "'radio';})," +
-                        "checked:document.querySelectorAll(" +
-                        "'.mode-switch-option[aria-checked=\"true\"]')" +
-                        ".length," +
-                        // Which state is in force has to be readable as
-                        // words, not inferred from a highlighted side.
+                        "'[data-component=\"toggleSwitch\"] " +
+                        ".toggle-control').length," +
+                        "isSwitch:document.querySelector(" +
+                        "'[data-component=\"toggleSwitch\"] " +
+                        ".toggle-control').getAttribute('role') === " +
+                        "'switch'," +
+                        // The default scope reads as OFF: nothing beyond
+                        // the minimal scope is allowed yet.
+                        "offByDefault:document.querySelector(" +
+                        "'[data-component=\"toggleSwitch\"] " +
+                        ".toggle-control').getAttribute('aria-checked')" +
+                        " === 'false'," +
+                        // The state is a word in the setting's own
+                        // vocabulary (許可しない), not only a thumb.
                         "statedInWords:document.querySelector(" +
-                        "'.mode-switch-option[aria-checked=\"true\"] " +
-                        ".mode-switch-state').textContent === " +
-                        "'\\u3044\\u307e\\u6709\\u52b9'," +
+                        "'[data-component=\"toggleSwitch\"] " +
+                        ".toggle-state').textContent === " +
+                        "'\\u8a31\\u53ef\\u3057\\u306a\\u3044'," +
+                        // The value in force is written out (いまの設定).
+                        "currentNamed:document.body.textContent.indexOf(" +
+                        "'\\u3044\\u307e\\u306e\\u8a2d\\u5b9a') >= 0," +
+                        "thumb:document.querySelector(" +
+                        "'[data-component=\"toggleSwitch\"] " +
+                        ".toggle-thumb') !== null," +
                         "detail:document.body.textContent.indexOf(" +
                         "'\\u8a73\\u7d30\\u30aa\\u30d7\\u30b7\\u30e7\\u30f3'" +
                         ") >= 0," +

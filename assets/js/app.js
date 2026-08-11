@@ -10,6 +10,11 @@
   var disclosureOpen = {};
   var newModuleNameDraft = "";
   var pasteEditDraft = "";
+  // Whether the review screen's code area fills the whole client area.
+  // A class on <body> and nothing else: toggling it never rebuilds the
+  // DOM, so the diff scroll position, the text selection and a half-typed
+  // manual edit all survive the round trip. Leaving the screen restores.
+  var codeMaximized = false;
   // Saying "this answer is not the one" is a decision the reader makes on
   // the review screen; it is not part of whether the reply could be read.
   var rejectionOpen = false;
@@ -893,6 +898,31 @@
     return modules;
   }
 
+  // The one icon-only control in the toolbars: grow the code area to the
+  // whole client area, and come back. The shapes are the ordinary
+  // expand / shrink arrow pairs, the state is aria-pressed, and the name
+  // says which way it will go next - so a screen reader and a tooltip
+  // both read as an action, not a state.
+  function createCodeMaxButton(state) {
+    var label = codeMaximized
+      ? "元の表示に戻す"
+      : "コードを画面全体に広げる";
+    var button = createElement(
+      "button",
+      "button button--compact button--icon code-max-toggle");
+
+    button.type = "button";
+    button.setAttribute("data-action", "toggle-code-max");
+    button.setAttribute("aria-pressed", codeMaximized ? "true" : "false");
+    button.setAttribute("aria-label", label);
+    button.title = label;
+    button.appendChild(createIcon(
+      codeMaximized ? "restore" : "maximize",
+      "flow-icon--small"));
+    button.disabled = state.busyAction !== null;
+    return button;
+  }
+
   function createDiffWorkspace(state, module) {
     var workspace = createElement(
       "div",
@@ -979,6 +1009,7 @@
     editButton.title = "貼り付けたコードを右の欄で直接修正します";
     editButton.disabled = state.busyAction !== null;
     actions.appendChild(editButton);
+    actions.appendChild(createCodeMaxButton(state));
 
     toolbar.appendChild(resultGroup);
     toolbar.appendChild(actions);
@@ -1041,6 +1072,7 @@
     cancel.disabled = state.busyAction !== null;
     actions.appendChild(apply);
     actions.appendChild(cancel);
+    actions.appendChild(createCodeMaxButton(state));
     toolbar.appendChild(resultGroup);
     toolbar.appendChild(actions);
 
@@ -2199,6 +2231,13 @@
       rejectionOpen = false;
       rejectionReasonDraft = "";
     }
+    // The maximized code area belongs to the review screen. Leaving the
+    // screen - by any door - brings the frame back, so no other screen
+    // is ever drawn without its navigation.
+    if (state.screen !== global.MacroStudioScreens.reviewScreen &&
+        codeMaximized) {
+      toggleCodeMax(false);
+    }
     lastRenderedScreen = state.screen;
     saveRunManifest();
     renderProgress(state);
@@ -3202,6 +3241,46 @@
     }
   }
 
+  // Grow the review code area to the client area, or come back. A class
+  // toggle and an attribute pass over the buttons already in the page -
+  // never a re-render, so the scroll position, the selection and a
+  // half-typed manual edit survive the round trip in both directions.
+  function applyCodeMax() {
+    var label = codeMaximized
+      ? "元の表示に戻す"
+      : "コードを画面全体に広げる";
+    var buttons;
+
+    document.body.classList.toggle("code-maximized", codeMaximized);
+    if (!elements) {
+      return;
+    }
+    buttons = elements.main.querySelectorAll(
+      '[data-action="toggle-code-max"]');
+    Array.prototype.forEach.call(buttons, function (button) {
+      button.setAttribute(
+        "aria-pressed",
+        codeMaximized ? "true" : "false");
+      button.setAttribute("aria-label", label);
+      button.title = label;
+      button.textContent = "";
+      button.appendChild(createIcon(
+        codeMaximized ? "restore" : "maximize",
+        "flow-icon--small"));
+    });
+  }
+
+  function toggleCodeMax(force) {
+    var next = typeof force === "boolean" ? force : !codeMaximized;
+
+    if (next === codeMaximized) {
+      return false;
+    }
+    codeMaximized = next;
+    applyCodeMax();
+    return true;
+  }
+
   function toggleDisclosure(key) {
     var box = document.querySelector(
       '[data-disclosure-box="' + key + '"]');
@@ -3255,6 +3334,8 @@
       applyPasteEdit();
     } else if (action === "cancel-paste-edit") {
       requestCancelPasteEdit();
+    } else if (action === "toggle-code-max") {
+      toggleCodeMax();
     } else if (action === "toggle-diff-context") {
       toggleSelectedDiffContext();
     } else if (action === "toggle-diff-wrap") {
@@ -3340,6 +3421,13 @@
 
     if (global.MacroStudioWorkflow &&
         global.MacroStudioWorkflow.handleKeyDown(event)) {
+      return;
+    }
+    // While the code area fills the window the frame is hidden, so the
+    // keyboard way back cannot live on a button alone. Esc restores.
+    if (codeMaximized && event.key === "Escape") {
+      event.preventDefault();
+      toggleCodeMax(false);
       return;
     }
     if (state.screen !== global.MacroStudioScreens.reviewScreen ||
@@ -3580,6 +3668,8 @@
     createResultMarkdown: createResultMarkdown,
     createDoneScreen: createScreenDone,
     createReviewScreen: createScreen6,
+    toggleCodeMax: toggleCodeMax,
+    isCodeMaximized: function () { return codeMaximized; },
     buildBook: buildBook,
     retryBuild: retryBuild,
     finishFlow: finishFlow,
