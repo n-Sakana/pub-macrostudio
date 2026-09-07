@@ -13,3 +13,20 @@ docs/*/live_preview/
 # One run = one case. Both trees are produced by running the app.
 exports/
 temp/
+
+# 画面の撮影物は追跡しない (2026-09-07)。
+#
+# 挿絵と証跡は別物なので、除外するのは証跡だけ。
+#   挿絵 = docs/manual-*/images と .../sources/capture-rig/out。
+#          Playwright が mock を撮る合成画像 (2732x1536 固定) で、机は写らない。
+#          消すとマニュアルが壊れるので除外しない。
+#   証跡 = 実機を撮るので、机がそのまま写る。
+#
+# qa/run01-blackbox/lib/act.ps1 の 52 行と 136 行は Save-Shot -FullScreen で
+# 画面まるごとを撮る (ダイアログは窓ハンドルで撮れないため)。実際に
+# audit-results/fable/evidence/02_file_dialog.png へ 2560x1440 の机が
+# ブラウザのタブ・URL・個人のフォルダ一覧ごと入り、公開された。
+audit-results/*/evidence/
+docs/*/evidence/
+qa/*/shots/
+qa/*/*/shots/
