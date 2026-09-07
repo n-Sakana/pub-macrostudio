@@ -1,5 +1,8 @@
 # 監査メモ（作業用・随時追記）
 
+> **注記（2026-09-07）**: 本文が参照する `evidence/` の画像は公開前に削除しました。
+> 実機の画面を撮ったもので、アプリの外まで写り込んでいたためです。
+
 ## F-01 決定的置換のやり直しが必ず E-MAP-02 になる（SPEC §7.7.1 違反）
 - 実装: `assets/js/screens/workflow.js:2252` `apply(state.pathMap, store.getCurrentModules())`
 - `state.js:935 getCurrentModules()` は `pastedCode` があればそれを返す。
