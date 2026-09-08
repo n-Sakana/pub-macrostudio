@@ -26,6 +26,9 @@ namespace MacroStudio
         private readonly WebView2 webView;
         private readonly HostServices services;
         private readonly JavaScriptSerializer serializer;
+        private bool engineBusy;
+
+        public bool IsEngineBusy { get { return engineBusy; } }
 
         public MessageRouter(WebView2 webView, HostServices services)
         {
@@ -90,6 +93,11 @@ namespace MacroStudio
                 Dictionary<string, object> parameters =
                     GetParameters(message);
                 object data;
+                if (engineBusy && action != "writeLog" && action != "resolveDroppedFiles")
+                {
+                    throw new HostActionException("E-SYS-02",
+                        "Another workbook operation is still running.");
+                }
                 if (action == "resolveDroppedFiles")
                 {
                     // Dropped files arrive as CoreWebView2File objects
@@ -99,10 +107,18 @@ namespace MacroStudio
                 }
                 else if (IsEngineAction(action))
                 {
-                    data = await Task.Run<object>(delegate()
+                    engineBusy = true;
+                    try
                     {
-                        return Dispatch(action, parameters);
-                    });
+                        data = await Task.Run<object>(delegate()
+                        {
+                            return Dispatch(action, parameters);
+                        });
+                    }
+                    finally
+                    {
+                        engineBusy = false;
+                    }
                 }
                 else
                 {
@@ -146,12 +162,8 @@ namespace MacroStudio
             {
                 case "getAppInfo":
                     return services.GetAppInfo();
-                case "getTargetEnvironment":
-                    return services.GetTargetEnvironment();
                 case "pickBook":
                     return services.PickBook();
-                case "pickLocation":
-                    return services.PickLocation();
                 case "attachBook":
                     return services.AttachBook(
                         GetString(parameters, "path"));
@@ -159,23 +171,12 @@ namespace MacroStudio
                     return services.ReadPreset(
                         GetString(parameters, "file"));
                 case "readRequestTemplate":
-                    return services.ReadRequestTemplate(
-                        GetString(parameters, "name"));
+                    return services.ReadRequestTemplate();
                 case "writeRequestFiles":
                     return services.WriteRequestFiles(
-                        GetString(parameters, "stage"),
                         GetString(parameters, "outputTimestamp"),
                         GetString(parameters, "request"),
-                        GetString(parameters, "code"),
-                        GetString(parameters, "aiCode"));
-                case "writeDiagnosisFile":
-                    return services.WriteDiagnosisFile(
-                        GetString(parameters, "outputTimestamp"),
-                        GetString(parameters, "markdown"));
-                case "writeRunManifest":
-                    return services.WriteRunManifest(
-                        GetString(parameters, "outputTimestamp"),
-                        GetString(parameters, "manifest"));
+                        GetString(parameters, "code"));
                 case "writeClipboard":
                     return services.WriteClipboard(
                         GetString(parameters, "text"));

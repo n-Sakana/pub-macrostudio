@@ -30,19 +30,16 @@ namespace MacroStudio
 
         public MainWindow()
         {
-            Title = "MacroStudio beta 2.0.0";
+            Title = "MacroStudio beta 1.1.1-audit.1";
             // Without this the window and its taskbar button show the
             // icon of whatever process is hosting it, which is
             // powershell.exe.
             Icon = CreateWindowIcon();
-            // 4:3. The flow is a column of text with a diff at the end,
-            // so height is what it needs; a wide short window squeezes the
-            // changed code sideways and turns reading into scrolling.
-            // The reader may still resize.
-            Width = 1120;
-            Height = 840;
-            MinWidth = 900;
-            MinHeight = 700;
+            Rect workArea = SystemParameters.WorkArea;
+            Width = Math.Min(1200, workArea.Width);
+            Height = Math.Min(740, workArea.Height);
+            MinWidth = Math.Min(760, workArea.Width);
+            MinHeight = Math.Min(480, workArea.Height);
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Background = new SolidColorBrush(Color.FromRgb(20, 22, 28));
             AllowDrop = true;
@@ -169,7 +166,7 @@ namespace MacroStudio
             stack.Children.Add(name);
 
             TextBlock version = new TextBlock();
-            version.Text = "beta 2.0.0";
+            version.Text = "beta 1.1.1-audit.1";
             version.FontSize = 11;
             version.Margin = new Thickness(0, 4, 0, 0);
             version.HorizontalAlignment = HorizontalAlignment.Center;
@@ -265,6 +262,14 @@ namespace MacroStudio
             object sender,
             System.ComponentModel.CancelEventArgs e)
         {
+            if (messageRouter != null && messageRouter.IsEngineBusy)
+            {
+                e.Cancel = true;
+                MessageBox.Show(this,
+                    "ブックの読み込み・作成処理が実行中です。完了後に閉じてください。",
+                    "MacroStudio", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
             WriteLifecycleLog("shutdown");
         }
 
@@ -318,6 +323,14 @@ namespace MacroStudio
             CoreWebView2NavigationCompletedEventArgs e)
         {
             webView.CoreWebView2.NavigationCompleted -= OnFirstNavigationCompleted;
+            if (!e.IsSuccess)
+            {
+                App.ShowStartupMessage("webview-init-error.txt",
+                    new IOException("The local application page failed to load: " +
+                        e.WebErrorStatus.ToString()));
+                Close();
+                return;
+            }
             Dispatcher.BeginInvoke(new Action(delegate()
             {
                 webView.Visibility = Visibility.Visible;

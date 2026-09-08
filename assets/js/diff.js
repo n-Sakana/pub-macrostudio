@@ -82,8 +82,32 @@
       }
 
       if (bestLeft === -1) {
-        bestLeft = leftCount;
-        bestRight = rightCount;
+        // A large insertion must not hide the identical tail simply
+        // because its first line falls outside the local lookahead.
+        var rightPositions = new Map();
+        for (candidateRight = rightIndex;
+            candidateRight < rightCount; candidateRight += 1) {
+          if (!rightPositions.has(right[candidateRight])) {
+            rightPositions.set(right[candidateRight], candidateRight);
+          }
+        }
+        for (candidateLeft = leftIndex;
+            candidateLeft < leftCount; candidateLeft += 1) {
+          if (!rightPositions.has(left[candidateLeft])) {
+            continue;
+          }
+          candidateRight = rightPositions.get(left[candidateLeft]);
+          distance = candidateLeft - leftIndex + candidateRight - rightIndex;
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            bestLeft = candidateLeft;
+            bestRight = candidateRight;
+          }
+        }
+        if (bestLeft === -1) {
+          bestLeft = leftCount;
+          bestRight = rightCount;
+        }
       }
 
       removedCount = bestLeft - leftIndex;

@@ -1,0 +1,37 @@
+{
+  "original_header_hex": "cc61b500000300",
+  "previous_output_header_hex": "cc61b500000300",
+  "same_project_cache": true,
+  "cache_length": 6308,
+  "changed_existing_streams": [
+    "WindowUtils",
+    "TimerUtils",
+    "SystemInfo",
+    "AppController",
+    "dir",
+    "PROJECTwm",
+    "PROJECT"
+  ],
+  "original_streams": {
+    "ThisWorkbook": 1007,
+    "Sheet1": 999,
+    "WindowUtils": 13822,
+    "__SRP_2": 460,
+    "__SRP_3": 766,
+    "TimerUtils": 1811,
+    "__SRP_4": 179,
+    "__SRP_5": 248,
+    "SystemInfo": 11820,
+    "__SRP_6": 698,
+    "__SRP_7": 1334,
+    "AppController": 6104,
+    "Sheet2": 999,
+    "Sheet3": 999,
+    "_VBA_PROJECT": 6308,
+    "dir": 774,
+    "__SRP_0": 3112,
+    "__SRP_1": 884,
+    "PROJECTwm": 248,
+    "PROJECT": 728
+  }
+}

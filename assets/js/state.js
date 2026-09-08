@@ -3,121 +3,48 @@
 
   var listeners = [];
 
-  function isDiagnosisProduct(result) {
-    return Boolean(global.MacroStudioDiagnosis) &&
-      typeof global.MacroStudioDiagnosis.isProductResult === "function" &&
-      global.MacroStudioDiagnosis.isProductResult(result);
-  }
-
-  function isResponseProduct(result) {
-    return Boolean(global.MacroStudioResponse) &&
-      typeof global.MacroStudioResponse.isProductResult === "function" &&
-      global.MacroStudioResponse.isProductResult(result);
-  }
-
-  function isPathMapProduct(result) {
-    return Boolean(global.MacroStudioPathMap) &&
-      typeof global.MacroStudioPathMap.isProductResult === "function" &&
-      global.MacroStudioPathMap.isProductResult(result);
-  }
-
   function createInitialState() {
     return {
       screen: 0,
       history: [],
       appInfo: null,
-
       book: null,
-      bookInventory: null,
-      bookSnapshot: "",
       modules: [],
       selectedModuleName: null,
       pasteEditing: false,
-
-
-      targetEnvironment: null,
-      targetEnvironmentSnapshot: "",
-      diagnosisConcern: "",
-      diagnosisSplit: false,
-      diagnosisRequestId: null,
-      diagnosisRequestSnapshot: null,
-      diagnosisRequestText: "",
-      diagnosisRequestFilePath: null,
-      diagnosisPrompt: null,
-      diagnosisPromptCopied: false,
-      diagnosisFolderOpened: false,
-      diagnosisParts: null,
-      diagnosis: null,
-      diagnosisAttribution: null,
-      diagnosisVersion: 0,
-      diagnosisFilePath: null,
-
-      // How many times in a row a reply could not be taken in. The count
-      // is information (the screen prints it, the log carries it), never
-      // a budget: every failure gets a fresh asking-again, however many
-      // came before it.
-      intakeFailures: {diagnose: 0, repair: 0},
-
-      // Why the last reply was refused, kept on the screen until one is
-      // taken in. A toast that has already faded cannot be read while
-      // fixing the paste, which is exactly when it is needed.
-      intakeError: {diagnose: null, repair: null},
+      mode: null,
+      // The short way through the same run: fewer screens, nothing else
+      // different. Off unless the opening screen turns it on.
+      simple: false,
       presetFile: null,
       presetName: "",
-      presetFiles: [],
-      presets: [],
-      presetContent: "",
-      presetReplaceRules: null,
-      presetEngine: null,
-      presetSnapshot: null,
-      // How far the code may change, chosen on the same screen as the
-      // work itself. It is a whole change-scope template, not a flag:
-      // the word it declares switches the intake guard, and the text it
-      // carries rides along with the repair request.
-      changeScope: null,
       questions: [],
       answers: {},
-      behaviorCandidates: [],
-      preserveItems: [],
-      selectedFindings: [],
-      desiredBehaviour: {},
-      extraRequest: "",
-      pathMap: null,
-      // The exact module text the current candidates were detected in.
-      // Applying reads this and nothing else, so pressing the button a
-      // second time starts from the same place the first press did.
-      pathMapBasis: null,
-      repairInputSnapshot: "",
-
-      repairRequestId: null,
-      repairRequestSnapshot: null,
-      repairRequestText: "",
-      repairRequestFilePath: null,
-      repairPrompt: null,
-      repairPromptCopied: false,
-      repairFolderOpened: false,
+      questionIndex: 0,
+      requestBase: "",
+      requestId: null,
       intakeResult: null,
+      // An answer that concluded nothing should change: which verdict
+      // it reached, why, and which request it answered. It is a result
+      // in its own right, so it is kept apart from an import and never
+      // counts as one.
       noChangeResult: null,
-      repairIntakeRequestId: null,
-      repairResultSnapshot: null,
-      repairResultEngine: null,
-      deterministicCodeSnapshot: null,
-      // What the replacement table actually carried out in this run.
-      // It outlives a chat answer that comes afterwards, because the
-      // record of the run has to say the tool made those replacements
-      // even when a chat then edited the same code.
-      appliedMapping: null,
+      // Which request the imported package answered. A package only
+      // counts while it belongs to the request that is on screen.
+      intakeRequestId: null,
+      requestText: "",
       outputRules: null,
       splitOutputRules: null,
       splitOutput: false,
-      repairIntakeParts: null,
-
+      intakeParts: null,
+      requestFilePath: null,
+      requestPrompt: null,
       runFolder: null,
-      // Where the one file the chat is given lives. Separate from the
-      // run folder on purpose: the deliverables never mix with it.
-      handoffFolder: null,
-      outputTimestamp: null,
+      promptCopied: false,
+      codeFolderOpened: false,
       outputName: "",
+      // The date the produced files carry, fixed when the workbook is
+      // read so every file of one run agrees.
       outputDateStamp: "",
       buildTimestamp: null,
       buildResult: null,
@@ -139,17 +66,69 @@
     return state;
   }
 
+  function getChangedModuleCount() {
+    var count = 0;
+    state.modules.forEach(function (module) {
+      if (module.status === "changed") {
+        count += 1;
+      }
+    });
+    return count;
+  }
+
+  // Files that fail to parse are listed with their reason but are not
+  // usable presets, so they must not become a guide target.
+  function countUsablePresets() {
+    var presets = state.appInfo && state.appInfo.presets
+      ? state.appInfo.presets
+      : [];
+
+    if (global.MacroStudioPreset) {
+      return global.MacroStudioPreset.countValid(presets);
+    }
+    return presets.length;
+  }
+
+  function getAcceptedModuleCount() {
+    var count = 0;
+
+    state.modules.forEach(function (module) {
+      if (module.status === "changed" && module.accepted === true) {
+        count += 1;
+      }
+    });
+    return count;
+  }
+
+  function getLineCount(value) {
+    var text = typeof value === "string" ? value : "";
+    var lines;
+
+    if (!text) {
+      return 0;
+    }
+    lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+    if (lines.length > 0 && lines[lines.length - 1] === "") {
+      lines.pop();
+    }
+    return lines.length;
+  }
+
+  // Screen flow. The screen table (screens.js) owns the order and the
+  // readiness rules; the state owns where we are and how we got here.
   function screenApi() {
     return global.MacroStudioScreens;
   }
 
   function canGoNext() {
     var api = screenApi();
+
     return api ? api.canAdvance(state, state.screen) : false;
   }
 
   function canGoBack() {
     var api = screenApi();
+
     return api ? api.canGoBack(state, state.screen) : false;
   }
 
@@ -179,15 +158,8 @@
     return goTo(api.nextIndex(state, state.screen), true);
   }
 
-  // Leaving the completion screen does not undo the run. The workbook,
-  // the diff report and the memo are already written to disk, so
-  // forgetting the result here would have left the reader on an earlier
-  // screen with no sign that any of it exists - and pressing [次へ]
-  // again would build a second generation without ever saying there was
-  // a first. The result is kept, and the screens say so; only work that
-  // genuinely invalidates the output clears it (invalidateRepairPackage,
-  // setPathMap, setBuildConfirmation).
   function goBack() {
+    var api = screenApi();
     var target;
 
     if (!canGoBack()) {
@@ -195,16 +167,24 @@
     }
     target = state.history.length > 0
       ? state.history.pop()
-      : Math.max(0, state.screen - 1);
+      : state.screen - 1;
+    if (api && state.screen === api.doneScreen) {
+      state.buildResult = null;
+    }
     return goTo(target, false);
   }
 
+  // yyyyMMdd of the given local date, fixed width, for the names of the
+  // files a run produces.
   function formatDateStamp(dateValue) {
     var value = dateValue || new Date();
+
     function pad(part) {
       return part < 10 ? "0" + String(part) : String(part);
     }
-    return String(value.getFullYear()) + pad(value.getMonth() + 1) +
+
+    return String(value.getFullYear()) +
+      pad(value.getMonth() + 1) +
       pad(value.getDate());
   }
 
@@ -215,141 +195,163 @@
     if (!book || !book.name) {
       return "";
     }
-    name = String(book.name);
     extension = book.ext ? String(book.ext) : "";
-    if (extension && name.toLowerCase().slice(-extension.length) ===
-        extension.toLowerCase()) {
+    name = String(book.name);
+    if (extension &&
+        name.toLowerCase().slice(-extension.length) ===
+          extension.toLowerCase()) {
       name = name.slice(0, name.length - extension.length);
     }
     return name;
   }
 
+  // Both names carry the same date, taken once when the workbook is read
+  // and kept for the whole run. One date for the whole run matters more
+  // than a fresh one per file: a rebuild must replace the report it made
+  // before instead of leaving a second one beside it.
+  //
+  // <base>-Modified-<yyyyMMdd><original extension>. The user can rename
+  // it on the output screen; this is only what the field starts with.
   function getDefaultOutputName(book, dateStamp) {
     var base = getBookBaseName(book);
-    return base ? base + "-Modified-" + String(dateStamp || "") +
-      (book.ext ? String(book.ext) : "") : "";
+
+    if (!base) {
+      return "";
+    }
+    var suffix = "-Modified-" + String(dateStamp || "") +
+      (book.ext ? String(book.ext) : "");
+    return shortenBaseName(base, suffix) + suffix;
   }
 
+  // <base>-Diff-Report-<yyyyMMdd>.html, beside the workbook it describes.
   function getDiffReportName(book, dateStamp) {
     var base = getBookBaseName(book);
-    return base ? base + "-Diff-Report-" + String(dateStamp || "") +
-      ".html" : "";
-  }
 
-  function getLineCount(value) {
-    var text = typeof value === "string" ? value : "";
-    var lines;
-
-    if (!text) {
-      return 0;
+    if (!base) {
+      return "";
     }
-    lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
-    if (lines.length && lines[lines.length - 1] === "") {
-      lines.pop();
+    var suffix = "-Diff-Report-" + String(dateStamp || "") + ".html";
+    return shortenBaseName(base, suffix) + suffix;
+  }
+
+  function shortenBaseName(base, suffix) {
+    return base.slice(0, Math.max(1, 120 - suffix.length))
+      .replace(/[\uD800-\uDBFF]$/, "");
+  }
+
+  // Artifacts and answers only describe the request that created them.
+  function clearPreparedArtifacts() {
+    state.requestFilePath = null;
+    state.requestPrompt = null;
+    state.runFolder = null;
+    state.promptCopied = false;
+    state.codeFolderOpened = false;
+    state.buildTimestamp = null;
+    state.buildResult = null;
+    state.buildSlow = false;
+  }
+
+  function invalidateRequestRevision() {
+    var oldId = state.requestId;
+    var issued = Boolean(state.requestPrompt || state.intakeRequestId ||
+      state.noChangeResult || state.intakeParts);
+
+    if (oldId && issued) {
+      state.requestId = global.MacroStudioResponse.createRequestId();
+      [state.outputRules, state.splitOutputRules].forEach(function (rules) {
+        if (rules && typeof rules.body === "string") {
+          rules.body = rules.body.split(oldId).join(state.requestId);
+        }
+      });
+      state.requestBase = state.requestBase.split(oldId).join(state.requestId);
     }
-    return lines.length;
+    clearImportedModules();
+    clearPreparedArtifacts();
   }
 
-  // The complete canonical value is retained instead of a short hash, so a
-  // collision cannot make a package current for different workbook content.
-  function createBookSnapshot(book, modules) {
-    return JSON.stringify({
-      path: book && book.path ? String(book.path) : "",
-      name: book && book.name ? String(book.name) : "",
-      ext: book && book.ext ? String(book.ext) : "",
-      modules: (modules || []).map(function (module) {
-        return {
-          name: String(module.name || ""),
-          type: String(module.type || ""),
-          attributes: String(module.attributes || ""),
-          code: String(module.code || "")
-        };
-      })
+  // Reading a workbook is the second decision now: the work was chosen
+  // on the first screen, so the mode survives here. Everything the
+  // previous workbook produced does not.
+  function setBook(book, modules) {
+    var api = screenApi();
+
+    state.screen = api ? api.bookScreen : 1;
+    state.history = [];
+    state.book = book;
+    state.requestBase = "";
+    state.questionIndex = 0;
+    state.modules = modules || [];
+    state.modules.forEach(function (module) {
+      module.status = "pending";
+      module.changedLineCount = 0;
+      module.written = false;
+      module.accepted = false;
+      module.pastedCode = null;
+      module.showChangesOnly = module.lineCount > 200;
+      module.wrapDiff = true;
+    });
+    state.selectedModuleName = null;
+    state.pasteEditing = false;
+    state.presetFile = null;
+    state.presetName = "";
+    state.questions = [];
+    state.answers = {};
+    state.requestId = null;
+    state.intakeResult = null;
+    state.noChangeResult = null;
+    state.intakeRequestId = null;
+    state.intakeParts = null;
+    state.requestText = "";
+    state.outputRules = null;
+    state.splitOutputRules = null;
+    state.splitOutput = false;
+    state.requestFilePath = null;
+    state.requestPrompt = null;
+    state.runFolder = null;
+    state.promptCopied = false;
+    state.codeFolderOpened = false;
+    state.outputDateStamp = formatDateStamp(new Date());
+    state.outputName = getDefaultOutputName(book, state.outputDateStamp);
+    state.buildTimestamp = null;
+    state.buildResult = null;
+    state.buildSlow = false;
+    state.lastError = null;
+    notify();
+  }
+
+  function setAppInfo(appInfo) {
+    state.appInfo = appInfo;
+    notify();
+  }
+
+  function hasImportedModules() {
+    return state.modules.some(function (module) {
+      return module.status === "changed" ||
+        module.status === "unchanged";
     });
   }
 
-  function normalizeFindingId(value) {
-    return String(Number(value));
-  }
-
-  function sortedFindingIds(values) {
-    return (values || []).map(normalizeFindingId).sort(function (left, right) {
-      return Number(left) - Number(right);
+  // The modules the workbook itself has. A module a previous answer
+  // added is not one of them, so a replacement package is always
+  // measured against the workbook and never against an earlier answer.
+  function getBookModules() {
+    return state.modules.filter(function (module) {
+      return module.isNew !== true;
     });
   }
 
-  function createRepairInputSnapshot() {
-    var answers = state.questions.map(function (_question, index) {
-      return String(state.answers[String(index)] || "");
-    });
-    var selected = sortedFindingIds(state.selectedFindings);
-    var desired = selected.map(function (id) {
-      var value = state.desiredBehaviour[id] || {};
-      return {
-        finding: id,
-        behaviour: String(value.behaviour || ""),
-        supplement: String(value.supplement || "")
-      };
-    });
-    var mapping = state.pathMap && Array.isArray(state.pathMap.rows)
-      ? state.pathMap.rows.map(function (row) {
-      return {
-        groupKey: String(row && row.groupKey || ""),
-        from: String(row && row.from || ""),
-        to: String(row && row.to || ""),
-        included: row && row.included === true,
-        applied: row && row.applied === true,
-        validationId: String(row && row.validationId || "")
-      };
-    }) : [];
-
-    return JSON.stringify({
-      diagnosisVersion: state.diagnosisVersion,
-      presetFiles: (state.presetFiles || []).join("|"),
-      presetContent: state.presetContent || "",
-      // The scope is part of what the request says and part of what the
-      // intake enforces, so changing it has to make a written request
-      // stale exactly the way changing a template does.
-      changeScope: state.changeScope ? state.changeScope.file : "",
-      answers: answers,
-      selectedFindings: selected,
-      desiredBehaviour: desired,
-      extraRequest: state.extraRequest,
-      splitOutput: state.splitOutput === true,
-      pathMap: mapping
-    });
-  }
-
-  function refreshRepairInputSnapshot() {
-    state.repairInputSnapshot = createRepairInputSnapshot();
-  }
-
-  function findModule(moduleName) {
-    var found = null;
-    state.modules.some(function (module) {
-      if (module.name === moduleName) {
-        found = module;
-        return true;
-      }
-      return false;
-    });
-    return found;
-  }
-
-  // Taking an answer away takes the answer away. When the tool itself
-  // replaced strings earlier in the run, that replacement is the ground
-  // the answer stood on, and `keepReplacement` says to leave the record
-  // of it in place. Putting the code back is `restoreReplacedModules`,
-  // which the caller does once it knows what goes on top.
-  function clearImportedModulesInternal(keepReplacement) {
-    var snapshot = state.deterministicCodeSnapshot;
-    var mapping = state.appliedMapping;
+  // Takes the whole imported package back out. Used both by the
+  // explicit discard and by every path that replaces one package with
+  // another, so nothing from the previous answer can survive into the
+  // build. Callers notify once they are done.
+  function clearImportedModules() {
     var kept = [];
     var discarded = 0;
 
     state.modules.forEach(function (module) {
       if (module.isNew === true &&
-          (module.status === "changed" || module.status === "unchanged")) {
+          (module.status === "changed" ||
+           module.status === "unchanged")) {
         discarded += 1;
         return;
       }
@@ -370,840 +372,46 @@
     state.pasteEditing = false;
     state.intakeResult = null;
     state.noChangeResult = null;
-    state.repairIntakeRequestId = null;
-    state.repairIntakeParts = null;
-    state.repairResultSnapshot = null;
-    state.repairResultEngine = null;
-    state.deterministicCodeSnapshot = keepReplacement ? snapshot : null;
-    state.appliedMapping = keepReplacement ? mapping : null;
+    state.intakeRequestId = null;
+    state.intakeParts = null;
     return discarded;
   }
 
-  // Puts the code the replacement table produced back onto the modules,
-  // for every module it touched. A chat answer is then layered on top of
-  // this, so a reply that names one module leaves the others replaced
-  // rather than reverting them to the workbook.
-  function restoreReplacedModules() {
-    var snapshot = state.deterministicCodeSnapshot;
-
-    if (!snapshot || !state.appliedMapping) {
-      return;
-    }
-    Object.keys(snapshot).forEach(function (name) {
-      var module = findModule(name);
-
-      if (!module) {
-        return;
-      }
-      module.pastedCode = snapshot[name];
-      module.status = snapshot[name] === module.code ? "unchanged" : "changed";
-      module.changedLineCount = module.status === "changed"
-        ? countChangedLines(module.code, snapshot[name])
-        : 0;
-      module.accepted = module.status === "changed";
-      module.written = false;
-      module.showChangesOnly = (module.lineCount || 0) > 200;
-      module.wrapDiff = true;
-    });
-    state.repairResultEngine = "対応表による置換";
-  }
-
-  function resetOutputName() {
-    state.outputName = getDefaultOutputName(state.book, state.outputDateStamp);
-  }
-
-  function invalidateRepairPackage(keepReplacement) {
-    clearImportedModulesInternal(keepReplacement);
-    state.buildTimestamp = null;
-    state.buildResult = null;
-    state.buildSlow = false;
-    resetOutputName();
-  }
-
-  function invalidateRepairRequest() {
-    state.repairRequestId = null;
-    state.repairRequestSnapshot = null;
-    state.repairRequestText = "";
-    state.repairRequestFilePath = null;
-    state.repairPrompt = null;
-    state.repairPromptCopied = false;
-    state.repairFolderOpened = false;
-    invalidateRepairPackage();
-  }
-
-  // A finding the target environment stops the macro on is not optional
-  // work, so it starts selected. The reader unticks what they do not want
-  // rather than hunting for what they must not miss.
-  // The grade that means "this does not run and this tool can fix it".
-  // Those arrive ticked because they are what the run is for; C and D
-  // cannot be sent anywhere, and A is nothing to do.
-  var REQUIRED_FINDING_GRADES = ["B"];
-
-  function requiredFindingIds() {
-    var findings = state.diagnosis && Array.isArray(state.diagnosis.findings)
-      ? state.diagnosis.findings
-      : [];
-
-    return findings.filter(function (finding) {
-      return REQUIRED_FINDING_GRADES.indexOf(finding.grade) >= 0;
-    }).map(function (finding) {
-      return String(finding.number);
-    });
-  }
-
-  function clearRepairInput() {
-    state.presetFile = null;
-    state.presetFiles = [];
-    state.presets = [];
-    state.presetName = "";
-    state.presetContent = "";
-    state.presetReplaceRules = null;
-    state.presetEngine = null;
-    state.presetSnapshot = null;
-    state.questions = [];
-    state.answers = {};
-    state.behaviorCandidates = [];
-    state.preserveItems = [];
-    state.selectedFindings = requiredFindingIds();
-    state.desiredBehaviour = {};
-    state.extraRequest = "";
-    state.pathMap = null;
-    state.pathMapBasis = null;
-    // The change scope is deliberately not cleared here. It answers "how
-    // far may this workbook change", which a second diagnosis of the same
-    // workbook does not alter; the templates go because they were chosen
-    // against findings that are gone. Reading another workbook is what
-    // puts the default back, and that happens through setBook.
-    refreshRepairInputSnapshot();
-    invalidateRepairRequest();
-  }
-
-  function invalidateDiagnosisResult() {
-    state.diagnosisParts = null;
-    state.diagnosis = null;
-    state.diagnosisAttribution = null;
-    state.diagnosisFilePath = null;
-    clearRepairInput();
-  }
-
-  function invalidateDiagnosisRequest() {
-    state.diagnosisRequestId = null;
-    state.diagnosisRequestSnapshot = null;
-    state.diagnosisRequestText = "";
-    state.diagnosisRequestFilePath = null;
-    state.diagnosisPrompt = null;
-    state.diagnosisPromptCopied = false;
-    state.diagnosisFolderOpened = false;
-    invalidateDiagnosisResult();
-  }
-
-  // What the workbook carries besides its code. It belongs to the book,
-  // so it arrives and departs with it.
-  function setBookInventory(inventory) {
-    state.bookInventory = inventory || null;
-    notify();
-  }
-
-  function setBook(book, modules) {
-    var api = screenApi();
-    var appInfo = state.appInfo;
-
-    state = createInitialState();
-    state.appInfo = appInfo;
-    applyDefaultChangeScope();
-    state.screen = api ? api.bookScreen : 0;
-    state.book = book || null;
-    state.modules = modules || [];
-    state.modules.forEach(function (module) {
-      module.status = "pending";
-      module.changedLineCount = 0;
-      module.written = false;
-      module.accepted = false;
-      module.pastedCode = null;
-      module.showChangesOnly = module.lineCount > 200;
-      module.wrapDiff = true;
-    });
-    state.bookSnapshot = createBookSnapshot(state.book, state.modules);
-    state.outputDateStamp = formatDateStamp(new Date());
-    resetOutputName();
-    refreshRepairInputSnapshot();
-    notify();
-  }
-
-  // The default change scope is the first usable file in the folder, and
-  // it is applied the moment the catalog arrives so the screen that
-  // chooses the work already has an answer to show. It is a default the
-  // reader can see and change, not a value the code assumed: with no
-  // usable scope file there is no default and the screen says so.
-  function applyDefaultChangeScope() {
-    var catalog = state.appInfo && state.appInfo.catalog
-      ? state.appInfo.catalog
-      : null;
-    var scopes = catalog && Array.isArray(catalog.scope)
-      ? catalog.scope
-      : [];
-    var chosen = null;
-
-    if (state.changeScope) {
-      return;
-    }
-    scopes.some(function (entry) {
-      if (entry.valid) {
-        chosen = entry;
-        return true;
-      }
-      return false;
-    });
-    state.changeScope = chosen;
-  }
-
-  function setAppInfo(appInfo) {
-    state.appInfo = appInfo;
-    applyDefaultChangeScope();
-    notify();
-  }
-
-  // How far the code may change. This does not touch the diagnosis: the
-  // diagnosis answered "does it run", which is the same answer whether or
-  // not the reader will allow the shape of the project to change. What it
-  // does touch is the request that has not been written yet, and any
-  // request that already was.
-  function setChangeScope(scope) {
-    var next = scope || null;
-    var file = next ? String(next.file || "") : "";
-    var current = state.changeScope
-      ? String(state.changeScope.file || "")
-      : "";
-
-    if (!next || !next.valid || file === current) {
-      return false;
-    }
-    state.changeScope = next;
-    invalidateRepairRequest();
-    refreshRepairInputSnapshot();
-    notify();
-    return true;
-  }
-
-  function setTargetEnvironment(profile, canonicalSnapshot) {
-    var snapshot = String(canonicalSnapshot || "");
-    var changed = Boolean(state.targetEnvironmentSnapshot) &&
-      state.targetEnvironmentSnapshot !== snapshot;
-
-    state.targetEnvironment = profile || null;
-    state.targetEnvironmentSnapshot = snapshot;
-    if (changed && state.diagnosisRequestId) {
-      invalidateDiagnosisRequest();
-    }
-    notify();
-    return changed;
-  }
-
-  function setDiagnosisConcern(value) {
-    var next = String(value === undefined || value === null ? "" : value);
-    if (next === state.diagnosisConcern) {
-      return false;
-    }
-    state.diagnosisConcern = next;
-    notify();
-    return true;
-  }
-
-  function setDiagnosisSplit(enabled) {
-    var next = enabled === true;
-    if (next === state.diagnosisSplit) {
-      return false;
-    }
-    state.diagnosisSplit = next;
-    if (state.diagnosisRequestId || state.diagnosis) {
-      invalidateDiagnosisRequest();
-    }
-    notify();
-    return true;
-  }
-
-  function isDiagnosisRequestDirty() {
-    var snapshot = state.diagnosisRequestSnapshot;
-    return Boolean(snapshot) &&
-      (snapshot.bookSnapshot !== state.bookSnapshot ||
-       snapshot.environmentSnapshot !== state.targetEnvironmentSnapshot ||
-       snapshot.concern !== state.diagnosisConcern ||
-       snapshot.split !== state.diagnosisSplit);
-  }
-
-  // Called only after the host has atomically written the request files.
-  function commitDiagnosisRequest(value) {
-    var next = value || {};
-    var requestId = String(next.requestId || "");
-
-    if (!requestId) {
-      return false;
-    }
-    if (state.diagnosisRequestId !== requestId) {
-      invalidateDiagnosisResult();
-    }
-    state.diagnosisRequestId = requestId;
-    state.diagnosisRequestSnapshot = {
-      requestId: requestId,
-      bookSnapshot: state.bookSnapshot,
-      environmentSnapshot: state.targetEnvironmentSnapshot,
-      concern: state.diagnosisConcern,
-      split: state.diagnosisSplit
-    };
-    state.diagnosisRequestText = String(next.requestText || "");
-    state.diagnosisRequestFilePath = next.requestPath || null;
-    state.diagnosisPrompt = next.prompt || null;
-    // A refusal belongs to the reply it refused. Writing a fresh request
-    // is the reader acting on it, so it stops being the current news.
-    state.intakeError.diagnose = null;
-    state.runFolder = next.runFolder || state.runFolder;
-    state.handoffFolder = next.handoffFolder || state.handoffFolder;
-    state.outputTimestamp = next.outputTimestamp || state.outputTimestamp;
-    state.diagnosisPromptCopied = false;
-    state.diagnosisFolderOpened = false;
-    state.lastError = null;
-    notify();
-    return true;
-  }
-
-  function setDiagnosisHandoffProgress(promptCopied, folderOpened) {
-    if (promptCopied !== undefined && promptCopied !== null) {
-      state.diagnosisPromptCopied = promptCopied === true;
-    }
-    if (folderOpened !== undefined && folderOpened !== null) {
-      state.diagnosisFolderOpened = folderOpened === true;
-    }
-    notify();
-  }
-
-  function setDiagnosisParts(parts) {
-    if (parts && !isDiagnosisProduct(parts)) {
-      return false;
-    }
-    state.diagnosisParts = parts || null;
-    notify();
-    return true;
-  }
-
-  // Called only after diagnosis.md has been atomically written.
-  function commitDiagnosis(diagnosis, filePath) {
-    if (!isDiagnosisProduct(diagnosis) || !state.diagnosisRequestId ||
-        diagnosis.requestId !== state.diagnosisRequestId ||
-        isDiagnosisRequestDirty()) {
-      return false;
-    }
-    state.diagnosisVersion += 1;
-    state.diagnosis = diagnosis;
-    state.diagnosisAttribution = {
-      requestId: state.diagnosisRequestId,
-      bookSnapshot: state.bookSnapshot,
-      environmentSnapshot: state.targetEnvironmentSnapshot,
-      version: state.diagnosisVersion
-    };
-    state.diagnosisFilePath = filePath || null;
-    state.diagnosisParts = null;
-    clearRepairInput();
-    notify();
-    return true;
-  }
-
-  // A reply that could not be taken in. Counted per stage so the second
-  // failure can say something different from the first.
-  function noteIntakeFailure(stage) {
-    var key = stage === "repair" ? "repair" : "diagnose";
-
-    state.intakeFailures[key] = Number(state.intakeFailures[key] || 0) + 1;
-    notify();
-    return state.intakeFailures[key];
-  }
-
-  function clearIntakeFailures(stage) {
-    var key = stage === "repair" ? "repair" : "diagnose";
-
-    if (!state.intakeFailures[key] && !state.intakeError[key]) {
-      return false;
-    }
-    state.intakeFailures[key] = 0;
-    state.intakeError[key] = null;
-    notify();
-    return true;
-  }
-
-  // What the contract found wrong, in the words the screen shows. Never
-  // the reply itself (SPEC 8.4): a check number, a reason code and the
-  // two sentences that go with them.
-  //
-  // `evidence` is the same refusal said three ways - what was asked for,
-  // what this reply carried instead, and the one edit that settles it.
-  // The screen prints it, and the retry text put on the clipboard is
-  // written from it, so the reader and the chat are told the same thing.
-  // It names keys, tag names and counts; it never carries reply text.
-  function setIntakeError(stage, error) {
-    var key = stage === "repair" ? "repair" : "diagnose";
-    var evidence = error && error.evidence ? error.evidence : null;
-
-    state.intakeError[key] = error
-      ? {
-        code: String(error.code || ""),
-        validationId: String(error.validationId || ""),
-        reason: String(error.reason || ""),
-        message: String(error.message || ""),
-        detail: String(error.detail || ""),
-        evidence: evidence
-          ? {
-            expected: String(evidence.expected || ""),
-            actual: String(evidence.actual || ""),
-            fix: String(evidence.fix || "")
-          }
-          : null,
-        count: Number(error.count || 1)
-      }
-      : null;
-    notify();
-    return state.intakeError[key];
-  }
-
-  // More than one template can be chosen. Their instructions go into one
-  // request, in the order the templates are offered, so the chat is asked
-  // once for the whole job rather than once per template.
-  //
-  // A template that asks for the replacement table sends nothing to a
-  // chat, so it can be chosen alongside ones that do: the chat answers
-  // first, the reply is taken in, and the replacements are made on the
-  // code that comes back.
-  function usesTable(entry) {
-    return Boolean(entry && entry.parsed &&
-      Array.isArray(entry.parsed.replaceRules));
-  }
-
-  function sendsRequest(entry) {
-    return Boolean(entry && entry.parsed && entry.parsed.instruction);
-  }
-
-  function applyPresetSelection(entries) {
-    var chosen = entries.slice();
-    var first = chosen[0] || null;
-    // The chat stage needs a template that actually has something to send.
-    // Taking simply the first chosen one meant that picking 固定パス (02)
-    // together with リファクター (03) handed the table template to the chat
-    // stage: parsing it as a repair template failed, prepareRepairRequest
-    // returned in silence, and screen 4 dead-ended with [次へ] enabled and
-    // nothing happening. Picking 01 Win32 instead hid the bug, because that
-    // one sorts first and does send a request.
-    var speaker = null;
-    var parsed;
-    var rules = [];
-
-    chosen.forEach(function (entry) {
-      if (!speaker && sendsRequest(entry)) {
-        speaker = entry;
-      }
-    });
-    if (!speaker) {
-      speaker = first;
-    }
-    parsed = speaker ? (speaker.parsed || {}) : {};
-
-    state.presets = chosen;
-    state.presetFiles = chosen.map(function (entry) {
-      return entry.file;
-    });
-    state.presetFile = speaker ? speaker.file : null;
-    state.presetName = chosen.map(function (entry) {
-      return entry.name;
-    }).join("・");
-    state.presetContent = speaker ? speaker.content : "";
-    chosen.forEach(function (entry) {
-      if (usesTable(entry)) {
-        rules = rules.concat(entry.parsed.replaceRules);
-      }
-    });
-    state.presetReplaceRules = rules.length > 0 ? rules : null;
-    // A run is a chat run if anything chosen has something to send. The
-    // table is a stage inside such a run, not a different kind of run;
-    // only when nothing is being sent is the table the whole of it.
-    state.presetEngine = chosen.some(sendsRequest)
-      ? "AI"
-      : (state.presetReplaceRules ? "対応表による置換" : "AI");
-    state.presetSnapshot = JSON.stringify(chosen.map(function (entry) {
-      return {file: entry.file, content: entry.content};
-    }));
-    // The reply contract is one contract, so the first template's rules
-    // govern. The reader-facing lists gather from every template chosen.
-    state.questions = [];
-    state.behaviorCandidates = [];
-    state.preserveItems = [];
-    chosen.forEach(function (entry) {
-      var each = entry.parsed || {};
-
-      state.questions = state.questions.concat(
-        Array.isArray(each.questions) ? each.questions : []);
-      state.behaviorCandidates = state.behaviorCandidates.concat(
-        Array.isArray(each.behaviorCandidates) ? each.behaviorCandidates : []);
-      state.preserveItems = state.preserveItems.concat(
-        Array.isArray(each.preserveItems) ? each.preserveItems : []);
-    });
-    state.outputRules = parsed.output ? parsed.output.body : null;
-    state.splitOutputRules = parsed.splitOutput
-      ? parsed.splitOutput.body
-      : null;
-    if (!state.splitOutputRules) {
-      state.splitOutput = false;
-    }
-  }
-
-  function setRepairPreset(value) {
-    var next = value || {};
-    var parsed = next.parsed || {};
-    var file = String(next.file || "");
-    var content = String(next.content || "");
-    var entry;
-    var kept;
-    var already;
-
-    if (!file || !content) {
-      return false;
-    }
-    entry = {
-      file: file,
-      name: String(next.name || parsed.name || ""),
-      content: content,
-      parsed: parsed
-    };
-    already = state.presetFiles.indexOf(file) >= 0;
-    if (already) {
-      kept = state.presets.filter(function (item) {
-        return item.file !== file;
-      });
-    } else {
-      kept = orderPresets(state.presets.concat([entry]));
-    }
-    invalidateRepairRequest();
-    state.answers = {};
-    state.selectedFindings = requiredFindingIds();
-    state.desiredBehaviour = {};
-    state.extraRequest = "";
-    state.pathMap = null;
-    state.pathMapBasis = null;
-    applyPresetSelection(kept);
-    refreshRepairInputSnapshot();
-    notify();
-    return true;
-  }
-
-  // The order the templates are offered in, so a request reads the same
-  // way whichever order the reader ticked them.
-  function orderPresets(entries) {
-    // The order is the order the folder offers them in, which is also the
-    // order the categories are drawn in.
-    var catalog = state.appInfo && state.appInfo.catalog
-      ? state.appInfo.catalog
-      : null;
-    var offered = catalog && Array.isArray(catalog.repair)
-      ? catalog.repair.map(function (item) {
-        return item.file;
-      })
-      : [];
-
-    return entries.slice().sort(function (left, right) {
-      return offered.indexOf(left.file) - offered.indexOf(right.file);
-    });
-  }
-
-  // Typing on screen 4 changes what the next request would say. It does
-  // not, by itself, throw away a request that has already been written or
-  // an answer that has already come back: SPEC 2.6.1 confirms the discard
-  // only once the new request has actually been written. Until then the
-  // snapshot comparison is what marks the old work as no longer current,
-  // so nothing stale can be carried forward.
-  function changeRepairInput(mutator) {
-    mutator();
-    refreshRepairInputSnapshot();
-    notify();
-    return true;
-  }
-
-  function setAnswer(index, value) {
-    var key = String(index);
-    var next = String(value === undefined || value === null ? "" : value);
-    if (!state.questions[index] || state.answers[key] === next) {
-      return false;
-    }
-    return changeRepairInput(function () {
-      state.answers[key] = next;
-    });
-  }
-
-  function setFindingSelected(findingId, selected) {
-    var id = normalizeFindingId(findingId);
-    var values = sortedFindingIds(state.selectedFindings);
-    var index = values.indexOf(id);
-    var shouldSelect = selected === true;
-
-    if ((index >= 0) === shouldSelect) {
-      return false;
-    }
-    return changeRepairInput(function () {
-      if (shouldSelect) {
-        values.push(id);
-      } else {
-        values.splice(index, 1);
-      }
-      state.selectedFindings = sortedFindingIds(values);
-      if (!state.desiredBehaviour[id]) {
-        state.desiredBehaviour[id] = {behaviour: "", supplement: ""};
-      }
-    });
-  }
-
-  function updateDesiredBehaviour(findingId, field, value) {
-    var id = normalizeFindingId(findingId);
-    var next = String(value === undefined || value === null ? "" : value);
-    var current = state.desiredBehaviour[id] || {
-      behaviour: "",
-      supplement: ""
-    };
-
-    if (String(current[field] || "") === next) {
-      return false;
-    }
-    return changeRepairInput(function () {
-      state.desiredBehaviour[id] = {
-        behaviour: field === "behaviour" ? next : current.behaviour || "",
-        supplement: field === "supplement" ? next : current.supplement || ""
-      };
-    });
-  }
-
-  function setDesiredBehaviour(findingId, value) {
-    return updateDesiredBehaviour(findingId, "behaviour", value);
-  }
-
-  function setFindingSupplement(findingId, value) {
-    return updateDesiredBehaviour(findingId, "supplement", value);
-  }
-
-  function setExtraRequest(value) {
-    var next = String(value === undefined || value === null ? "" : value);
-    if (next === state.extraRequest) {
-      return false;
-    }
-    return changeRepairInput(function () {
-      state.extraRequest = next;
-    });
-  }
-
-  // `basis` is the module text detection just read. Only the detect call
-  // sites pass it; editing a row keeps the basis the rows were found in.
-  function setPathMap(rows, basis) {
-    var next = rows;
-
-    if (!isPathMapProduct(next) || next.kind !== "mapping") {
-      return false;
-    }
-    if (Array.isArray(basis)) {
-      state.pathMapBasis = basis.map(function (module) {
-        return {
-          name: String(module && module.name || ""),
-          code: String(module && module.code || "")
-        };
-      });
-    }
-    if (next === state.pathMap ||
-        JSON.stringify(next) === JSON.stringify(state.pathMap)) {
-      return false;
-    }
-    state.pathMap = next;
-    state.buildTimestamp = null;
-    state.buildResult = null;
-    state.buildSlow = false;
-    resetOutputName();
-    refreshRepairInputSnapshot();
-    notify();
-    return true;
-  }
-
-  // Called only after repair-request.md has been atomically written.
-  function commitRepairRequest(value) {
-    var next = value || {};
-    var requestId = String(next.requestId || "");
-    // Every run diagnoses, so a repair request that has no accepted
-    // diagnosis behind it is a request nobody asked for.
-    if (!requestId || !state.presetFile || !state.diagnosis) {
-      return false;
-    }
-    // The request was written from the code the table produced, so
-    // writing it does not throw that replacement away.
-    invalidateRepairPackage(true);
-    state.repairRequestId = requestId;
-    state.repairRequestSnapshot = state.repairInputSnapshot;
-    state.repairRequestText = String(next.requestText || "");
-    state.repairRequestFilePath = next.requestPath || null;
-    // A run that does not diagnose writes this request first, so the
-    // folder and the stamp arrive here rather than from the diagnosis.
-    state.runFolder = next.runFolder || state.runFolder;
-    state.outputTimestamp = next.outputTimestamp || state.outputTimestamp;
-    state.handoffFolder = next.handoffFolder || state.handoffFolder;
-    state.repairPrompt = next.prompt || null;
-    state.repairPromptCopied = false;
-    state.repairFolderOpened = false;
-    state.lastError = null;
-    state.intakeError.repair = null;
-    notify();
-    return true;
-  }
-
-  function setRepairHandoffProgress(promptCopied, folderOpened) {
-    if (promptCopied !== undefined && promptCopied !== null) {
-      state.repairPromptCopied = promptCopied === true;
-    }
-    if (folderOpened !== undefined && folderOpened !== null) {
-      state.repairFolderOpened = folderOpened === true;
-    }
-    notify();
-  }
-
-  function setSplitOutputRules(outputRules) {
-    state.splitOutputRules = outputRules || null;
-    if (!state.splitOutputRules) {
-      state.splitOutput = false;
-    }
-    notify();
-  }
-
-  function setSplitOutput(enabled) {
-    var next = enabled === true && Boolean(state.splitOutputRules);
-    if (next === state.splitOutput) {
-      return false;
-    }
-    state.splitOutput = next;
-    invalidateRepairRequest();
-    refreshRepairInputSnapshot();
-    notify();
-    return true;
-  }
-
-  function setRepairIntakeParts(parts) {
-    state.repairIntakeParts = parts || null;
-    notify();
-  }
-
-  function hasImportedModules() {
-    return state.modules.some(function (module) {
-      return module.status === "changed" || module.status === "unchanged";
-    });
-  }
-
-  function getBookModules() {
-    return state.modules.filter(function (module) {
-      return module.isNew !== true;
-    });
-  }
-
-  // The code as it stands right now: what came back from the chat where
-  // there is a reply, and the workbook's own text where there is not.
-  // Replacing has to read and rewrite this, or it would work from the
-  // text the chat has already changed.
-  function getCurrentModules() {
-    return state.modules.map(function (module) {
-      return {
-        name: module.name,
-        code: typeof module.pastedCode === "string"
-          ? module.pastedCode
-          : String(module.code || "")
-      };
-    });
-  }
-
-  // SPEC 7.7.1: replacing always recomputes from the same text the
-  // candidates were found in, never from a previous replacement. Without
-  // this, pressing the button a second time reads code the first press
-  // already rewrote and E-MAP-02 is certain.
-  function getPathMapBaseModules() {
-    if (Array.isArray(state.pathMapBasis)) {
-      return state.pathMapBasis.map(function (module) {
-        return {name: module.name, code: module.code};
-      });
-    }
-    return getBookModules().map(function (module) {
-      return {name: module.name, code: String(module.code || "")};
-    });
-  }
-
-  // ---- the run's own record ----
-  //
-  // One set of confirmed values, written beside the artifacts it
-  // describes. The screen reads them from state, result.md is built from
-  // the same state, and a session that starts again reads them back from
-  // here - so no second copy can disagree with the first.
-
-  var MANIFEST_VERSION = 1;
-
-  function createRunManifest() {
-    if (!state.runFolder || !state.book) {
-      return null;
-    }
-    return {
-      schemaVersion: MANIFEST_VERSION,
-      screen: state.screen,
-      book: {
-        name: state.book.name,
-        path: state.book.path,
-        ext: state.book.ext,
-        totalLines: state.book.totalLines
-      },
-      bookSnapshot: state.bookSnapshot,
-      environmentSnapshot: state.targetEnvironmentSnapshot,
-      runFolder: state.runFolder,
-      handoffFolder: state.handoffFolder,
-      outputTimestamp: state.outputTimestamp,
-      outputDateStamp: state.outputDateStamp,
-      outputName: state.outputName,
-      diagnosis: {
-        requestId: state.diagnosisRequestId,
-        requestSnapshot: state.diagnosisRequestSnapshot,
-        requestPath: state.diagnosisRequestFilePath,
-        concern: state.diagnosisConcern,
-        split: state.diagnosisSplit === true,
-        version: state.diagnosisVersion,
-        filePath: state.diagnosisFilePath,
-        attribution: state.diagnosisAttribution,
-        accepted: state.diagnosis
-      },
-      repair: {
-        presets: (state.presets || []).map(function (entry) {
-          return {
-            file: entry.file,
-            name: entry.name,
-            content: entry.content
-          };
-        }),
-        answers: state.answers,
-        selectedFindings: state.selectedFindings,
-        extraRequest: state.extraRequest,
-        splitOutput: state.splitOutput === true,
-        requestId: state.repairRequestId,
-        requestSnapshot: state.repairRequestSnapshot,
-        requestPath: state.repairRequestFilePath
-      }
-    };
-  }
-
   function selectModule(moduleName) {
-    if (!findModule(moduleName)) {
+    var found = state.modules.some(function (module) {
+      return module.name === moduleName;
+    });
+
+    if (!found) {
       return false;
     }
+
     state.selectedModuleName = moduleName;
     state.pasteEditing = false;
     notify();
     return true;
   }
 
+  function findModule(moduleName) {
+    var found = null;
+
+    state.modules.some(function (module) {
+      if (module.name === moduleName) {
+        found = module;
+        return true;
+      }
+      return false;
+    });
+    return found;
+  }
+
   function acceptModuleCode(moduleName, code, changedLineCount) {
     var module = findModule(moduleName);
+
     if (!module) {
       return null;
     }
+
     module.pastedCode = code;
     module.changedLineCount = changedLineCount || 0;
     module.status = code === module.code ? "unchanged" : "changed";
@@ -1226,12 +434,14 @@
 
   function beginPasteEdit() {
     var module = findModule(state.selectedModuleName);
-    if (!global.MacroStudioScreens ||
-        state.screen !== global.MacroStudioScreens.reviewScreen ||
-        !module || (module.status !== "changed" &&
-                    module.status !== "unchanged")) {
+
+    if (state.screen !== global.MacroStudioScreens.reviewScreen ||
+        !module ||
+        (module.status !== "changed" &&
+         module.status !== "unchanged")) {
       return false;
     }
+
     state.pasteEditing = true;
     notify();
     return true;
@@ -1241,6 +451,7 @@
     if (!state.pasteEditing) {
       return false;
     }
+
     state.pasteEditing = false;
     notify();
     return true;
@@ -1248,10 +459,13 @@
 
   function setModuleShowChangesOnly(moduleName, showChangesOnly) {
     var module = findModule(moduleName);
-    if (!module || (module.status !== "changed" &&
-                    module.status !== "unchanged")) {
+
+    if (!module ||
+        (module.status !== "changed" &&
+         module.status !== "unchanged")) {
       return false;
     }
+
     module.showChangesOnly = showChangesOnly === true;
     notify();
     return true;
@@ -1259,42 +473,242 @@
 
   function setModuleWrapDiff(moduleName, wrapDiff) {
     var module = findModule(moduleName);
-    if (!module || (module.status !== "changed" &&
-                    module.status !== "unchanged")) {
+
+    if (!module ||
+        (module.status !== "changed" &&
+         module.status !== "unchanged")) {
       return false;
     }
+
     module.wrapDiff = wrapDiff !== false;
     notify();
     return true;
   }
 
-  function countChangedLines(original, changed) {
-    var count = 0;
-
-    if (!global.MacroStudioDiff) {
-      return original === changed ? 0 : 1;
-    }
-    global.MacroStudioDiff.compare(original || "", changed || "")
-      .forEach(function (row) {
-        if (row.type === "added" || row.type === "removed" ||
-            row.type === "changed") {
-          count += 1;
-        }
-      });
-    return count;
+  function setRequestState(requestText, requestFilePath) {
+    state.requestText = requestText || "";
+    state.requestFilePath = requestFilePath || null;
+    notify();
   }
 
-  function importPackageItems(items, engine) {
-    var applied = [];
-    // The chat was handed the replaced code, so that - not the workbook
-    // - is what its reply sits on top of. A second pass of the table
-    // itself is a redo and starts from the workbook again.
-    var keepReplacement = engine !== "対応表による置換";
+  function setRequestText(requestText) {
+    var next = requestText || "";
+    var oldId = state.requestId;
+    if (next === state.requestText) {
+      return false;
+    }
+    invalidateRequestRevision();
+    state.requestText = oldId && oldId !== state.requestId
+      ? next.split(oldId).join(state.requestId)
+      : next;
+    notify();
+    return true;
+  }
 
-    clearImportedModulesInternal(keepReplacement);
-    restoreReplacedModules();
+  // The text the preset supplied, before the answers are folded in.
+  function setRequestBase(requestBase) {
+    state.requestBase = requestBase || "";
+    notify();
+  }
+
+  // The applied preset supplies the output rules. Applying another
+  // preset replaces them; the request text keeps appending.
+  function setOutputRules(outputRules) {
+    state.outputRules = outputRules || null;
+    notify();
+  }
+
+  // The same preset file may also carry rules for answering one module
+  // per reply. Only a preset that carries them can offer the option.
+  function setSplitOutputRules(outputRules) {
+    state.splitOutputRules = outputRules || null;
+    if (!state.splitOutputRules) {
+      state.splitOutput = false;
+    }
+    notify();
+  }
+
+  // The optional way of answering: one module per reply, for macros
+  // whose code is too long to come back in a single answer.
+  function setSplitOutput(enabled) {
+    var next = enabled === true && Boolean(state.splitOutputRules);
+
+    if (next === state.splitOutput) {
+      return false;
+    }
+    state.splitOutput = next;
+    invalidateRequestRevision();
+    notify();
+    return true;
+  }
+
+  // What has arrived so far when the answer comes one module at a time.
+  function setIntakeParts(parts) {
+    state.intakeParts = parts || null;
+    notify();
+  }
+
+  function setRequestFilePath(requestFilePath) {
+    state.requestFilePath = requestFilePath || null;
+    notify();
+  }
+
+  function setRequestPrompt(requestPrompt) {
+    state.requestPrompt = requestPrompt || null;
+    notify();
+  }
+
+  // Refactor or diagnose. Changing the answer drops the preset that
+  // belonged to the previous one, and with it the request id an
+  // imported package would have answered.
+  // Starting the short way is choosing a refactoring run and moving on
+  // to the workbook in one press: there is no separate work to pick.
+  function startSimple() {
+    var api = screenApi();
+
+    state.simple = true;
+    state.mode = "refactor";
+    state.presetFile = null;
+    state.presetName = "";
+    state.questions = [];
+    state.answers = {};
+    state.questionIndex = 0;
+    state.requestBase = "";
+    state.requestId = null;
+    state.requestText = "";
+    state.outputRules = null;
+    state.splitOutputRules = null;
+    state.splitOutput = false;
+    state.lastError = null;
+    clearImportedModules();
+    clearPreparedArtifacts();
+    state.history = [];
+    state.screen = api ? api.bookScreen : 1;
+    notify();
+    return true;
+  }
+
+  function setMode(mode) {
+    var next = mode === "diagnose" ? "diagnose" : "refactor";
+
+    if (state.mode === next && state.simple === false) {
+      return false;
+    }
+    state.simple = false;
+    state.mode = next;
+    state.presetFile = null;
+    state.presetName = "";
+    state.questions = [];
+    state.answers = {};
+    state.questionIndex = 0;
+    state.requestBase = "";
+    state.requestId = null;
+    state.requestText = "";
+    state.outputRules = null;
+    state.splitOutputRules = null;
+    state.splitOutput = false;
+    clearImportedModules();
+    clearPreparedArtifacts();
+    notify();
+    return true;
+  }
+
+  // One purpose, one preset file, one request id. The questions the
+  // preset asks come with it, and switching preset drops old answers.
+  // A new request id also drops whatever the previous request had
+  // already taken in: that answer belongs to a request that is gone.
+  function setPurpose(file, name, requestId, questions) {
+    var nextId = requestId || null;
+
+    if (nextId !== state.requestId) {
+      clearImportedModules();
+      clearPreparedArtifacts();
+      state.splitOutput = false;
+    }
+    state.presetFile = file || null;
+    state.presetName = name || "";
+    state.requestId = nextId;
+    state.questions = Array.isArray(questions) ? questions : [];
+    state.answers = {};
+    state.questionIndex = 0;
+    state.intakeResult = null;
+    state.noChangeResult = null;
+    notify();
+  }
+
+  // One question fills the screen at a time, so the form needs to know
+  // which one that is.
+  function setQuestionIndex(index) {
+    var next = Math.max(
+      0,
+      Math.min(state.questions.length - 1, Number(index) || 0));
+
+    if (state.questions.length === 0 || next === state.questionIndex) {
+      return false;
+    }
+    state.questionIndex = next;
+    notify();
+    return true;
+  }
+
+  function setAnswer(index, value) {
+    var key = String(index);
+
+    if (!state.questions[index]) {
+      return false;
+    }
+    state.answers[key] = String(value === undefined ? "" : value);
+    notify();
+    return true;
+  }
+
+  function setRunFolder(runFolder) {
+    state.runFolder = runFolder || null;
+    notify();
+  }
+
+  function setHandoffProgress(promptCopied, codeFolderOpened) {
+    if (promptCopied !== undefined && promptCopied !== null) {
+      state.promptCopied = promptCopied === true;
+    }
+    if (codeFolderOpened !== undefined && codeFolderOpened !== null) {
+      state.codeFolderOpened = codeFolderOpened === true;
+    }
+    notify();
+  }
+
+  function setOutputName(outputName) {
+    state.outputName = outputName === undefined || outputName === null
+      ? ""
+      : String(outputName);
+    notify();
+  }
+
+  // The accept decision on the review screen is what puts a module in
+  // the build. Pasting alone never does.
+  function acceptModuleChange(moduleName) {
+    var module = findModule(moduleName);
+
+    if (!module || module.status !== "changed") {
+      return false;
+    }
+    module.accepted = true;
+    notify();
+    return true;
+  }
+
+  // One package at a time. Whatever a previous answer put in is taken
+  // back out first, so a replacement package leaves nothing of the old
+  // one behind: what the build writes is exactly what came in last.
+  // Callers apply this only after the whole new package has passed its
+  // checks, so a refused answer never disturbs what is already there.
+  function importPackage(items) {
+    var applied = [];
+
+    clearImportedModules();
     (items || []).forEach(function (item) {
       var module = findModule(item.name);
+
       if (!module) {
         module = {
           name: item.name,
@@ -1313,6 +727,8 @@
       module.changedLineCount = module.status === "changed"
         ? item.changedLineCount || 0
         : 0;
+      // Taking the answer in IS the decision: there is no separate
+      // accept step on the review screen.
       module.accepted = module.status === "changed";
       module.written = false;
       module.showChangesOnly = Math.max(
@@ -1324,151 +740,44 @@
       }
       applied.push(module);
     });
-    state.selectedModuleName = applied.length ? applied[0].name : null;
-    state.repairIntakeRequestId = state.repairRequestId;
-    state.repairResultSnapshot = state.repairRequestSnapshot;
-    state.repairResultEngine = engine;
+    state.selectedModuleName = applied.length > 0
+      ? applied[0].name
+      : state.selectedModuleName;
     state.pasteEditing = false;
+    state.intakeRequestId = state.requestId;
+    notify();
     return applied.length;
   }
 
-  function importPackage(result) {
-    var items;
-    var count;
-
-    if (!isResponseProduct(result) || result.ok !== true ||
-        result.requestId !== state.repairRequestId ||
-        result.noChange || !Array.isArray(result.modules)) {
-      return 0;
-    }
-    items = result.modules.map(function (item) {
-      var existing = findModule(item.name);
-      return {
-        name: item.name,
-        code: item.code,
-        lineCount: String(item.code || "")
-          .replace(/\r\n/g, "\n").split("\n").length,
-        changedLineCount: countChangedLines(
-          existing ? existing.code : "",
-          item.code)
-      };
-    });
-    count = importPackageItems(items, "AI");
-    state.intakeResult = result;
-    notify();
-    return count;
-  }
-
-  function setDeterministicResult(result) {
-    var snapshot = {};
-    var items;
-    var count;
-
-    if (!isPathMapProduct(result) || result.ok !== true ||
-        result.kind !== "apply" || !Array.isArray(result.modules)) {
-      return 0;
-    }
-    items = result.modules.map(function (item) {
-      var existing = findModule(item.name);
-      var code = String(item.code || "");
-
-      snapshot[item.name] = code;
-      return {
-        name: item.name,
-        code: code,
-        lineCount: getLineCount(code),
-        changedLineCount: countChangedLines(
-          existing ? existing.code : "",
-          code)
-      };
-    });
-    count = importPackageItems(items, "対応表による置換");
-    state.repairIntakeRequestId = null;
-    state.repairResultSnapshot = state.repairInputSnapshot;
-    state.repairResultEngine = "対応表による置換";
-    state.deterministicCodeSnapshot = snapshot;
-    state.appliedMapping = result;
-    state.intakeResult = result;
-    notify();
-    return count;
-  }
-
-  function hasDeterministicManualEdits() {
-    var snapshot = state.deterministicCodeSnapshot;
-    var names;
-
-    if (state.repairResultEngine !== "対応表による置換" || !snapshot) {
-      return false;
-    }
-    names = Object.keys(snapshot);
-    return names.some(function (name) {
-      var module = findModule(name);
-      return !module || String(module.pastedCode || "") !== snapshot[name];
-    });
-  }
-
   function setIntakeResult(result) {
-    if (result && (!isResponseProduct(result) ||
-        result.requestId !== state.repairRequestId)) {
-      return false;
-    }
     state.intakeResult = result || null;
     notify();
-    return true;
   }
 
-  // A repair answer refuses in one of three ways, and none of them is a
-  // question. Anything else is not a refusal this run can record.
-  function isRefusalVerdict(verdict) {
-    return verdict === "UNNECESSARY" || verdict === "IMPOSSIBLE" ||
-      verdict === "UNCLEAR";
-  }
-
-  function setNoChangeResult(result) {
-    if (!isResponseProduct(result) || result.ok !== true ||
-        result.requestId !== state.repairRequestId ||
-        !isRefusalVerdict(result.noChange)) {
-      return false;
-    }
-    // "改修できません" is an answer about the chat's part of the work.
-    // What the tool replaced itself still stands.
-    clearImportedModulesInternal(true);
-    restoreReplacedModules();
-    state.noChangeResult = {
-      verdict: result.noChange,
-      summary: String(result.summary || ""),
-      requestId: state.repairRequestId
-    };
+  // An answer that concluded nothing should change. It replaces any
+  // package taken in before it, because both cannot be the answer to
+  // the same request, and it carries the request it answered so a
+  // later one cannot inherit it.
+  function setNoChangeResult(verdict, summary) {
+    clearImportedModules();
+    state.noChangeResult = verdict
+      ? {
+        verdict: String(verdict),
+        summary: String(summary === undefined ? "" : summary),
+        requestId: state.requestId
+      }
+      : null;
     notify();
-    return true;
+    return state.noChangeResult !== null;
   }
 
+  // Taking the whole answer back out again, so a wrong package leaves
+  // nothing behind.
   function discardImportedModules() {
-    // Starting the intake over goes back to the code the chat was
-    // given, not to the workbook.
-    var discarded = clearImportedModulesInternal(true);
-    restoreReplacedModules();
+    var discarded = clearImportedModules();
+
     notify();
     return discarded;
-  }
-
-  function getChangedModuleCount() {
-    return state.modules.filter(function (module) {
-      return module.status === "changed";
-    }).length;
-  }
-
-  function getAcceptedModuleCount() {
-    return state.modules.filter(function (module) {
-      return module.status === "changed" && module.accepted === true;
-    }).length;
-  }
-
-  function setOutputName(value) {
-    state.outputName = value === undefined || value === null
-      ? ""
-      : String(value);
-    notify();
   }
 
   function setBuildResult(result) {
@@ -1484,8 +793,11 @@
     notify();
   }
 
+  // A build that runs long is still running. Saying so is not a result:
+  // only the host's answer ends the build, however long it takes.
   function setBuildSlow(slow) {
     var next = slow === true;
+
     if (next === state.buildSlow) {
       return false;
     }
@@ -1496,9 +808,12 @@
 
   function markModulesWritten(results) {
     (results || []).forEach(function (result) {
-      var module = result && result.result === "written"
-        ? findModule(result.name)
-        : null;
+      var module;
+
+      if (!result || result.result !== "written") {
+        return;
+      }
+      module = findModule(result.name);
       if (module) {
         module.written = true;
       }
@@ -1531,42 +846,145 @@
     notify();
   }
 
+  // ?demo opens the review screen with one package already taken in.
   function loadDemoState() {
     state = createInitialState();
+    state.screen = global.MacroStudioScreens.reviewScreen;
     state.appInfo = {
-      version: "2.00",
-      presets: {diagnose: [], repair: [], scope: []}
+      version: "1.0",
+      presets: [
+        {
+          file: "sample.md",
+          content: [
+            "# デモ用プリセット",
+            "",
+            "## 改修指示",
+            "",
+            "デモ用のひな形です。",
+            "",
+            "## 出力指示",
+            "",
+            "デモ用の出力指示です。",
+            ""
+          ].join("\n")
+        }
+      ]
     };
     state.book = {
       name: "受注管理.xlsm",
       path: "samples\\受注管理.xlsm",
       ext: ".xlsm",
-      totalLines: 84
+      totalLines: 306
     };
-    state.modules = [{
-      name: "Main",
-      type: "standard",
-      typeLabel: "標準モジュール",
-      ext: "bas",
-      lineCount: 4,
-      code: "Option Explicit\r\nPublic Sub Main()\r\nEnd Sub\r\n",
-      attributes: "",
-      pastedCode: "Option Explicit\r\nPublic Sub Main()\r\n    Debug.Print \"done\"\r\nEnd Sub\r\n",
-      status: "changed",
-      changedLineCount: 1,
-      accepted: true,
-      showChangesOnly: false,
-      wrapDiff: true,
-      written: false
-    }];
-    state.bookSnapshot = createBookSnapshot(state.book, state.modules);
-    state.outputDateStamp = "20260801";
-    resetOutputName();
-    state.repairInputSnapshot = createRepairInputSnapshot();
-    state.repairResultSnapshot = state.repairInputSnapshot;
-    state.repairResultEngine = "対応表による置換";
+    state.outputDateStamp = "20260729";
+    state.outputName = getDefaultOutputName(
+      state.book,
+      state.outputDateStamp);
+    state.runFolder = "samples\\MacroStudio\\受注管理_20260729_101500";
+    state.presetFile = "sample.md";
+    state.presetName = "デモ用プリセット";
+    state.requestId = "3f1c9c7a-2b64-4a1e-9f52-0b5a4d2e77c1";
+    state.promptCopied = true;
+    state.codeFolderOpened = true;
+    state.modules = [
+      {
+        name: "Sheet1",
+        type: "document",
+        typeLabel: "ドキュメントモジュール",
+        ext: "cls",
+        lineCount: 31,
+        code: "Option Explicit\r\n\r\nPrivate Sub Worksheet_Activate()\r\nEnd Sub\r\n",
+        attributes: "",
+        pastedCode: null,
+        status: "pending",
+        changedLineCount: 0,
+        showChangesOnly: false,
+        wrapDiff: true,
+        written: false
+      },
+      {
+        name: "ThisWorkbook",
+        type: "document",
+        typeLabel: "ドキュメントモジュール",
+        ext: "cls",
+        lineCount: 18,
+        code: "Option Explicit\r\n",
+        attributes: "",
+        pastedCode: null,
+        status: "pending",
+        changedLineCount: 0,
+        showChangesOnly: false,
+        wrapDiff: true,
+        written: false
+      },
+      {
+        name: "ExportHelpers",
+        type: "standard",
+        typeLabel: "標準モジュール",
+        ext: "bas",
+        lineCount: 54,
+        code: "Option Explicit\r\n\r\nPublic Sub ExportData()\r\nEnd Sub\r\n",
+        attributes: "",
+        pastedCode: "Option Explicit\r\n\r\nPublic Sub ExportData()\r\n    Debug.Print \"done\"\r\nEnd Sub\r\n",
+        status: "changed",
+        changedLineCount: 2,
+        accepted: false,
+        showChangesOnly: false,
+        wrapDiff: true,
+        written: false
+      },
+      {
+        name: "Main",
+        type: "standard",
+        typeLabel: "標準モジュール",
+        ext: "bas",
+        lineCount: 84,
+        code: "Option Explicit\r\n\r\nPrivate Sub SaveRecord()\r\n    If Range(\"A2\").Value = \"\" Then Exit Sub\r\n    Range(\"D2\").Value = Now\r\nEnd Sub\r\n",
+        attributes: "",
+        pastedCode: "Option Explicit\r\n\r\nPrivate Sub SaveRecord()\r\n    If Len(Trim$(Range(\"A2\").Value)) = 0 Then\r\n        MsgBox \"伝票番号を入力してください。\"\r\n        Exit Sub\r\n    End If\r\n    Range(\"D2\").Value = Now\r\nEnd Sub\r\n",
+        status: "changed",
+        changedLineCount: 4,
+        accepted: false,
+        showChangesOnly: false,
+        wrapDiff: true,
+        written: false
+      },
+      {
+        name: "CompatHelpers",
+        type: "standard",
+        typeLabel: "標準モジュール",
+        ext: "bas",
+        lineCount: 4,
+        code: "",
+        attributes: "",
+        pastedCode: "Option Explicit\r\n\r\nPublic Sub WaitMilliseconds(ByVal ms As Long)\r\nEnd Sub\r\n",
+        status: "changed",
+        changedLineCount: 4,
+        accepted: false,
+        isNew: true,
+        showChangesOnly: false,
+        wrapDiff: true,
+        written: false
+      },
+      {
+        name: "OrderRecord",
+        type: "class",
+        typeLabel: "クラスモジュール",
+        ext: "cls",
+        lineCount: 43,
+        code: "Option Explicit\r\n",
+        attributes: "",
+        pastedCode: null,
+        status: "pending",
+        changedLineCount: 0,
+        showChangesOnly: false,
+        wrapDiff: true,
+        written: false
+      }
+    ];
+    state.intakeResult = { total: 3, existing: 2, added: 1 };
+    state.intakeRequestId = state.requestId;
     state.selectedModuleName = "Main";
-    state.screen = global.MacroStudioScreens.reviewScreen;
     notify();
   }
 
@@ -1577,45 +995,15 @@
     getDefaultOutputName: getDefaultOutputName,
     getDiffReportName: getDiffReportName,
     formatDateStamp: formatDateStamp,
-    createBookSnapshot: createBookSnapshot,
-    createRepairInputSnapshot: createRepairInputSnapshot,
     canGoNext: canGoNext,
     canGoBack: canGoBack,
     goTo: goTo,
     goNext: goNext,
     goBack: goBack,
     setBook: setBook,
-    setBookInventory: setBookInventory,
     setAppInfo: setAppInfo,
-    setTargetEnvironment: setTargetEnvironment,
-    setDiagnosisConcern: setDiagnosisConcern,
-    setDiagnosisSplit: setDiagnosisSplit,
-    setChangeScope: setChangeScope,
-    isDiagnosisRequestDirty: isDiagnosisRequestDirty,
-    commitDiagnosisRequest: commitDiagnosisRequest,
-    setDiagnosisHandoffProgress: setDiagnosisHandoffProgress,
-    setDiagnosisParts: setDiagnosisParts,
-    commitDiagnosis: commitDiagnosis,
-    setRepairPreset: setRepairPreset,
-    noteIntakeFailure: noteIntakeFailure,
-    clearIntakeFailures: clearIntakeFailures,
-    setIntakeError: setIntakeError,
-    setAnswer: setAnswer,
-    setFindingSelected: setFindingSelected,
-    setDesiredBehaviour: setDesiredBehaviour,
-    setFindingSupplement: setFindingSupplement,
-    setExtraRequest: setExtraRequest,
-    setPathMap: setPathMap,
-    commitRepairRequest: commitRepairRequest,
-    setRepairHandoffProgress: setRepairHandoffProgress,
-    setSplitOutputRules: setSplitOutputRules,
-    setSplitOutput: setSplitOutput,
-    setRepairIntakeParts: setRepairIntakeParts,
     hasImportedModules: hasImportedModules,
     getBookModules: getBookModules,
-    getCurrentModules: getCurrentModules,
-    getPathMapBaseModules: getPathMapBaseModules,
-    createRunManifest: createRunManifest,
     selectModule: selectModule,
     findModule: findModule,
     acceptModuleCode: acceptModuleCode,
@@ -1623,13 +1011,28 @@
     cancelPasteEdit: cancelPasteEdit,
     setModuleShowChangesOnly: setModuleShowChangesOnly,
     setModuleWrapDiff: setModuleWrapDiff,
+    setRequestState: setRequestState,
+    setRequestText: setRequestText,
+    setRequestBase: setRequestBase,
+    setMode: setMode,
+    startSimple: startSimple,
+    setPurpose: setPurpose,
+    setAnswer: setAnswer,
+    setQuestionIndex: setQuestionIndex,
+    setRunFolder: setRunFolder,
+    setHandoffProgress: setHandoffProgress,
+    setOutputName: setOutputName,
+    acceptModuleChange: acceptModuleChange,
     importPackage: importPackage,
-    setDeterministicResult: setDeterministicResult,
-    hasDeterministicManualEdits: hasDeterministicManualEdits,
     setIntakeResult: setIntakeResult,
     setNoChangeResult: setNoChangeResult,
+    setIntakeParts: setIntakeParts,
     discardImportedModules: discardImportedModules,
-    setOutputName: setOutputName,
+    setOutputRules: setOutputRules,
+    setSplitOutputRules: setSplitOutputRules,
+    setSplitOutput: setSplitOutput,
+    setRequestFilePath: setRequestFilePath,
+    setRequestPrompt: setRequestPrompt,
     setBuildResult: setBuildResult,
     setBuildConfirmation: setBuildConfirmation,
     setBuildSlow: setBuildSlow,

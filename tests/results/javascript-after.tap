@@ -1,0 +1,562 @@
+TAP version 13
+# Subtest: response accepts "\\n" and whole markdown fence
+ok 1 - response accepts "\\n" and whole markdown fence
+  ---
+  duration_ms: 11.090787
+  type: 'test'
+  ...
+# Subtest: response accepts "\\r\\n" and whole markdown fence
+ok 2 - response accepts "\\r\\n" and whole markdown fence
+  ---
+  duration_ms: 3.646551
+  type: 'test'
+  ...
+# Subtest: response accepts "\\r" and whole markdown fence
+ok 3 - response accepts "\\r" and whole markdown fence
+  ---
+  duration_ms: 2.691944
+  type: 'test'
+  ...
+# Subtest: response rejects empty
+ok 4 - response rejects empty
+  ---
+  duration_ms: 2.954712
+  type: 'test'
+  ...
+# Subtest: response rejects plain VBA without sentinels
+ok 5 - response rejects plain VBA without sentinels
+  ---
+  duration_ms: 4.219602
+  type: 'test'
+  ...
+# Subtest: response rejects other request
+ok 6 - response rejects other request
+  ---
+  duration_ms: 3.489899
+  type: 'test'
+  ...
+# Subtest: response rejects missing COMPLETE
+ok 7 - response rejects missing COMPLETE
+  ---
+  duration_ms: 3.642048
+  type: 'test'
+  ...
+# Subtest: response rejects wrong count
+ok 8 - response rejects wrong count
+  ---
+  duration_ms: 3.636337
+  type: 'test'
+  ...
+# Subtest: response rejects hex count
+ok 9 - response rejects hex count
+  ---
+  duration_ms: 2.889985
+  type: 'test'
+  ...
+# Subtest: response rejects exponential count
+ok 10 - response rejects exponential count
+  ---
+  duration_ms: 2.933275
+  type: 'test'
+  ...
+# Subtest: response rejects extra COMPLETE tokens
+ok 11 - response rejects extra COMPLETE tokens
+  ---
+  duration_ms: 2.746903
+  type: 'test'
+  ...
+# Subtest: response rejects duplicate COMPLETE
+ok 12 - response rejects duplicate COMPLETE
+  ---
+  duration_ms: 3.607703
+  type: 'test'
+  ...
+# Subtest: response rejects COMPLETE before modules
+ok 13 - response rejects COMPLETE before modules
+  ---
+  duration_ms: 2.438878
+  type: 'test'
+  ...
+# Subtest: response rejects summary after COMPLETE
+ok 14 - response rejects summary after COMPLETE
+  ---
+  duration_ms: 2.611843
+  type: 'test'
+  ...
+# Subtest: response rejects two summaries
+ok 15 - response rejects two summaries
+  ---
+  duration_ms: 2.649071
+  type: 'test'
+  ...
+# Subtest: response rejects unknown kind
+ok 16 - response rejects unknown kind
+  ---
+  duration_ms: 3.442689
+  type: 'test'
+  ...
+# Subtest: response rejects invalid module name
+ok 17 - response rejects invalid module name
+  ---
+  duration_ms: 3.006228
+  type: 'test'
+  ...
+# Subtest: response rejects empty module
+ok 18 - response rejects empty module
+  ---
+  duration_ms: 3.042996
+  type: 'test'
+  ...
+# Subtest: response rejects case-insensitive duplicate
+ok 19 - response rejects case-insensitive duplicate
+  ---
+  duration_ms: 4.025172
+  type: 'test'
+  ...
+# Subtest: response rejects mismatched END
+ok 20 - response rejects mismatched END
+  ---
+  duration_ms: 3.904249
+  type: 'test'
+  ...
+# Subtest: response rejects unknown directive
+ok 21 - response rejects unknown directive
+  ---
+  duration_ms: 2.797339
+  type: 'test'
+  ...
+# Subtest: response rejects NOCHANGE with modules
+ok 22 - response rejects NOCHANGE with modules
+  ---
+  duration_ms: 3.40014
+  type: 'test'
+  ...
+# Subtest: response rejects NOCHANGE without reason
+ok 23 - response rejects NOCHANGE without reason
+  ---
+  duration_ms: 3.412745
+  type: 'test'
+  ...
+# Subtest: response rejects NOCHANGE unknown verdict
+ok 24 - response rejects NOCHANGE unknown verdict
+  ---
+  duration_ms: 2.697812
+  type: 'test'
+  ...
+# Subtest: response rejects zero modules without verdict
+ok 25 - response rejects zero modules without verdict
+  ---
+  duration_ms: 2.752552
+  type: 'test'
+  ...
+# Subtest: response rejects NOCHANGE inside module
+ok 26 - response rejects NOCHANGE inside module
+  ---
+  duration_ms: 4.083299
+  type: 'test'
+  ...
+# Subtest: response rejects PART with invalid index
+ok 27 - response rejects PART with invalid index
+  ---
+  duration_ms: 3.12813
+  type: 'test'
+  ...
+# Subtest: response rejects PART zero total
+ok 28 - response rejects PART zero total
+  ---
+  duration_ms: 2.494435
+  type: 'test'
+  ...
+# Subtest: response rejects PART malformed OF
+ok 29 - response rejects PART malformed OF
+  ---
+  duration_ms: 2.645899
+  type: 'test'
+  ...
+# Subtest: explicit no-change UNNECESSARY
+ok 30 - explicit no-change UNNECESSARY
+  ---
+  duration_ms: 2.693115
+  type: 'test'
+  ...
+# Subtest: explicit no-change IMPOSSIBLE
+ok 31 - explicit no-change IMPOSSIBLE
+  ---
+  duration_ms: 2.376005
+  type: 'test'
+  ...
+# Subtest: marker text inside a VBA string remains source
+ok 32 - marker text inside a VBA string remains source
+  ---
+  duration_ms: 2.72554
+  type: 'test'
+  ...
+# Subtest: request IDs are unique and canonical
+ok 33 - request IDs are unique and canonical
+  ---
+  duration_ms: 5.369251
+  type: 'test'
+  ...
+# Subtest: constructor is a new module, never Object.prototype.constructor
+ok 34 - constructor is a new module, never Object.prototype.constructor
+  ---
+  duration_ms: 2.692985
+  type: 'test'
+  ...
+# Subtest: existing names and module kinds come from workbook
+ok 35 - existing names and module kinds come from workbook
+  ---
+  duration_ms: 2.988351
+  type: 'test'
+  ...
+# Subtest: split replies merge out of order; duplicates and conflicts are distinguished
+ok 36 - split replies merge out of order; duplicates and conflicts are distinguished
+  ---
+  duration_ms: 3.918064
+  type: 'test'
+  ...
+# Subtest: incomplete parts cannot be merged
+ok 37 - incomplete parts cannot be merged
+  ---
+  duration_ms: 2.605511
+  type: 'test'
+  ...
+# Subtest: editing an issued request rotates ID and clears old response, parts and artifacts
+ok 38 - editing an issued request rotates ID and clears old response, parts and artifacts
+  ---
+  duration_ms: 3.806346
+  type: 'test'
+  ...
+# Subtest: repeated input events for unchanged request preserve its response
+ok 39 - repeated input events for unchanged request preserve its response
+  ---
+  duration_ms: 3.837379
+  type: 'test'
+  ...
+# Subtest: switching output format of an issued request invalidates stale replies
+ok 40 - switching output format of an issued request invalidates stale replies
+  ---
+  duration_ms: 2.537543
+  type: 'test'
+  ...
+# Subtest: changing purpose clears previous handoff data
+ok 41 - changing purpose clears previous handoff data
+  ---
+  duration_ms: 2.531027
+  type: 'test'
+  ...
+# Subtest: switching workbook clears old question index and request base
+ok 42 - switching workbook clears old question index and request base
+  ---
+  duration_ms: 2.669963
+  type: 'test'
+  ...
+# Subtest: replacement packages remove modules added by an earlier answer
+ok 43 - replacement packages remove modules added by an earlier answer
+  ---
+  duration_ms: 2.771235
+  type: 'test'
+  ...
+# Subtest: invalid answer does not destroy a valid imported answer
+ok 44 - invalid answer does not destroy a valid imported answer
+  ---
+  duration_ms: 4.950885
+  type: 'test'
+  ...
+# Subtest: a new split collection cannot leave old complete reply buildable
+ok 45 - a new split collection cannot leave old complete reply buildable
+  ---
+  duration_ms: 4.817937
+  type: 'test'
+  ...
+# Subtest: NOCHANGE replaces and removes a previous modification
+ok 46 - NOCHANGE replaces and removes a previous modification
+  ---
+  duration_ms: 5.752629
+  type: 'test'
+  ...
+# Subtest: format-only response preserves original trailing whitespace and blank lines
+ok 47 - format-only response preserves original trailing whitespace and blank lines
+  ---
+  duration_ms: 3.351787
+  type: 'test'
+  ...
+# Subtest: new nonstandard modules are refused without altering state
+ok 48 - new nonstandard modules are refused without altering state
+  ---
+  duration_ms: 6.828537
+  type: 'test'
+  ...
+# Subtest: source exports never include modules invented by a previous answer
+ok 49 - source exports never include modules invented by a previous answer
+  ---
+  duration_ms: 4.646953
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "NUL.xlsm"
+ok 50 - output filename rejected: "NUL.xlsm"
+  ---
+  duration_ms: 2.55661
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "CON.backup.xlsm"
+ok 51 - output filename rejected: "CON.backup.xlsm"
+  ---
+  duration_ms: 20.581169
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "AUX.xlsm"
+ok 52 - output filename rejected: "AUX.xlsm"
+  ---
+  duration_ms: 5.189264
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "PRN.xlsm"
+ok 53 - output filename rejected: "PRN.xlsm"
+  ---
+  duration_ms: 3.552274
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "COM1.xlsm"
+ok 54 - output filename rejected: "COM1.xlsm"
+  ---
+  duration_ms: 3.304988
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "LPT9.xlsm"
+ok 55 - output filename rejected: "LPT9.xlsm"
+  ---
+  duration_ms: 3.24446
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "COM¹.xlsm"
+ok 56 - output filename rejected: "COM¹.xlsm"
+  ---
+  duration_ms: 3.086234
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "LPT².xlsm"
+ok 57 - output filename rejected: "LPT².xlsm"
+  ---
+  duration_ms: 3.791614
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "x\\u0001.xlsm"
+ok 58 - output filename rejected: "x\\u0001.xlsm"
+  ---
+  duration_ms: 3.552997
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "x\\u0000.xlsm"
+ok 59 - output filename rejected: "x\\u0000.xlsm"
+  ---
+  duration_ms: 2.918434
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "a/b.xlsm"
+ok 60 - output filename rejected: "a/b.xlsm"
+  ---
+  duration_ms: 2.744103
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "a\\\\b.xlsm"
+ok 61 - output filename rejected: "a\\\\b.xlsm"
+  ---
+  duration_ms: 3.051506
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "../a.xlsm"
+ok 62 - output filename rejected: "../a.xlsm"
+  ---
+  duration_ms: 4.751409
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "a.xlsm."
+ok 63 - output filename rejected: "a.xlsm."
+  ---
+  duration_ms: 9.530153
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "a.txt"
+ok 64 - output filename rejected: "a.txt"
+  ---
+  duration_ms: 2.788581
+  type: 'test'
+  ...
+# Subtest: output filename rejected: ""
+ok 65 - output filename rejected: ""
+  ---
+  duration_ms: 2.332043
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.xlsm"
+ok 66 - output filename rejected: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.xlsm"
+  ---
+  duration_ms: 2.478894
+  type: 'test'
+  ...
+# Subtest: valid filename: Report.xlsm
+ok 67 - valid filename: Report.xlsm
+  ---
+  duration_ms: 2.792712
+  type: 'test'
+  ...
+# Subtest: valid filename: 日本語-改修版.xlsm
+ok 68 - valid filename: 日本語-改修版.xlsm
+  ---
+  duration_ms: 2.705851
+  type: 'test'
+  ...
+# Subtest: valid filename: report..xlsm
+ok 69 - valid filename: report..xlsm
+  ---
+  duration_ms: 3.128824
+  type: 'test'
+  ...
+# Subtest: valid filename: CONSOLE.xlsm
+ok 70 - valid filename: CONSOLE.xlsm
+  ---
+  duration_ms: 3.433261
+  type: 'test'
+  ...
+# Subtest: valid filename: V1.2.XLSM
+ok 71 - valid filename: V1.2.XLSM
+  ---
+  duration_ms: 9.85901
+  type: 'test'
+  ...
+# Subtest: valid filename: hello world.xlsm
+ok 72 - valid filename: hello world.xlsm
+  ---
+  duration_ms: 4.879675
+  type: 'test'
+  ...
+# Subtest: long generated filenames fit 120 characters .xlsm
+ok 73 - long generated filenames fit 120 characters .xlsm
+  ---
+  duration_ms: 3.69896
+  type: 'test'
+  ...
+# Subtest: long generated filenames fit 120 characters .xlam
+ok 74 - long generated filenames fit 120 characters .xlam
+  ---
+  duration_ms: 3.020786
+  type: 'test'
+  ...
+# Subtest: long generated filenames fit 120 characters .xlsb
+ok 75 - long generated filenames fit 120 characters .xlsb
+  ---
+  duration_ms: 2.603602
+  type: 'test'
+  ...
+# Subtest: long generated filenames fit 120 characters .xls
+ok 76 - long generated filenames fit 120 characters .xls
+  ---
+  duration_ms: 2.57609
+  type: 'test'
+  ...
+# Subtest: all six supplied presets parse successfully
+ok 77 - all six supplied presets parse successfully
+  ---
+  duration_ms: 10.850413
+  type: 'test'
+  ...
+# Subtest: preset parser rejects missing and duplicate required headings
+ok 78 - preset parser rejects missing and duplicate required headings
+  ---
+  duration_ms: 2.912209
+  type: 'test'
+  ...
+# Subtest: template expansion is single-pass and literal VBA-like placeholders survive
+ok 79 - template expansion is single-pass and literal VBA-like placeholders survive
+  ---
+  duration_ms: 3.279552
+  type: 'test'
+  ...
+# Subtest: template rejects unknown/malformed placeholders
+ok 80 - template rejects unknown/malformed placeholders
+  ---
+  duration_ms: 2.706994
+  type: 'test'
+  ...
+# Subtest: shared request template does not order code modification for consultation
+ok 81 - shared request template does not order code modification for consultation
+  ---
+  duration_ms: 0.168333
+  type: 'test'
+  ...
+# Subtest: uncertain extraction warning is present in request and source file
+ok 82 - uncertain extraction warning is present in request and source file
+  ---
+  duration_ms: 3.028595
+  type: 'test'
+  ...
+# Subtest: diff existing self-tests
+ok 83 - diff existing self-tests
+  ---
+  duration_ms: 2.58291
+  type: 'test'
+  ...
+# Subtest: diff preserves identical tail after 150-line insert
+ok 84 - diff preserves identical tail after 150-line insert
+  ---
+  duration_ms: 3.613209
+  type: 'test'
+  ...
+# Subtest: diff preserves identical tail after 150-line delete
+ok 85 - diff preserves identical tail after 150-line delete
+  ---
+  duration_ms: 3.533031
+  type: 'test'
+  ...
+# Subtest: diff reconstructs both inputs for 500 deterministic randomized cases
+ok 86 - diff reconstructs both inputs for 500 deterministic randomized cases
+  ---
+  duration_ms: 75.861754
+  type: 'test'
+  ...
+# Subtest: report JSON cannot close its script element
+ok 87 - report JSON cannot close its script element
+  ---
+  duration_ms: 4.149179
+  type: 'test'
+  ...
+# Subtest: HTML escaping retains code as text
+ok 88 - HTML escaping retains code as text
+  ---
+  duration_ms: 2.557017
+  type: 'test'
+  ...
+# Subtest: manual paste of normalization-equivalent original remains unchanged
+ok 89 - manual paste of normalization-equivalent original remains unchanged
+  ---
+  duration_ms: 3.188715
+  type: 'test'
+  ...
+# Subtest: source-doubt workbook gating: refactor
+ok 90 - source-doubt workbook gating: refactor
+  ---
+  duration_ms: 10.55249
+  type: 'test'
+  ...
+# Subtest: source-doubt workbook gating: diagnose
+ok 91 - source-doubt workbook gating: diagnose
+  ---
+  duration_ms: 26.898821
+  type: 'test'
+  ...
+# Subtest: explicit source doubt is not masked by a missing general warning
+ok 92 - explicit source doubt is not masked by a missing general warning
+  ---
+  duration_ms: 3.373282
+  type: 'test'
+  ...
+1..92
+# tests 92
+# suites 0
+# pass 92
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 570.179789

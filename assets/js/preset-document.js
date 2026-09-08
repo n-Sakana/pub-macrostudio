@@ -5,83 +5,25 @@
   var INSTRUCTION_TITLE = "改修指示";
   var OUTPUT_TITLE = "出力指示";
   var SPLIT_OUTPUT_TITLE = "出力指示（モジュール単位）";
-  var SPLIT_DIAGNOSIS_OUTPUT_TITLE = "出力指示（分割）";
-  // A template that needs the app's replacement table declares what to
-  // look for and what to call it. The app supplies the table; it does
-  // not know what a path, a URL or a Win32 call is - that belongs to
-  // whoever wrote the template.
-  var REPLACE_TITLE = "置換の候補";
-  var BEHAVIOR_CANDIDATES_TITLE = "希望動作の候補";
-  var PRESERVE_TITLE = "維持すること";
-  var RECOMMEND_TITLE = "推奨条件";
-  // The heading a repair template stands under on screen 3. Two templates
-  // that name the same one share a card group. The app groups by the
-  // string and never decides what belongs together: which operations
-  // read as one heading is the template author's judgement, not code's.
-  var CATEGORY_TITLE = "分類";
-  // What this operation legitimately does to the shape of the project.
-  // Replacing a Win32 call with a standard-VBA wrapper genuinely needs a
-  // module to put the wrapper in, so that template says so here. A
-  // template that says nothing gets no allowance, and the minimal-change
-  // guard refuses a reply that adds one anyway.
-  var ALLOWED_STRUCTURE_TITLE = "認める構造変更";
-  var ALLOWED_STRUCTURE_VALUES = ["モジュール追加"];
-  // Whether the run permits the shape of the project to change. The word
-  // is the scope template's own; the app reads it and switches the intake
-  // guard on or off, and never invents a third answer.
-  var STRUCTURE_TITLE = "構造変更";
-  var STRUCTURES = {
-    "禁止": "forbidden",
-    "許可": "allowed"
-  };
   var MODE_TITLE = "用途";
   var QUESTION_TITLE = "質問";
   var DESCRIPTION_TITLE = "説明";
-  // A template whose whole point is that the reader writes the work
-  // themselves says so, and says what to call the field. The app puts
-  // out a field with that label; it does not decide which template
-  // needs one.
-  var WRITE_IN_TITLE = "記入欄";
-  // What a diagnosis reply looks like. The app holds neither the section
-  // names nor the shape: a template that asks a different question needs
-  // a different answer, and only the template knows which question it
-  // asked. 指摘型 returns findings; 採点型 returns one grade and prose.
-  var SHAPE_TITLE = "返す形";
-  var SECTIONS_TITLE = "返す節";
-  var SHAPES = {
-    "指摘型": "findings",
-    "採点型": "grade"
-  };
   var SECTION_TITLES = [INSTRUCTION_TITLE, OUTPUT_TITLE];
   var OPTIONAL_SECTION_TITLES = [
+    MODE_TITLE,
     QUESTION_TITLE,
     DESCRIPTION_TITLE,
-    SPLIT_OUTPUT_TITLE,
-    SPLIT_DIAGNOSIS_OUTPUT_TITLE,
-    REPLACE_TITLE,
-    BEHAVIOR_CANDIDATES_TITLE,
-    PRESERVE_TITLE,
-    RECOMMEND_TITLE,
-    CATEGORY_TITLE,
-    ALLOWED_STRUCTURE_TITLE,
-    WRITE_IN_TITLE,
-    SHAPE_TITLE,
-    SECTIONS_TITLE
+    SPLIT_OUTPUT_TITLE
   ];
-  // A change-scope file says one thing to the reader and one thing to the
-  // chat, and declares whether the shape of the project may change. It
-  // has no output rules because it never speaks alone: its instruction
-  // rides along with whatever repair templates were chosen.
-  var SCOPE_SECTION_TITLES = [
-    DESCRIPTION_TITLE,
-    STRUCTURE_TITLE,
-    INSTRUCTION_TITLE
-  ];
-  var STAGES = {
-    diagnose: "diagnose",
-    repair: "repair",
-    scope: "scope"
+  // A preset either changes the workbook or only asks about it.
+  // Diagnosing covers everything that ends in a conversation, whether
+  // that is a check or a consultation. Files that say nothing keep the
+  // original behaviour.
+  var MODES = {
+    "改修": "refactor",
+    "診断": "diagnose"
   };
+  var DEFAULT_MODE = "refactor";
 
   var MESSAGES = {
     empty: "ファイルが空です。",
@@ -104,66 +46,14 @@
     unknownSection:
       "知らない見出しがあります: ## {title}。使えるのは「## " +
       INSTRUCTION_TITLE + "」「## " + OUTPUT_TITLE + "」「## " +
-      QUESTION_TITLE + "」「## " + DESCRIPTION_TITLE + "」「## " +
-      REPLACE_TITLE + "」「## " + BEHAVIOR_CANDIDATES_TITLE + "」「## " +
-      PRESERVE_TITLE + "」「## " + RECOMMEND_TITLE + "」「## " +
-      CATEGORY_TITLE + "」「## " + ALLOWED_STRUCTURE_TITLE + "」「## " +
-      WRITE_IN_TITLE + "」「## " +
-      SPLIT_OUTPUT_TITLE + "」「## " +
-      SPLIT_DIAGNOSIS_OUTPUT_TITLE + "」です。",
+      MODE_TITLE + "」「## " + QUESTION_TITLE + "」「## " +
+      DESCRIPTION_TITLE + "」「## " +
+      SPLIT_OUTPUT_TITLE + "」です。",
     manyDescriptions:
       "「## " + DESCRIPTION_TITLE +
       "」は 1 つの段落で書いてください。カードには 1 行で出ます。",
-    obsoleteMode:
-      "「## " + MODE_TITLE + "」は使わなくなりました。" +
-      "診断・改修の段階は配置フォルダで決まります。",
-    unknownStage:
-      "ひな形の段階が分かりません。診断または改修のフォルダから読み込んでください。",
-    invalidReplaceRule:
-      "「## " + REPLACE_TITLE +
-      "」は「- 呼び方 | 正規表現 | 既定で選ぶ | 場所を選ぶ | 拾わない文脈" +
-      " | 拾う文脈」の形で書いてください。3 つ目から 6 つ目は省けます。",
-    invalidReplacePattern:
-      "「## " + REPLACE_TITLE + "」の正規表現が読み取れません: {title}",
-    invalidReplaceContext:
-      "「## " + REPLACE_TITLE +
-      "」の「拾わない文脈」の正規表現が読み取れません: {title}",
-    invalidReplaceInclude:
-      "「## " + REPLACE_TITLE +
-      "」の「拾う文脈」の正規表現が読み取れません: {title}",
-    repairOnlySection:
-      "「## {title}」は改修ひな形だけで使えます。",
-    diagnoseOnlySection:
-      "「## {title}」は診断ひな形だけで使えます。",
-    scopeOnlySections:
-      "変更範囲のファイルに使えるのは「## " + DESCRIPTION_TITLE +
-      "」「## " + STRUCTURE_TITLE + "」「## " + INSTRUCTION_TITLE +
-      "」だけです。ほかの見出しは使えません: ## {title}",
-    unknownStructure:
-      "「## " + STRUCTURE_TITLE +
-      "」は「禁止」か「許可」のどちらかにしてください: {title}",
-    scopeOnlySection:
-      "「## {title}」は変更範囲のひな形だけで使えます。",
-    unknownAllowedStructure:
-      "「## " + ALLOWED_STRUCTURE_TITLE +
-      "」に書けるのは「- " + ALLOWED_STRUCTURE_VALUES.join("」「- ") +
-      "」だけです: {title}",
-    unknownShape:
-      "「## " + SHAPE_TITLE +
-      "」は「指摘型」か「採点型」のどちらかにしてください: {title}",
-    emptyReturnSections:
-      "「## " + SECTIONS_TITLE +
-      "」に節がありません。「- 節の名前」の形で書いてください。",
-    wrongRepairSplit:
-      "改修ひな形では「## " + SPLIT_OUTPUT_TITLE +
-      "」を使ってください。「## " + SPLIT_DIAGNOSIS_OUTPUT_TITLE +
-      "」は診断専用です。",
-    wrongDiagnosisSplit:
-      "診断ひな形では「## " + SPLIT_DIAGNOSIS_OUTPUT_TITLE +
-      "」を使ってください。「## " + SPLIT_OUTPUT_TITLE +
-      "」は改修専用です。",
-    invalidList:
-      "「## {title}」は「- 文」の箇条書きで書いてください。",
+    unknownMode:
+      "「## " + MODE_TITLE + "」には「改修」か「診断」と書いてください。",
     emptyQuestions:
       "「## " + QUESTION_TITLE +
       "」に質問がありません。「- 質問文」の形で書いてください。",
@@ -274,155 +164,18 @@
     return text;
   }
 
-  function failure(message, stage) {
+  function failure(message) {
     return {
       valid: false,
       name: "",
-      stage: stage || "",
-      replaceRules: null,
+      mode: DEFAULT_MODE,
       description: "",
       questions: [],
-      behaviorCandidates: [],
-      preserveItems: [],
-      recommendKeys: [],
-      category: "",
-      allowedStructures: [],
-      structure: null,
-      writeIn: null,
-      shape: null,
-      returnSections: [],
       instruction: null,
       output: null,
       splitOutput: null,
-      splitDiagnosisOutput: null,
       message: message
     };
-  }
-
-  // "- 呼び方 | 正規表現 | 既定で選ぶ | 場所を選ぶ | 拾わない文脈".
-  // The pattern decides what counts as a candidate and the name decides
-  // what it is called; neither is the app's business, so both come from
-  // here.
-  //
-  // Two things the pattern alone could not say, both added because the
-  // shipped rules were getting them wrong:
-  //
-  //   a capture group  - the part of the literal that may be edited. A
-  //     connection string is one literal, but only the folder inside it
-  //     is a place; without this the reader had to retype the whole
-  //     string, quotes and all, to move a folder (PROD-16).
-  //   拾わない文脈     - where NOT to look, as a pattern for the code
-  //     just before the literal. "WScript.Shell" and "Report.Backup"
-  //     are the same shape, so no rule reading the literal on its own
-  //     can separate a ProgID from a file name; what separates them is
-  //     that one sits inside CreateObject( (PROD-11).
-  function readReplaceRules(lines) {
-    var items = [];
-    var invalid = false;
-    var message = "";
-
-    lines.forEach(function (line) {
-      var match;
-      var parts;
-      var label;
-      var pattern;
-      var context;
-      var include;
-
-      if (trimSpace(line) === "" || invalid) {
-        return;
-      }
-      match = /^\s*-\s+(.+?)\s*$/.exec(line);
-      if (!match) {
-        invalid = true;
-        message = MESSAGES.invalidReplaceRule;
-        return;
-      }
-      // A pattern may itself contain "|", so the column separator is an
-      // unescaped one. "\|" inside a column is a literal pipe.
-      parts = match[1].split(/(?<!\\)\|/).map(function (part) {
-        return trimSpace(part).replace(/\\\|/g, "|");
-      });
-      if (parts.length < 2 || parts[0] === "" || parts[1] === "") {
-        invalid = true;
-        message = MESSAGES.invalidReplaceRule;
-        return;
-      }
-      label = parts[0];
-      pattern = parts[1];
-      try {
-        pattern = new RegExp(parts[1]);
-      } catch (error) {
-        invalid = true;
-        message = format(MESSAGES.invalidReplacePattern, label);
-        return;
-      }
-      context = parts.length > 4 ? parts[4] : "";
-      if (context !== "") {
-        try {
-          context = new RegExp(context);
-        } catch (error) {
-          invalid = true;
-          message = format(MESSAGES.invalidReplaceContext, label);
-          return;
-        }
-      }
-      include = parts.length > 5 ? parts[5] : "";
-      if (include !== "") {
-        try {
-          include = new RegExp(include);
-        } catch (error) {
-          invalid = true;
-          message = format(MESSAGES.invalidReplaceInclude, label);
-          return;
-        }
-      }
-      items.push({
-        label: label,
-        pattern: parts[1],
-        selectedByDefault: parts.length > 2 && parts[2] !== "",
-        // A candidate whose replacement is somewhere on disk. The app
-        // can offer a picker for it without knowing why it is one.
-        picksLocation: parts.length > 3 && parts[3] !== "",
-        // Matched against the code standing immediately before the
-        // literal. A hit means this rule does not claim it, and the
-        // rules below still get their turn. A template that writes
-        // nothing here reads exactly as it did before.
-        contextExclude: parts.length > 4 && parts[4] !== ""
-          ? parts[4]
-          : null,
-        // The mirror of the column above: this rule claims a literal
-        // ONLY where the code in front of it matches. Some things are
-        // named by where they are used and nothing else - a printer name
-        // is any string at all until you see that it was assigned to
-        // ActivePrinter. Without this the rule would have to match every
-        // literal in the workbook.
-        contextInclude: parts.length > 5 && parts[5] !== ""
-          ? parts[5]
-          : null
-      });
-    });
-    return {items: items, invalid: invalid, message: message};
-  }
-
-  function readSimpleList(lines) {
-    var items = [];
-    var invalid = false;
-
-    lines.forEach(function (line) {
-      var match;
-
-      if (trimSpace(line) === "") {
-        return;
-      }
-      match = /^\s*-\s+(.+?)\s*$/.exec(line);
-      if (!match || trimSpace(match[1]) === "") {
-        invalid = true;
-        return;
-      }
-      items.push(trimSpace(match[1]));
-    });
-    return invalid || items.length === 0 ? null : items;
   }
 
   // A question is one top-level "- " item. Items indented under it are
@@ -455,7 +208,7 @@
     });
   }
 
-  function parse(content, stage) {
+  function parse(content) {
     var stripped;
     var lines;
     var inFence = false;
@@ -471,20 +224,15 @@
     var title;
     var body;
     var paragraphs;
-    var rules;
     var result;
 
-    if (stage !== STAGES.diagnose && stage !== STAGES.repair &&
-        stage !== STAGES.scope) {
-      return failure(MESSAGES.unknownStage, stage);
-    }
     if (typeof content !== "string" || trimSpace(content) === "") {
-      return failure(MESSAGES.empty, stage);
+      return failure(MESSAGES.empty);
     }
 
     stripped = stripComments(content);
     if (stripped.unterminated) {
-      return failure(MESSAGES.unterminatedComment, stage);
+      return failure(MESSAGES.unterminatedComment);
     }
     lines = splitLines(stripped.text);
 
@@ -503,10 +251,10 @@
 
         if (level === 1) {
           if (name !== null) {
-            return failure(MESSAGES.multipleNames, stage);
+            return failure(MESSAGES.multipleNames);
           }
           if (title === "") {
-            return failure(MESSAGES.emptyName, stage);
+            return failure(MESSAGES.emptyName);
           }
           name = title;
           current = null;
@@ -514,29 +262,20 @@
         }
         if (level === 2) {
           if (name === null) {
-            return failure(MESSAGES.missingName, stage);
+            return failure(MESSAGES.missingName);
           }
-          if (title === MODE_TITLE) {
-            return failure(MESSAGES.obsoleteMode, stage);
-          }
-          if (stage === STAGES.scope) {
-            if (SCOPE_SECTION_TITLES.indexOf(title) < 0) {
-              return failure(format(
-                MESSAGES.scopeOnlySections,
-                title === "" ? "（名前なし）" : title), stage);
-            }
-          } else if (SECTION_TITLES.indexOf(title) < 0 &&
+          if (SECTION_TITLES.indexOf(title) < 0 &&
               OPTIONAL_SECTION_TITLES.indexOf(title) < 0) {
             return failure(format(
               MESSAGES.unknownSection,
-              title === "" ? "（名前なし）" : title), stage);
+              title === "" ? "（名前なし）" : title));
           }
           if (Object.prototype.hasOwnProperty.call(
             sections,
             title)) {
             return failure(format(
               MESSAGES.duplicateSection,
-              title), stage);
+              title));
           }
           sections[title] = [];
           current = title;
@@ -555,29 +294,18 @@
     }
 
     if (name === null) {
-      return failure(MESSAGES.missingName, stage);
+      return failure(MESSAGES.missingName);
     }
 
     result = {
       valid: true,
       name: name,
-      stage: stage,
-      replaceRules: null,
+      mode: DEFAULT_MODE,
       description: "",
       questions: [],
-      behaviorCandidates: [],
-      preserveItems: [],
-      recommendKeys: [],
-      category: "",
-      allowedStructures: [],
-      structure: null,
-      writeIn: null,
-      shape: null,
-      returnSections: [],
       instruction: null,
       output: null,
       splitOutput: null,
-      splitDiagnosisOutput: null,
       message: ""
     };
 
@@ -591,175 +319,25 @@
       if (paragraphs.length === 0) {
         return failure(format(
           MESSAGES.emptySection,
-          DESCRIPTION_TITLE), stage);
+          DESCRIPTION_TITLE));
       }
       if (paragraphs.length > 1) {
-        return failure(MESSAGES.manyDescriptions, stage);
+        return failure(MESSAGES.manyDescriptions);
       }
       result.description = joinWrappedLines(paragraphs[0]);
-    }
-    // What the reply looks like, and which sections it carries. Both are
-    // the diagnosis template's own business: the app validates the shape
-    // it is handed and does not know what PURPOSE or REASON mean.
-    if (Object.prototype.hasOwnProperty.call(sections, SHAPE_TITLE)) {
-      if (stage !== STAGES.diagnose) {
-        return failure(format(
-          MESSAGES.diagnoseOnlySection,
-          SHAPE_TITLE), stage);
-      }
-      body = joinBody(sections[SHAPE_TITLE]).split(CRLF)[0];
-      if (!Object.prototype.hasOwnProperty.call(SHAPES, body)) {
-        return failure(format(MESSAGES.unknownShape, body), stage);
-      }
-      result.shape = SHAPES[body];
-    }
-    if (Object.prototype.hasOwnProperty.call(sections, SECTIONS_TITLE)) {
-      if (stage !== STAGES.diagnose) {
-        return failure(format(
-          MESSAGES.diagnoseOnlySection,
-          SECTIONS_TITLE), stage);
-      }
-      result.returnSections = readSimpleList(sections[SECTIONS_TITLE]);
-      if (result.returnSections === null) {
-        return failure(MESSAGES.emptyReturnSections, stage);
-      }
     }
     if (Object.prototype.hasOwnProperty.call(sections, QUESTION_TITLE)) {
       result.questions = readQuestions(sections[QUESTION_TITLE]);
       if (result.questions.length === 0) {
-        return failure(MESSAGES.emptyQuestions, stage);
+        return failure(MESSAGES.emptyQuestions);
       }
     }
-    if (Object.prototype.hasOwnProperty.call(sections, REPLACE_TITLE)) {
-      if (stage !== STAGES.repair) {
-        return failure(format(
-          MESSAGES.repairOnlySection,
-          REPLACE_TITLE), stage);
+    if (Object.prototype.hasOwnProperty.call(sections, MODE_TITLE)) {
+      body = joinBody(sections[MODE_TITLE]);
+      if (!Object.prototype.hasOwnProperty.call(MODES, body)) {
+        return failure(MESSAGES.unknownMode);
       }
-      rules = readReplaceRules(sections[REPLACE_TITLE]);
-      if (rules.invalid) {
-        return failure(rules.message, stage);
-      }
-      if (rules.items.length === 0) {
-        return failure(format(MESSAGES.emptySection, REPLACE_TITLE), stage);
-      }
-      result.replaceRules = rules.items;
-    }
-    if (Object.prototype.hasOwnProperty.call(
-      sections,
-      BEHAVIOR_CANDIDATES_TITLE)) {
-      if (stage !== STAGES.repair) {
-        return failure(format(
-          MESSAGES.repairOnlySection,
-          BEHAVIOR_CANDIDATES_TITLE), stage);
-      }
-      result.behaviorCandidates = readSimpleList(
-        sections[BEHAVIOR_CANDIDATES_TITLE]);
-      if (result.behaviorCandidates === null) {
-        return failure(format(
-          MESSAGES.invalidList,
-          BEHAVIOR_CANDIDATES_TITLE), stage);
-      }
-    }
-    // Which environment constraints make this template the obvious next
-    // step. A template that names none is never recommended: a star with
-    // nothing behind it is worse than no star.
-    if (Object.prototype.hasOwnProperty.call(sections, RECOMMEND_TITLE)) {
-      if (stage !== STAGES.repair) {
-        return failure(format(
-          MESSAGES.repairOnlySection,
-          RECOMMEND_TITLE), stage);
-      }
-      result.recommendKeys = readSimpleList(sections[RECOMMEND_TITLE]);
-      if (result.recommendKeys === null) {
-        return failure(format(
-          MESSAGES.invalidList,
-          RECOMMEND_TITLE), stage);
-      }
-    }
-    // Which heading this operation stands under on the screen where the
-    // work is chosen. Templates that write the same line share one group.
-    if (Object.prototype.hasOwnProperty.call(sections, CATEGORY_TITLE)) {
-      if (stage !== STAGES.repair) {
-        return failure(format(
-          MESSAGES.repairOnlySection,
-          CATEGORY_TITLE), stage);
-      }
-      body = joinBody(sections[CATEGORY_TITLE]);
-      if (body === "") {
-        return failure(format(
-          MESSAGES.emptySection,
-          CATEGORY_TITLE), stage);
-      }
-      result.category = body.split(CRLF)[0];
-    }
-    // The structural moves this operation is entitled to make. Checked
-    // against a known list so a typo becomes a visible authoring error
-    // rather than a silently withheld allowance.
-    if (Object.prototype.hasOwnProperty.call(
-      sections,
-      ALLOWED_STRUCTURE_TITLE)) {
-      if (stage !== STAGES.repair) {
-        return failure(format(
-          MESSAGES.repairOnlySection,
-          ALLOWED_STRUCTURE_TITLE), stage);
-      }
-      result.allowedStructures = readSimpleList(
-        sections[ALLOWED_STRUCTURE_TITLE]);
-      if (result.allowedStructures === null) {
-        return failure(format(
-          MESSAGES.invalidList,
-          ALLOWED_STRUCTURE_TITLE), stage);
-      }
-      for (index = 0; index < result.allowedStructures.length; index++) {
-        if (ALLOWED_STRUCTURE_VALUES.indexOf(
-          result.allowedStructures[index]) < 0) {
-          return failure(format(
-            MESSAGES.unknownAllowedStructure,
-            result.allowedStructures[index]), stage);
-        }
-      }
-    }
-    if (Object.prototype.hasOwnProperty.call(sections, STRUCTURE_TITLE)) {
-      if (stage !== STAGES.scope) {
-        return failure(format(
-          MESSAGES.scopeOnlySection,
-          STRUCTURE_TITLE), stage);
-      }
-      body = joinBody(sections[STRUCTURE_TITLE]).split(CRLF)[0];
-      if (!Object.prototype.hasOwnProperty.call(STRUCTURES, body)) {
-        return failure(format(MESSAGES.unknownStructure, body), stage);
-      }
-      result.structure = STRUCTURES[body];
-    }
-    // The label the reader's own field carries, written by whoever
-    // wrote the template. One line, because it is a label.
-    if (Object.prototype.hasOwnProperty.call(sections, WRITE_IN_TITLE)) {
-      if (stage !== STAGES.repair) {
-        return failure(format(
-          MESSAGES.repairOnlySection,
-          WRITE_IN_TITLE), stage);
-      }
-      body = joinBody(sections[WRITE_IN_TITLE]);
-      if (body === "") {
-        return failure(format(
-          MESSAGES.emptySection,
-          WRITE_IN_TITLE), stage);
-      }
-      result.writeIn = body.split(CRLF)[0];
-    }
-    if (Object.prototype.hasOwnProperty.call(sections, PRESERVE_TITLE)) {
-      if (stage !== STAGES.repair) {
-        return failure(format(
-          MESSAGES.repairOnlySection,
-          PRESERVE_TITLE), stage);
-      }
-      result.preserveItems = readSimpleList(sections[PRESERVE_TITLE]);
-      if (result.preserveItems === null) {
-        return failure(format(
-          MESSAGES.invalidList,
-          PRESERVE_TITLE), stage);
-      }
+      result.mode = MODES[body];
     }
     // A second way of answering the same request: one module per reply,
     // for macros whose code is too long to come back at once. Only a
@@ -767,112 +345,33 @@
     if (Object.prototype.hasOwnProperty.call(
       sections,
       SPLIT_OUTPUT_TITLE)) {
-      if (stage !== STAGES.repair) {
-        return failure(MESSAGES.wrongDiagnosisSplit, stage);
-      }
       body = joinBody(sections[SPLIT_OUTPUT_TITLE]);
       if (body === "") {
         return failure(format(
           MESSAGES.emptySection,
-          SPLIT_OUTPUT_TITLE), stage);
+          SPLIT_OUTPUT_TITLE));
       }
       result.splitOutput = { title: SPLIT_OUTPUT_TITLE, body: body };
-    }
-    if (Object.prototype.hasOwnProperty.call(
-      sections,
-      SPLIT_DIAGNOSIS_OUTPUT_TITLE)) {
-      if (stage !== STAGES.diagnose) {
-        return failure(MESSAGES.wrongRepairSplit, stage);
-      }
-      body = joinBody(sections[SPLIT_DIAGNOSIS_OUTPUT_TITLE]);
-      if (body === "") {
-        return failure(format(
-          MESSAGES.emptySection,
-          SPLIT_DIAGNOSIS_OUTPUT_TITLE), stage);
-      }
-      result.splitDiagnosisOutput = {
-        title: SPLIT_DIAGNOSIS_OUTPUT_TITLE,
-        body: body
-      };
-    }
-
-    // A change-scope file names itself, says one line to the reader, says
-    // one word about structure, and carries the text that rides along with
-    // the repair request. It has no output rules: it never speaks alone.
-    if (stage === STAGES.scope) {
-      if (result.description === "") {
-        return failure(format(
-          MESSAGES.missingSection,
-          DESCRIPTION_TITLE), stage);
-      }
-      if (result.structure === null) {
-        return failure(format(
-          MESSAGES.missingSection,
-          STRUCTURE_TITLE), stage);
-      }
-      if (!Object.prototype.hasOwnProperty.call(
-        sections,
-        INSTRUCTION_TITLE)) {
-        return failure(format(
-          MESSAGES.missingSection,
-          INSTRUCTION_TITLE), stage);
-      }
-      body = joinBody(sections[INSTRUCTION_TITLE]);
-      if (body === "") {
-        return failure(format(
-          MESSAGES.emptySection,
-          INSTRUCTION_TITLE), stage);
-      }
-      result.instruction = { title: INSTRUCTION_TITLE, body: body };
-      if (hasText(beforeName)) {
-        return failure(MESSAGES.textBeforeName, stage);
-      }
-      if (hasText(outside)) {
-        return failure(MESSAGES.textOutsideSection, stage);
-      }
-      return result;
-    }
-
-    // Every repair template stands under a heading on the screen where
-    // the work is chosen. A template with none would have nowhere to be
-    // drawn, and a card that quietly never appears is worse than a file
-    // that says why it was refused.
-    if (stage === STAGES.repair && result.category === "") {
-      return failure(format(
-        MESSAGES.missingSection,
-        CATEGORY_TITLE), stage);
-    }
-
-    // A template that only asks for the replacement table has nothing to
-    // send anywhere, so it needs no instruction and no output rules. Any
-    // other template speaks to a chat and needs both.
-    if (result.replaceRules === null) {
-      for (index = 0; index < SECTION_TITLES.length; index++) {
-        title = SECTION_TITLES[index];
-        if (!Object.prototype.hasOwnProperty.call(sections, title)) {
-          return failure(format(MESSAGES.missingSection, title), stage);
-        }
-      }
-    } else if (result.description === "") {
-      return failure(format(
-        MESSAGES.missingSection,
-        DESCRIPTION_TITLE), stage);
-    }
-    if (hasText(beforeName)) {
-      return failure(MESSAGES.textBeforeName, stage);
-    }
-    if (hasText(outside)) {
-      return failure(MESSAGES.textOutsideSection, stage);
     }
 
     for (index = 0; index < SECTION_TITLES.length; index++) {
       title = SECTION_TITLES[index];
       if (!Object.prototype.hasOwnProperty.call(sections, title)) {
-        continue;
+        return failure(format(MESSAGES.missingSection, title));
       }
+    }
+    if (hasText(beforeName)) {
+      return failure(MESSAGES.textBeforeName);
+    }
+    if (hasText(outside)) {
+      return failure(MESSAGES.textOutsideSection);
+    }
+
+    for (index = 0; index < SECTION_TITLES.length; index++) {
+      title = SECTION_TITLES[index];
       body = joinBody(sections[title]);
       if (body === "") {
-        return failure(format(MESSAGES.emptySection, title), stage);
+        return failure(format(MESSAGES.emptySection, title));
       }
       if (title === INSTRUCTION_TITLE) {
         result.instruction = { title: title, body: body };
@@ -887,79 +386,51 @@
   // One list entry per file found in presets/. Invalid files stay in
   // the list with their reason so the mistake is visible, but they
   // never become a usable preset.
-  function describe(preset, stage) {
+  function describe(preset) {
     var file = preset && preset.file ? String(preset.file) : "";
     var parsed;
 
     if (!preset || preset.error) {
       return {
         file: file,
-        content: "",
         name: "",
-        stage: stage || "",
-        replaceRules: null,
+        mode: DEFAULT_MODE,
         description: "",
         questions: [],
-        behaviorCandidates: [],
-        preserveItems: [],
-        recommendKeys: [],
-        category: "",
-        allowedStructures: [],
-        structure: null,
-        writeIn: null,
-        shape: null,
-        returnSections: [],
         valid: false,
         message: MESSAGES.unreadable,
         instruction: null,
         output: null,
-        splitOutput: null,
-        splitDiagnosisOutput: null
+        splitOutput: null
       };
     }
 
-    parsed = parse(preset.content, stage);
+    parsed = parse(preset.content);
     return {
       file: file,
-      // The text as read. A caller that has the described entry should
-      // not have to go back to the host for the file it came from.
-      content: String(preset.content === undefined ? "" : preset.content),
       name: parsed.name,
-      stage: parsed.stage,
-      replaceRules: parsed.replaceRules,
+      mode: parsed.mode,
       description: parsed.description,
       questions: parsed.questions,
-      behaviorCandidates: parsed.behaviorCandidates,
-      preserveItems: parsed.preserveItems,
-      recommendKeys: parsed.recommendKeys,
-      category: parsed.category,
-      allowedStructures: parsed.allowedStructures,
-      structure: parsed.structure,
-      writeIn: parsed.writeIn,
-      shape: parsed.shape,
-      returnSections: parsed.returnSections,
       valid: parsed.valid,
       message: parsed.message,
       instruction: parsed.instruction,
       output: parsed.output,
-      splitOutput: parsed.splitOutput,
-      splitDiagnosisOutput: parsed.splitDiagnosisOutput
+      splitOutput: parsed.splitOutput
     };
   }
 
-  function describeAll(presets, stage) {
+  function describeAll(presets) {
     if (!presets || !presets.length) {
       return [];
     }
-    return Array.prototype.map.call(presets, function (preset) {
-      return describe(preset, stage);
-    });
+    return Array.prototype.map.call(presets, describe);
   }
 
-  function countValid(presets, stage) {
+  function countValid(presets) {
     var valid = 0;
 
-    describeAll(presets, stage).forEach(function (entry) {
+    describeAll(presets).forEach(function (entry) {
       if (entry.valid) {
         valid++;
       }
@@ -967,86 +438,15 @@
     return valid;
   }
 
-  // The headings the repair templates stand under, in the order the
-  // templates are offered. The app never names a category itself: the
-  // list is whatever the files say, first mention wins the position.
-  function listCategories(repair) {
-    var seen = {};
-    var order = [];
-
-    repair.forEach(function (entry) {
-      if (!entry.valid || !entry.category || seen[entry.category]) {
-        return;
-      }
-      seen[entry.category] = true;
-      order.push(entry.category);
-    });
-    return order;
-  }
-
-  // Everything under presets/ described in one pass: the single diagnosis,
-  // the repair templates grouped by the heading each declares, and the
-  // change-scope choices. The stage is still decided by the folder; what
-  // changed is that there is one set of folders again, not one per
-  // entrance.
-  function describeCatalog(presets) {
-    var diagnose = describeAll(
-      presets && presets.diagnose ? presets.diagnose : [],
-      STAGES.diagnose);
-    var repair = describeAll(
-      presets && presets.repair ? presets.repair : [],
-      STAGES.repair);
-    var scope = describeAll(
-      presets && presets.scope ? presets.scope : [],
-      STAGES.scope);
-    var validDiagnose = diagnose.filter(function (item) {
-      return item.valid;
-    });
-    var validScope = scope.filter(function (item) {
-      return item.valid;
-    });
-
-    return {
-      diagnose: diagnose,
-      repair: repair,
-      scope: scope,
-      categories: listCategories(repair),
-      // The diagnosis folder must hold exactly one usable template.
-      // Zero or two is an authoring mistake, not "no diagnosis".
-      diagnosisReady: validDiagnose.length === 1,
-      // The first usable scope file is the default. A build with none is
-      // an authoring mistake the screen has to name, because without one
-      // there is no declared answer to whether structure may change - and
-      // guessing one would be exactly the silent default this repository
-      // refuses to ship.
-      scopeReady: validScope.length > 0,
-      defaultScope: validScope.length > 0 ? validScope[0].file : ""
-    };
-  }
-
   global.MacroStudioPreset = {
     instructionTitle: INSTRUCTION_TITLE,
-    shapeTitle: SHAPE_TITLE,
-    sectionsTitle: SECTIONS_TITLE,
-    shapes: SHAPES,
-    structureTitle: STRUCTURE_TITLE,
-    structures: STRUCTURES,
-    categoryTitle: CATEGORY_TITLE,
-    allowedStructureTitle: ALLOWED_STRUCTURE_TITLE,
-    allowedStructureValues: ALLOWED_STRUCTURE_VALUES,
-    describeCatalog: describeCatalog,
     outputTitle: OUTPUT_TITLE,
     splitOutputTitle: SPLIT_OUTPUT_TITLE,
-    splitDiagnosisOutputTitle: SPLIT_DIAGNOSIS_OUTPUT_TITLE,
-    replaceTitle: REPLACE_TITLE,
-    behaviorCandidatesTitle: BEHAVIOR_CANDIDATES_TITLE,
-    preserveTitle: PRESERVE_TITLE,
-    recommendTitle: RECOMMEND_TITLE,
-    writeInTitle: WRITE_IN_TITLE,
     modeTitle: MODE_TITLE,
     questionTitle: QUESTION_TITLE,
     descriptionTitle: DESCRIPTION_TITLE,
-    stages: STAGES,
+    modes: MODES,
+    defaultMode: DEFAULT_MODE,
     messages: MESSAGES,
     stripComments: stripComments,
     parse: parse,

@@ -25,10 +25,9 @@
   // The parts are collected here and merged back into one package, so
   // everything after the intake sees a single answer either way.
   //
-  // There are exactly two answers. The other one is a refusal, which is
-  // a result rather than a failure, so it has to say which refusal it is
-  // and why. It never asks anything back: a request that cannot be
-  // settled from what was given comes back as UNCLEAR with the reason.
+  // An answer can also conclude that nothing should be changed. That is
+  // a result, not a failure, so it has to be said outright - which of
+  // the two conclusions it is, and why:
   //
   //   '@MACROSTUDIO <request id> SUMMARY BEGIN
   //   ...why, and what was looked at...
@@ -43,24 +42,8 @@
   var KINDS = ["standard", "class", "form", "document"];
   // UNNECESSARY: the macro already does what was asked.
   // IMPOSSIBLE: it could be done, but not by rewriting these modules.
-  // A repair answer has exactly two shapes: the changed code, or a
-  // refusal with a reason. These are the reasons a refusal may give.
-  // None of them starts a conversation - "I would need to ask you
-  // something" is UNCLEAR, written as a reason, not as a question.
-  var VERDICTS = ["UNNECESSARY", "IMPOSSIBLE", "UNCLEAR"];
+  var VERDICTS = ["UNNECESSARY", "IMPOSSIBLE"];
   var NAME_PATTERN = /^[A-Za-zÀ-￿][\wÀ-￿]{0,30}$/;
-  var PRODUCT_RESULTS = new WeakSet();
-
-  function brand(result) {
-    if (result && (typeof result === "object" || typeof result === "function")) {
-      PRODUCT_RESULTS.add(result);
-    }
-    return result;
-  }
-
-  function isProductResult(result) {
-    return Boolean(result) && PRODUCT_RESULTS.has(result);
-  }
 
   var MESSAGES = {
     empty:
@@ -120,58 +103,19 @@
       "そう判断した理由を要約に書いて返すよう伝えてください。",
     noChangeContradiction:
       "「変更なし」と書かれているのに、モジュールも入っていました。" +
-      "コードブロック全体をコピーし直して、もう一度お試しください。",
-    newModuleKind:
-      "新しく増やせるのは標準モジュールだけです。" +
-      "AIへ、追加する補助モジュールは標準モジュールにするよう" +
-      "伝えて、もう一度お試しください。",
-    questionNotAllowed:
-      "AIが質問や選択肢を返してきました。改修の返答は、直したコードを" +
-      "返すか、直せない理由を返すかのどちらかです。" +
-      "AIへ、決められないなら NOCHANGE UNCLEAR と理由で返すよう" +
-      "伝えてください。",
-    // Four refusals for the four things the guard can actually see. Each
-    // names what it found and where, because "構造が変わっています" alone
-    // leaves the reader nothing to check.
-    structureNewModule:
-      "変更範囲を「{scope}」にしているあいだ、新しいモジュールは" +
-      "取り込めません。返答に {name} が入っていました。" +
-      "処理の分割やクラス化が必要なら、変更範囲の詳細オプションで" +
-      "構造変更を許可してから、もう一度依頼してください。",
-    structureRemovedProcedure:
-      "変更範囲を「{scope}」にしているあいだ、手続きを消す変更は" +
-      "取り込めません。{name} から {proc} が無くなっていました。" +
-      "呼び出し元が壊れる変更なので、必要なら変更範囲の詳細オプションで" +
-      "構造変更を許可してから、もう一度依頼してください。",
-    structureMovedProcedure:
-      "変更範囲を「{scope}」にしているあいだ、手続きを別のモジュールへ" +
-      "移す変更は取り込めません。{proc} は元は {from} にありましたが、" +
-      "{name} に入っていました。必要なら変更範囲の詳細オプションで" +
-      "構造変更を許可してから、もう一度依頼してください。",
-    structureRewritten:
-      "変更範囲を「{scope}」にしているあいだ、モジュールをほぼ全面的に" +
-      "書き換える変更は取り込めません。{name} は {lines} 行のうち " +
-      "{changed} 行が変わっていました。作り直しが必要なら、変更範囲の" +
-      "詳細オプションで構造変更を許可してから、もう一度依頼してください。"
+      "コードブロック全体をコピーし直して、もう一度お試しください。"
   };
 
-  function createRequestIdentity() {
+  function createRequestId() {
     var bytes;
     var index;
     var text = "";
     var crypto = global.crypto || global.msCrypto;
-    var secure = false;
 
     if (crypto && typeof crypto.getRandomValues === "function") {
-      try {
-        bytes = new Uint8Array(16);
-        crypto.getRandomValues(bytes);
-        secure = true;
-      } catch (ignore) {
-        bytes = null;
-      }
-    }
-    if (!bytes) {
+      bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+    } else {
       bytes = [];
       for (index = 0; index < 16; index += 1) {
         bytes.push(Math.floor(Math.random() * 256));
@@ -186,11 +130,7 @@
         text += "-";
       }
     }
-    return { id: text, secure: secure };
-  }
-
-  function createRequestId() {
-    return createRequestIdentity().id;
+    return text;
   }
 
   function isRequestId(value) {
@@ -232,18 +172,13 @@
       formatPartNumber(index) + " OF " + formatPartNumber(total);
   }
 
-  function failure(reason, validationId) {
-    var result = brand({
+  function failure(reason) {
+    return {
       ok: false,
       reason: reason,
       message: MESSAGES[reason] || MESSAGES.noSentinel,
       modules: []
-    });
-
-    if (validationId) {
-      result.validationId = validationId;
-    }
-    return result;
+    };
   }
 
   function readCount(text) {
@@ -260,72 +195,6 @@
       .replace(/\r\n/g, "\n")
       .replace(/\r/g, "\n")
       .split("\n");
-  }
-
-  // ---- decoration a chat client added on the way out ----
-  //
-  // Quoting the block, turning it into a bullet, HTML-escaping it or
-  // swapping the apostrophe for a typographic one are all things the
-  // client does, not things the answer got wrong, and asking again does
-  // not fix any of them.
-  //
-  // Only a line that was not a sentinel and becomes one is replaced.
-  // Module bodies are code and are taken verbatim; nothing here can turn
-  // a line of VBA into a sentinel, because it only removes and never
-  // invents the marker. The diagnosis contract keeps its own copy of
-  // this: the two wire formats are owned separately on purpose.
-  var ENTITIES = {
-    "&lt;": "<",
-    "&gt;": ">",
-    "&quot;": "\"",
-    "&apos;": "'",
-    "&#39;": "'",
-    "&#x27;": "'",
-    "&nbsp;": " ",
-    "&amp;": "&"
-  };
-
-  function undecorate(line) {
-    var value = String(line).replace(/^[\s　]+|[\s　]+$/g, "");
-
-    value = value.replace(/^(?:>[\s　]*)+/, "");
-    value = value.replace(/^(?:[-*+]|\d+[.)])[\s　]+/, "");
-    value = value.replace(/<\/?(?:code|pre|span|p|div|strong|em|b|i)>/gi, "");
-    value = value.replace(/^`+/, "").replace(/`+$/, "");
-    value = value.replace(
-      /&(?:lt|gt|quot|apos|nbsp|amp|#39|#x27);/gi,
-      function (found) {
-        var key = found.toLowerCase();
-
-        return Object.prototype.hasOwnProperty.call(ENTITIES, key)
-          ? ENTITIES[key]
-          : found;
-      });
-    value = value.replace(/^[\s　]+/, "");
-    value = value.replace(/^[‘’‛ʼ´＇`]/, "'");
-    value = value.replace(/^'＠/, "'@");
-    value = value.replace(/^＠/, "@");
-    if (value.indexOf("@MACROSTUDIO") === 0) {
-      value = "'" + value;
-    }
-    return value;
-  }
-
-  function isSentinelLine(line) {
-    return String(line).replace(/^[\s　]+|[\s　]+$/g, "")
-      .indexOf(MARKER) === 0;
-  }
-
-  function normalizeLines(lines) {
-    return lines.map(function (line) {
-      var repaired;
-
-      if (isSentinelLine(line)) {
-        return line;
-      }
-      repaired = undecorate(line);
-      return isSentinelLine(repaired) ? repaired : line;
-    });
   }
 
   // A sentinel is recognised on its own line only, so a marker-looking
@@ -368,13 +237,14 @@
   function parse(text, requestId) {
     var lines;
     var modules = [];
-    var seen = {};
+    var seen = Object.create(null);
     var open = null;
     var body = [];
     var completed = null;
     var sawMarker = false;
     var summary = [];
     var inSummary = false;
+    var sawSummary = false;
     var part = null;
     var noChange = null;
     var index;
@@ -393,7 +263,7 @@
       return failure("empty");
     }
 
-    lines = normalizeLines(splitLines(text));
+    lines = splitLines(text);
     for (index = 0; index < lines.length; index += 1) {
       sentinel = readSentinel(lines[index]);
       if (sentinel === null) {
@@ -410,18 +280,12 @@
       if (sentinel.requestId !== requestId) {
         return failure("otherRequest");
       }
-      // The reply may not ask the reader anything. A request that
-      // cannot be answered comes back as a refusal with a reason,
-      // not as a question, so any decision sentinel is refused
-      // here rather than turned into a dialogue.
-      if (sentinel.directive === "DECISION" ||
-          (sentinel.directive === "TEXT" &&
-           (String(sentinel.parts[3] || "").toUpperCase() ===
-              "QUESTION" ||
-            String(sentinel.parts[3] || "").toUpperCase() ===
-              "OPTIONS"))) {
-        return failure("questionNotAllowed", "R3");
+      // COMPLETE closes the package; nothing may reopen or redefine it.
+      if (completed !== null) {
+        return failure("mismatch");
       }
+      // The summary is prose, not code: it is read for display only
+      // and never reaches a module.
       if (sentinel.directive === "SUMMARY") {
         if (open !== null) {
           return failure("mismatch");
@@ -430,9 +294,10 @@
           return failure("mismatch");
         }
         if (sentinel.parts[2].toUpperCase() === "BEGIN") {
-          if (inSummary) {
+          if (inSummary || sawSummary) {
             return failure("mismatch");
           }
+          sawSummary = true;
           inSummary = true;
           continue;
         }
@@ -472,7 +337,7 @@
       // name which conclusion it reached; anything else is unreadable
       // rather than empty.
       if (sentinel.directive === "NOCHANGE") {
-        if (noChange !== null) {
+        if (noChange !== null || open !== null) {
           return failure("mismatch");
         }
         if (sentinel.parts.length !== 3) {
@@ -534,12 +399,12 @@
         if (open !== null) {
           return failure("truncated");
         }
-        if (completed !== null ||
-            sentinel.parts.length !== 3 ||
-            !/^(0|[1-9][0-9]*)$/.test(sentinel.parts[2])) {
-          return failure("mismatch", "R1");
+        completed = sentinel.parts.length === 3
+          ? readCount(sentinel.parts[2])
+          : -1;
+        if (completed < 0) {
+          return failure("mismatch");
         }
-        completed = sentinel.parts[2];
         continue;
       }
       return failure("mismatch");
@@ -573,20 +438,19 @@
     if (completed === null) {
       return failure("truncated");
     }
-    if (completed !== String(modules.length)) {
-      return failure("mismatch", "R1");
+    if (!isFinite(completed) || completed !== modules.length) {
+      return failure("mismatch");
     }
 
-    return brand({
+    return {
       ok: true,
       reason: "",
       message: "",
-      requestId: requestId,
       summary: summary.join("\r\n"),
       part: part,
       noChange: noChange,
       modules: modules
-    });
+    };
   }
 
   // ---- one module per answer ----
@@ -596,12 +460,12 @@
   // there will be, and those two statements have to keep agreeing.
 
   function createPartCollection() {
-    return brand({ total: 0, parts: [] });
+    return { total: 0, parts: [] };
   }
 
   function listMissingParts(collection) {
     var missing = [];
-    var seen = {};
+    var seen = Object.create(null);
     var index;
 
     if (!collection || !collection.total) {
@@ -626,7 +490,7 @@
   }
 
   function partResult(collection, added) {
-    return brand({
+    return {
       ok: true,
       reason: "",
       message: "",
@@ -635,7 +499,7 @@
       added: added === true,
       complete: isPartCollectionComplete(collection),
       missing: listMissingParts(collection)
-    });
+    };
   }
 
   function partFailure(reason, collection) {
@@ -655,7 +519,7 @@
     var clash = false;
     var next;
 
-    if (!isProductResult(current) || !isProductResult(parsed) || !parsed.ok) {
+    if (!parsed || !parsed.ok) {
       return partFailure(
         parsed && parsed.reason ? parsed.reason : "noSentinel",
         current);
@@ -695,17 +559,16 @@
       return partFailure("partDuplicateModule", current);
     }
 
-    next = brand({
+    next = {
       total: parsed.part.total,
       parts: current.parts.concat([{
         index: parsed.part.index,
         name: module.name,
         kind: module.kind,
         code: module.code,
-        requestId: parsed.requestId,
         summary: parsed.summary || ""
       }])
-    });
+    };
     next.parts.sort(function (left, right) {
       return left.index - right.index;
     });
@@ -717,7 +580,7 @@
   function mergeParts(collection) {
     var summaries = [];
 
-    if (!isProductResult(collection) || !isPartCollectionComplete(collection)) {
+    if (!isPartCollectionComplete(collection)) {
       return failure("truncated");
     }
     collection.parts.forEach(function (entry) {
@@ -725,11 +588,10 @@
         summaries.push(entry.summary);
       }
     });
-    return brand({
+    return {
       ok: true,
       reason: "",
       message: "",
-      requestId: collection.parts[0].requestId,
       summary: summaries.join("\r\n\r\n"),
       part: null,
       noChange: null,
@@ -740,7 +602,7 @@
           code: entry.code
         };
       })
-    });
+    };
   }
 
   // What is still outstanding, in the words the intake screen uses.
@@ -760,11 +622,10 @@
   //
   // For a module the workbook already has, the workbook decides the
   // kind. A kind the answer got wrong is corrected here and reported in
-  // warnings, so the user is told instead of the type changing
+  // kindWarnings, so the user is told instead of the type changing
   // quietly underneath them.
-  function describe(parsed, existingModules, diagnosis) {
-    var known = {};
-    var knownFindings = {};
+  function describe(parsed, existingModules) {
+    var known = Object.create(null);
     var summary = {
       ok: true,
       reason: "",
@@ -775,38 +636,24 @@
       summary: "",
       noChange: null,
       modules: [],
-      warnings: []
+      kindWarnings: []
     };
 
-    if (!isProductResult(parsed)) {
-      return failure("noSentinel");
-    }
-    if (!parsed.ok) {
-      return parsed;
+    if (!parsed || !parsed.ok) {
+      return parsed || failure("noSentinel");
     }
     summary.summary = parsed.summary || "";
-    summary.requestId = parsed.requestId;
     summary.noChange = parsed.noChange || null;
     (existingModules || []).forEach(function (module) {
       known[module.name.toLowerCase()] = module;
     });
-    if (diagnosis && Array.isArray(diagnosis.findings)) {
-      diagnosis.findings.forEach(function (finding) {
-        knownFindings[String(finding.number)] = true;
-      });
-    }
 
-    parsed.modules.some(function (item) {
+    parsed.modules.forEach(function (item) {
       var match = known[item.name.toLowerCase()];
       var bookKind = match ? String(match.type || "") : "";
       var mismatch = Boolean(match) &&
         bookKind.length > 0 &&
         bookKind !== item.kind;
-
-      if (!match && item.kind !== "standard") {
-        summary = failure("newModuleKind", "R2");
-        return true;
-      }
 
       summary.modules.push({
         name: match ? match.name : item.name,
@@ -817,7 +664,7 @@
         isNew: !match
       });
       if (mismatch) {
-        summary.warnings.push({
+        summary.kindWarnings.push({
           name: match.name,
           answered: item.kind,
           actual: bookKind
@@ -828,210 +675,24 @@
       } else {
         summary.added += 1;
       }
-      return false;
     });
-    if (!summary.ok) {
-      return summary;
-    }
     summary.total = summary.modules.length;
-    // The sentence travels with the result, so every screen that shows
-    // the intake shows the same correction. Computing it here and never
-    // reading it is how it went missing.
-    summary.kindWarning = describeKindWarning(summary.warnings);
-    return brand(summary);
+    return summary;
   }
 
   // The one sentence the user sees when a kind was corrected.
-  function describeKindWarning(warnings) {
+  function describeKindWarning(kindWarnings) {
     var names;
 
-    if (!warnings || warnings.length === 0) {
+    if (!kindWarnings || kindWarnings.length === 0) {
       return "";
     }
-    names = warnings.map(function (warning) {
+    names = kindWarnings.map(function (warning) {
       return warning.name;
     }).join("、");
     return names +
       " の種類はAIの返答と違っていたため、ブック側の種類のまま取り込みました。" +
       "変更内容を見て、意図どおりか確かめてください。";
-  }
-
-  // A module is one whole rewrite when this much of it changed. The
-  // floor keeps a short module - where a two-line fix is most of the
-  // file - from reading as a rewrite; the ratio is what makes it one.
-  var REWRITE_MIN_LINES = 40;
-  var REWRITE_RATIO = 0.8;
-
-  // What counts as a procedure for the guard. Declare statements are
-  // deliberately excluded: `Declare PtrSafe Function Sleep Lib "kernel32"`
-  // is a Function to the VBA grammar, but removing it is the whole point
-  // of the Win32 repair, and a guard that called that a deleted procedure
-  // would refuse the most ordinary repair this tool does.
-  var PROCEDURE_LINE =
-    /^[ \t]*(?:(?:Public|Private|Friend|Global)[ \t]+)?(?:Static[ \t]+)?(?:(Sub|Function)|Property[ \t]+(?:Get|Let|Set))[ \t]+([A-Za-zÀ-￿][\wÀ-￿]*)/;
-  var DECLARE_LINE = /^[ \t]*(?:(?:Public|Private)[ \t]+)?Declare\b/i;
-
-  function listProcedures(code) {
-    var names = [];
-
-    splitLines(String(code === undefined || code === null ? "" : code))
-      .forEach(function (line) {
-        var match;
-
-        if (DECLARE_LINE.test(line)) {
-          return;
-        }
-        match = PROCEDURE_LINE.exec(line);
-        if (match && names.indexOf(match[2]) < 0) {
-          names.push(match[2]);
-        }
-      });
-    return names;
-  }
-
-  function countChangedLines(before, after) {
-    var left = splitLines(String(before === undefined ? "" : before));
-    var right = splitLines(String(after === undefined ? "" : after));
-    var seen = {};
-    var changed = 0;
-
-    left.forEach(function (line) {
-      var key = "|" + line;
-
-      seen[key] = (seen[key] || 0) + 1;
-    });
-    right.forEach(function (line) {
-      var key = "|" + line;
-
-      if (seen[key] > 0) {
-        seen[key] -= 1;
-        return;
-      }
-      changed += 1;
-    });
-    Object.keys(seen).forEach(function (key) {
-      changed += seen[key];
-    });
-    return changed;
-  }
-
-  function structureFailure(reason, fields) {
-    var text = MESSAGES[reason];
-
-    Object.keys(fields).forEach(function (key) {
-      text = text.split("{" + key + "}").join(String(fields[key]));
-    });
-    return brand({
-      ok: false,
-      reason: reason,
-      message: text,
-      validationId: "R3",
-      modules: []
-    });
-  }
-
-  // The four things the guard can see, checked in the order a reader
-  // would read them: something new arrived, something known left,
-  // something known moved, something known was replaced wholesale.
-  //
-  // Nothing here looks inside a procedure. A body rewritten line for line
-  // under the same name passes every one of these checks, and the screen
-  // that offers the setting says so rather than letting the tick imply a
-  // guarantee it cannot keep.
-  function checkStructure(summary, existingModules, options) {
-    var settings = options || {};
-    var scopeName = String(settings.scopeName || "");
-    var allowNewModules = settings.allowNewModules === true;
-    var owner = {};
-    var byName = {};
-    var refusal = null;
-
-    if (!isProductResult(summary) || !summary.ok || summary.noChange) {
-      return summary;
-    }
-    (existingModules || []).forEach(function (module) {
-      byName[module.name.toLowerCase()] = module;
-      listProcedures(module.code).forEach(function (name) {
-        owner[name.toLowerCase()] = module.name;
-      });
-    });
-
-    summary.modules.some(function (item) {
-      var original = byName[item.name.toLowerCase()];
-      var before;
-      var after;
-      var changed;
-
-      if (item.isNew) {
-        // A module the run itself asked for is not an unannounced change
-        // of shape. Only a template that declares 認める構造変更 buys this,
-        // and only for the run it was chosen in.
-        if (allowNewModules) {
-          return false;
-        }
-        refusal = structureFailure("structureNewModule", {
-          scope: scopeName,
-          name: item.name
-        });
-        return true;
-      }
-      if (!original) {
-        return false;
-      }
-      before = listProcedures(original.code);
-      after = listProcedures(item.code);
-      before.some(function (name) {
-        if (after.indexOf(name) >= 0) {
-          return false;
-        }
-        refusal = structureFailure("structureRemovedProcedure", {
-          scope: scopeName,
-          name: item.name,
-          proc: name
-        });
-        return true;
-      });
-      if (refusal) {
-        return true;
-      }
-      after.some(function (name) {
-        var from = owner[name.toLowerCase()];
-
-        // A procedure this module already had is not one that moved in,
-        // whatever else carries the same name. VBA lets `Test` or `Main`
-        // sit privately in half the modules of a workbook, so matching on
-        // the name alone called every one of them a move.
-        if (before.indexOf(name) >= 0) {
-          return false;
-        }
-        if (!from || from === original.name) {
-          return false;
-        }
-        refusal = structureFailure("structureMovedProcedure", {
-          scope: scopeName,
-          name: item.name,
-          proc: name,
-          from: from
-        });
-        return true;
-      });
-      if (refusal) {
-        return true;
-      }
-      changed = countChangedLines(original.code, item.code);
-      if (original.lineCount >= REWRITE_MIN_LINES &&
-          changed >= original.lineCount * REWRITE_RATIO) {
-        refusal = structureFailure("structureRewritten", {
-          scope: scopeName,
-          name: item.name,
-          lines: original.lineCount,
-          changed: changed
-        });
-        return true;
-      }
-      return false;
-    });
-    return refusal || summary;
   }
 
   // The sentinel an answer uses to say there is nothing to change.
@@ -1045,9 +706,7 @@
     kinds: KINDS,
     verdicts: VERDICTS,
     messages: MESSAGES,
-    isProductResult: isProductResult,
     noChangeLine: noChangeLine,
-    createRequestIdentity: createRequestIdentity,
     createRequestId: createRequestId,
     isRequestId: isRequestId,
     beginLine: beginLine,
@@ -1065,11 +724,6 @@
     isPartCollectionComplete: isPartCollectionComplete,
     describeMissingParts: describeMissingParts,
     describe: describe,
-    describeKindWarning: describeKindWarning,
-    listProcedures: listProcedures,
-    countChangedLines: countChangedLines,
-    rewriteMinLines: REWRITE_MIN_LINES,
-    rewriteRatio: REWRITE_RATIO,
-    checkStructure: checkStructure
+    describeKindWarning: describeKindWarning
   };
 }(window));

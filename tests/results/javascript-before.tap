@@ -1,0 +1,1271 @@
+TAP version 13
+# Subtest: response accepts "\\n" and whole markdown fence
+ok 1 - response accepts "\\n" and whole markdown fence
+  ---
+  duration_ms: 13.83179
+  type: 'test'
+  ...
+# Subtest: response accepts "\\r\\n" and whole markdown fence
+ok 2 - response accepts "\\r\\n" and whole markdown fence
+  ---
+  duration_ms: 3.832258
+  type: 'test'
+  ...
+# Subtest: response accepts "\\r" and whole markdown fence
+ok 3 - response accepts "\\r" and whole markdown fence
+  ---
+  duration_ms: 2.731661
+  type: 'test'
+  ...
+# Subtest: response rejects empty
+ok 4 - response rejects empty
+  ---
+  duration_ms: 3.233584
+  type: 'test'
+  ...
+# Subtest: response rejects plain VBA without sentinels
+ok 5 - response rejects plain VBA without sentinels
+  ---
+  duration_ms: 4.819285
+  type: 'test'
+  ...
+# Subtest: response rejects other request
+ok 6 - response rejects other request
+  ---
+  duration_ms: 3.107845
+  type: 'test'
+  ...
+# Subtest: response rejects missing COMPLETE
+ok 7 - response rejects missing COMPLETE
+  ---
+  duration_ms: 3.383649
+  type: 'test'
+  ...
+# Subtest: response rejects wrong count
+ok 8 - response rejects wrong count
+  ---
+  duration_ms: 3.947848
+  type: 'test'
+  ...
+# Subtest: response rejects hex count
+not ok 9 - response rejects hex count
+  ---
+  duration_ms: 4.812062
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:85:60'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:86:45)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: response rejects exponential count
+not ok 10 - response rejects exponential count
+  ---
+  duration_ms: 3.344851
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:85:60'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:86:45)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: response rejects extra COMPLETE tokens
+not ok 11 - response rejects extra COMPLETE tokens
+  ---
+  duration_ms: 3.28874
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:85:60'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:86:45)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: response rejects duplicate COMPLETE
+not ok 12 - response rejects duplicate COMPLETE
+  ---
+  duration_ms: 4.41057
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:85:60'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:86:45)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: response rejects COMPLETE before modules
+not ok 13 - response rejects COMPLETE before modules
+  ---
+  duration_ms: 2.596226
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:85:60'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:86:45)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: response rejects summary after COMPLETE
+not ok 14 - response rejects summary after COMPLETE
+  ---
+  duration_ms: 2.898037
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:85:60'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:86:45)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: response rejects two summaries
+not ok 15 - response rejects two summaries
+  ---
+  duration_ms: 2.837352
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:85:60'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:86:45)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: response rejects unknown kind
+ok 16 - response rejects unknown kind
+  ---
+  duration_ms: 2.973478
+  type: 'test'
+  ...
+# Subtest: response rejects invalid module name
+ok 17 - response rejects invalid module name
+  ---
+  duration_ms: 3.018928
+  type: 'test'
+  ...
+# Subtest: response rejects empty module
+ok 18 - response rejects empty module
+  ---
+  duration_ms: 2.831764
+  type: 'test'
+  ...
+# Subtest: response rejects case-insensitive duplicate
+ok 19 - response rejects case-insensitive duplicate
+  ---
+  duration_ms: 3.817841
+  type: 'test'
+  ...
+# Subtest: response rejects mismatched END
+ok 20 - response rejects mismatched END
+  ---
+  duration_ms: 2.564648
+  type: 'test'
+  ...
+# Subtest: response rejects unknown directive
+ok 21 - response rejects unknown directive
+  ---
+  duration_ms: 2.438239
+  type: 'test'
+  ...
+# Subtest: response rejects NOCHANGE with modules
+ok 22 - response rejects NOCHANGE with modules
+  ---
+  duration_ms: 5.510829
+  type: 'test'
+  ...
+# Subtest: response rejects NOCHANGE without reason
+ok 23 - response rejects NOCHANGE without reason
+  ---
+  duration_ms: 2.862236
+  type: 'test'
+  ...
+# Subtest: response rejects NOCHANGE unknown verdict
+ok 24 - response rejects NOCHANGE unknown verdict
+  ---
+  duration_ms: 2.769834
+  type: 'test'
+  ...
+# Subtest: response rejects zero modules without verdict
+ok 25 - response rejects zero modules without verdict
+  ---
+  duration_ms: 3.347699
+  type: 'test'
+  ...
+# Subtest: response rejects NOCHANGE inside module
+ok 26 - response rejects NOCHANGE inside module
+  ---
+  duration_ms: 3.54529
+  type: 'test'
+  ...
+# Subtest: response rejects PART with invalid index
+ok 27 - response rejects PART with invalid index
+  ---
+  duration_ms: 2.680017
+  type: 'test'
+  ...
+# Subtest: response rejects PART zero total
+ok 28 - response rejects PART zero total
+  ---
+  duration_ms: 2.628795
+  type: 'test'
+  ...
+# Subtest: response rejects PART malformed OF
+ok 29 - response rejects PART malformed OF
+  ---
+  duration_ms: 2.662699
+  type: 'test'
+  ...
+# Subtest: explicit no-change UNNECESSARY
+ok 30 - explicit no-change UNNECESSARY
+  ---
+  duration_ms: 2.991096
+  type: 'test'
+  ...
+# Subtest: explicit no-change IMPOSSIBLE
+ok 31 - explicit no-change IMPOSSIBLE
+  ---
+  duration_ms: 2.840997
+  type: 'test'
+  ...
+# Subtest: marker text inside a VBA string remains source
+ok 32 - marker text inside a VBA string remains source
+  ---
+  duration_ms: 2.908739
+  type: 'test'
+  ...
+# Subtest: request IDs are unique and canonical
+ok 33 - request IDs are unique and canonical
+  ---
+  duration_ms: 5.18454
+  type: 'test'
+  ...
+# Subtest: constructor is a new module, never Object.prototype.constructor
+not ok 34 - constructor is a new module, never Object.prototype.constructor
+  ---
+  duration_ms: 3.153332
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:100:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    0 !== 1
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 1
+  actual: 0
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:102:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: existing names and module kinds come from workbook
+ok 35 - existing names and module kinds come from workbook
+  ---
+  duration_ms: 2.720488
+  type: 'test'
+  ...
+# Subtest: split replies merge out of order; duplicates and conflicts are distinguished
+ok 36 - split replies merge out of order; duplicates and conflicts are distinguished
+  ---
+  duration_ms: 3.719197
+  type: 'test'
+  ...
+# Subtest: incomplete parts cannot be merged
+ok 37 - incomplete parts cannot be merged
+  ---
+  duration_ms: 2.639152
+  type: 'test'
+  ...
+# Subtest: editing an issued request rotates ID and clears old response, parts and artifacts
+not ok 38 - editing an issued request rotates ID and clears old response, parts and artifacts
+  ---
+  duration_ms: 3.576153
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:122:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected "actual" to be strictly unequal to:
+    
+    '11111111-1111-4111-8111-111111111111'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: '11111111-1111-4111-8111-111111111111'
+  actual: '11111111-1111-4111-8111-111111111111'
+  operator: 'notStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:126:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: repeated input events for unchanged request preserve its response
+ok 39 - repeated input events for unchanged request preserve its response
+  ---
+  duration_ms: 3.775547
+  type: 'test'
+  ...
+# Subtest: switching output format of an issued request invalidates stale replies
+not ok 40 - switching output format of an issued request invalidates stale replies
+  ---
+  duration_ms: 3.922046
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:135:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected "actual" to be strictly unequal to:
+    
+    '11111111-1111-4111-8111-111111111111'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: '11111111-1111-4111-8111-111111111111'
+  actual: '11111111-1111-4111-8111-111111111111'
+  operator: 'notStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:137:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: changing purpose clears previous handoff data
+not ok 41 - changing purpose clears previous handoff data
+  ---
+  duration_ms: 2.76063
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:139:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    'old' !== null
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: ~
+  actual: 'old'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:141:46)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: switching workbook clears old question index and request base
+not ok 42 - switching workbook clears old question index and request base
+  ---
+  duration_ms: 2.652888
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:143:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    2 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 2
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:145:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: replacement packages remove modules added by an earlier answer
+ok 43 - replacement packages remove modules added by an earlier answer
+  ---
+  duration_ms: 7.923522
+  type: 'test'
+  ...
+# Subtest: invalid answer does not destroy a valid imported answer
+ok 44 - invalid answer does not destroy a valid imported answer
+  ---
+  duration_ms: 4.314273
+  type: 'test'
+  ...
+# Subtest: a new split collection cannot leave old complete reply buildable
+not ok 45 - a new split collection cannot leave old complete reply buildable
+  ---
+  duration_ms: 3.396177
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:155:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:159:72)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: NOCHANGE replaces and removes a previous modification
+ok 46 - NOCHANGE replaces and removes a previous modification
+  ---
+  duration_ms: 2.688972
+  type: 'test'
+  ...
+# Subtest: format-only response preserves original trailing whitespace and blank lines
+not ok 47 - format-only response preserves original trailing whitespace and blank lines
+  ---
+  duration_ms: 2.915819
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:167:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'changed'
+    - 'unchanged'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'unchanged'
+  actual: 'changed'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:170:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: new nonstandard modules are refused without altering state
+ok 48 - new nonstandard modules are refused without altering state
+  ---
+  duration_ms: 3.185212
+  type: 'test'
+  ...
+# Subtest: source exports never include modules invented by a previous answer
+ok 49 - source exports never include modules invented by a previous answer
+  ---
+  duration_ms: 5.521805
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "NUL.xlsm"
+not ok 50 - output filename rejected: "NUL.xlsm"
+  ---
+  duration_ms: 3.026171
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:180:33'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:181:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: output filename rejected: "CON.backup.xlsm"
+not ok 51 - output filename rejected: "CON.backup.xlsm"
+  ---
+  duration_ms: 4.13997
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:180:33'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:181:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: output filename rejected: "AUX.xlsm"
+not ok 52 - output filename rejected: "AUX.xlsm"
+  ---
+  duration_ms: 3.768542
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:180:33'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:181:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: output filename rejected: "PRN.xlsm"
+not ok 53 - output filename rejected: "PRN.xlsm"
+  ---
+  duration_ms: 3.543794
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:180:33'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:181:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: output filename rejected: "COM1.xlsm"
+not ok 54 - output filename rejected: "COM1.xlsm"
+  ---
+  duration_ms: 6.504188
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:180:33'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:181:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: output filename rejected: "LPT9.xlsm"
+not ok 55 - output filename rejected: "LPT9.xlsm"
+  ---
+  duration_ms: 2.935521
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:180:33'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:181:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: output filename rejected: "COM¹.xlsm"
+not ok 56 - output filename rejected: "COM¹.xlsm"
+  ---
+  duration_ms: 2.988217
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:180:33'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:181:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: output filename rejected: "LPT².xlsm"
+not ok 57 - output filename rejected: "LPT².xlsm"
+  ---
+  duration_ms: 2.725264
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:180:33'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:181:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: output filename rejected: "x\\u0001.xlsm"
+not ok 58 - output filename rejected: "x\\u0001.xlsm"
+  ---
+  duration_ms: 3.537029
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:180:33'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:181:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: output filename rejected: "x\\u0000.xlsm"
+not ok 59 - output filename rejected: "x\\u0000.xlsm"
+  ---
+  duration_ms: 3.519898
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:180:33'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:181:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: output filename rejected: "a/b.xlsm"
+ok 60 - output filename rejected: "a/b.xlsm"
+  ---
+  duration_ms: 4.178744
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "a\\\\b.xlsm"
+ok 61 - output filename rejected: "a\\\\b.xlsm"
+  ---
+  duration_ms: 3.131739
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "../a.xlsm"
+ok 62 - output filename rejected: "../a.xlsm"
+  ---
+  duration_ms: 2.844362
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "a.xlsm."
+ok 63 - output filename rejected: "a.xlsm."
+  ---
+  duration_ms: 2.796227
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "a.txt"
+ok 64 - output filename rejected: "a.txt"
+  ---
+  duration_ms: 2.526442
+  type: 'test'
+  ...
+# Subtest: output filename rejected: ""
+ok 65 - output filename rejected: ""
+  ---
+  duration_ms: 2.459827
+  type: 'test'
+  ...
+# Subtest: output filename rejected: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.xlsm"
+ok 66 - output filename rejected: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.xlsm"
+  ---
+  duration_ms: 2.590515
+  type: 'test'
+  ...
+# Subtest: valid filename: Report.xlsm
+ok 67 - valid filename: Report.xlsm
+  ---
+  duration_ms: 2.69921
+  type: 'test'
+  ...
+# Subtest: valid filename: 日本語-改修版.xlsm
+ok 68 - valid filename: 日本語-改修版.xlsm
+  ---
+  duration_ms: 2.606479
+  type: 'test'
+  ...
+# Subtest: valid filename: report..xlsm
+ok 69 - valid filename: report..xlsm
+  ---
+  duration_ms: 2.474629
+  type: 'test'
+  ...
+# Subtest: valid filename: CONSOLE.xlsm
+ok 70 - valid filename: CONSOLE.xlsm
+  ---
+  duration_ms: 2.285362
+  type: 'test'
+  ...
+# Subtest: valid filename: V1.2.XLSM
+ok 71 - valid filename: V1.2.XLSM
+  ---
+  duration_ms: 2.232455
+  type: 'test'
+  ...
+# Subtest: valid filename: hello world.xlsm
+ok 72 - valid filename: hello world.xlsm
+  ---
+  duration_ms: 2.624836
+  type: 'test'
+  ...
+# Subtest: long generated filenames fit 120 characters .xlsm
+not ok 73 - long generated filenames fit 120 characters .xlsm
+  ---
+  duration_ms: 9.260347
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:186:52'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(output.length<=120)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:189:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: long generated filenames fit 120 characters .xlam
+not ok 74 - long generated filenames fit 120 characters .xlam
+  ---
+  duration_ms: 5.6078
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:186:52'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(output.length<=120)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:189:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: long generated filenames fit 120 characters .xlsb
+not ok 75 - long generated filenames fit 120 characters .xlsb
+  ---
+  duration_ms: 2.495564
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:186:52'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(output.length<=120)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:189:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: long generated filenames fit 120 characters .xls
+not ok 76 - long generated filenames fit 120 characters .xls
+  ---
+  duration_ms: 3.128761
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:186:52'
+  failureType: 'testCodeFailure'
+  error: |-
+    The expression evaluated to a falsy value:
+    
+      assert.ok(output.length<=120)
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:189:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: all six supplied presets parse successfully
+ok 77 - all six supplied presets parse successfully
+  ---
+  duration_ms: 5.645745
+  type: 'test'
+  ...
+# Subtest: preset parser rejects missing and duplicate required headings
+ok 78 - preset parser rejects missing and duplicate required headings
+  ---
+  duration_ms: 4.02328
+  type: 'test'
+  ...
+# Subtest: template expansion is single-pass and literal VBA-like placeholders survive
+ok 79 - template expansion is single-pass and literal VBA-like placeholders survive
+  ---
+  duration_ms: 3.585309
+  type: 'test'
+  ...
+# Subtest: template rejects unknown/malformed placeholders
+ok 80 - template rejects unknown/malformed placeholders
+  ---
+  duration_ms: 2.85697
+  type: 'test'
+  ...
+# Subtest: shared request template does not order code modification for consultation
+not ok 81 - shared request template does not order code modification for consultation
+  ---
+  duration_ms: 0.204316
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:207:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:208:90)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: uncertain extraction warning is present in request and source file
+not ok 82 - uncertain extraction warning is present in request and source file
+  ---
+  duration_ms: 3.614357
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:210:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    The input did not match the regular expression /ModuleX/. Input:
+    
+    '================================================================================\r\n' +
+      ' 監査.xlsm - VBA Source Code\r\n' +
+      ' Generated: 2026-09-08\r\n' +
+      '================================================================================\r\n' +
+      '\r\n' +
+      'MODULE INDEX\r\n' +
+      '----------------------------------------\r\n' +
+      '\r\n' +
+      '  Standard Modules:\r\n' +
+      '    Main.bas (1 lines)\r\n' +
+      '\r\n' +
+      '  Total: 1 lines across 1 modules\r\n' +
+      '\r\n' +
+      '================================================================================\r\n' +
+      ' Main.bas\r\n' +
+      '================================================================================\r\n' +
+      '\r\n' +
+      'Option Explicit\r\n'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected:
+  actual: |-
+    ================================================================================
+     監査.xlsm - VBA Source Code
+     Generated: 2026-09-08
+    ================================================================================
+    
+    MODULE INDEX
+    ----------------------------------------
+    
+      Standard Modules:
+        Main.bas (1 lines)
+    
+      Total: 1 lines across 1 modules
+    
+    ================================================================================
+     Main.bas
+    ================================================================================
+    
+    Option Explicit
+    
+  operator: 'match'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:213:76)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: diff existing self-tests
+ok 83 - diff existing self-tests
+  ---
+  duration_ms: 2.887569
+  type: 'test'
+  ...
+# Subtest: diff preserves identical tail after 150-line insert
+not ok 84 - diff preserves identical tail after 150-line insert
+  ---
+  duration_ms: 3.086587
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:216:40'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    350 !== 150
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 150
+  actual: 350
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:219:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: diff preserves identical tail after 150-line delete
+not ok 85 - diff preserves identical tail after 150-line delete
+  ---
+  duration_ms: 3.047905
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:216:40'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    350 !== 150
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 150
+  actual: 350
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:219:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: diff reconstructs both inputs for 500 deterministic randomized cases
+ok 86 - diff reconstructs both inputs for 500 deterministic randomized cases
+  ---
+  duration_ms: 44.099264
+  type: 'test'
+  ...
+# Subtest: report JSON cannot close its script element
+ok 87 - report JSON cannot close its script element
+  ---
+  duration_ms: 2.591166
+  type: 'test'
+  ...
+# Subtest: HTML escaping retains code as text
+ok 88 - HTML escaping retains code as text
+  ---
+  duration_ms: 2.765959
+  type: 'test'
+  ...
+# Subtest: manual paste of normalization-equivalent original remains unchanged
+ok 89 - manual paste of normalization-equivalent original remains unchanged
+  ---
+  duration_ms: 2.930886
+  type: 'test'
+  ...
+# Subtest: source-doubt workbook gating: refactor
+not ok 90 - source-doubt workbook gating: refactor
+  ---
+  duration_ms: 2.997558
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:246:46'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:248:9)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: source-doubt workbook gating: diagnose
+ok 91 - source-doubt workbook gating: diagnose
+  ---
+  duration_ms: 4.085994
+  type: 'test'
+  ...
+# Subtest: explicit source doubt is not masked by a missing general warning
+not ok 92 - explicit source doubt is not masked by a missing general warning
+  ---
+  duration_ms: 2.960814
+  type: 'test'
+  location: '/mnt/data/work/macrostudio/tests/test-js.cjs:250:1'
+  failureType: 'testCodeFailure'
+  error: "Cannot read properties of null (reading 'level')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (/mnt/data/work/macrostudio/tests/test-js.cjs:252:17)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..92
+# tests 92
+# suites 0
+# pass 58
+# fail 34
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 493.09395

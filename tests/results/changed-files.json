@@ -1,0 +1,137 @@
+[
+  {
+    "path": "BUG_CHECK_REPORT.md",
+    "status": "added",
+    "sha256": "974ff4c35cfbd52b9ef4a018394dd320e96097b929bb7faf83677e8e55e7e190"
+  },
+  {
+    "path": "README.md",
+    "status": "modified",
+    "sha256": "b96f70c4e514265d37f83348be0fc0482049a43ea2d1953cd85b4eadee1a6d00"
+  },
+  {
+    "path": "assets/css/flow.css",
+    "status": "modified",
+    "sha256": "62cac8924f31502accf35f3f0e8d757de86f4aa3d1d279c7c0c3930a56e6e6a3"
+  },
+  {
+    "path": "assets/css/layout.css",
+    "status": "modified",
+    "sha256": "5340a067e3e55228c2e4a2cd97d1699434e9163580c49399158e1bf7ebfded27"
+  },
+  {
+    "path": "assets/css/variables.css",
+    "status": "modified",
+    "sha256": "5a137e1772f902a763db64a46f74a1d1f348b8a7427d8f1f85199d4f64cc8b8d"
+  },
+  {
+    "path": "assets/index.html",
+    "status": "modified",
+    "sha256": "75baf776d661e534a02ab7bff268ddf83b84d1fee42812164aa681b53de6836d"
+  },
+  {
+    "path": "assets/js/app.js",
+    "status": "modified",
+    "sha256": "f7aec08f6860acaf4191a565e68d73805b63e7b7cdac17268628be49b413b648"
+  },
+  {
+    "path": "assets/js/diff.js",
+    "status": "modified",
+    "sha256": "1dd0060e52f0dbc6d655870e98382ffcbc5bbec41e9a1c0dc41bf00fa95348fe"
+  },
+  {
+    "path": "assets/js/host-bridge.js",
+    "status": "modified",
+    "sha256": "c1dcc483f2e57ec4f05a4acdc6bd80f4790954a1fddd966a04287b33b5105ce9"
+  },
+  {
+    "path": "assets/js/prompt-template.js",
+    "status": "modified",
+    "sha256": "3fc1cbd9e464ca711af82b674c3fb71a0d508572dfcc31245acdb60de9ad72c4"
+  },
+  {
+    "path": "assets/js/response-package.js",
+    "status": "modified",
+    "sha256": "495ddb775228809b9d4f1b8466bb239d146badbe192feab8dfdd42b4c2ae750f"
+  },
+  {
+    "path": "assets/js/screens.js",
+    "status": "modified",
+    "sha256": "a4aa20710185b8d225034935c4aea24a0d93f97a72d3b2039310bd3379ad394f"
+  },
+  {
+    "path": "assets/js/state.js",
+    "status": "modified",
+    "sha256": "a6c3cd3b8b2672c384b54105c1b9f60be70f63275c6c8fc90d238e014095eedd"
+  },
+  {
+    "path": "sample-book/MacroStudio/README-過去出力の注意.md",
+    "status": "added",
+    "sha256": "d12666bd4632fd5943951002fce3f514449c0043df395d29061dacff08b55f20"
+  },
+  {
+    "path": "src/00_OutputFiles.cs",
+    "status": "added",
+    "sha256": "c1bdc2c3114d659e95bb18ff94bfd71a9ac45735fb592e1e010101c005021a86"
+  },
+  {
+    "path": "src/02_MainWindow.cs",
+    "status": "modified",
+    "sha256": "92524414a18fcf80752a65fb126e276579e49bdb17749fd4019d709ba3567416"
+  },
+  {
+    "path": "src/03_MessageRouter.cs",
+    "status": "modified",
+    "sha256": "3246cfb1369fe30657f791583c593ca88d2d110f734fc6f947ceb61e415c9d16"
+  },
+  {
+    "path": "src/04_HostServices.cs",
+    "status": "modified",
+    "sha256": "85beac355d1c80305100df5dfeb7d734ad27c790586e7276845f600eca742803"
+  },
+  {
+    "path": "src/07_VbaProject.cs",
+    "status": "modified",
+    "sha256": "6ed81094cbec56aec23ded58fcf5d1ae5042d5e5cd0ddce4b293fd5aba1d6c4e"
+  },
+  {
+    "path": "src/08_BookIO.cs",
+    "status": "modified",
+    "sha256": "42f539138d7c85a521429476b217a5aa0af738d7d8291053da5c0abb9ba670ac"
+  },
+  {
+    "path": "templates/request-template.txt",
+    "status": "modified",
+    "sha256": "3cb5b480c43c2e7d81e745e715b3ff7ac96078b08ff499e9ad316670f6704262"
+  },
+  {
+    "path": "tests/CoreRegression.cs",
+    "status": "added",
+    "sha256": "c26d03dba96607140ad0fb06e00b7552b1a6f002a38009a8cc641e479cf3854d"
+  },
+  {
+    "path": "tests/README.md",
+    "status": "added",
+    "sha256": "a6a31141ed6f5712dfa77dbafd6b1e8af70973dd1dade9b007fd1010a5a8bc9b"
+  },
+  {
+    "path": "tests/Test-Windows.ps1",
+    "status": "added",
+    "sha256": "407e1c5290fe60a7410497ba908d68d54179b1b010c955249ec125daad4701ec"
+  },
+  {
+    "path": "tests/inspect-sample-cache.py",
+    "status": "added",
+    "sha256": "68033a202a3a5b174d0e5e64a2d4b5fa15088123ab7f4e8a35e79b5c0c57e9c9"
+  },
+  {
+    "path": "tests/test-browser.py",
+    "status": "added",
+    "sha256": "b979838287a230608a55cdb7a7c4192623ab94c40ccdf168a6e34c9e25ea5c84"
+  },
+  {
+    "path": "tests/test-js.cjs",
+    "status": "added",
+    "sha256": "ec65bf32223c4afbf0b4f5ca9c985b9b7a6e8fe6394fb3b234a5bf71cd5058e0"
+  }
+]

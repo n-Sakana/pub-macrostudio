@@ -2,8 +2,8 @@
   "use strict";
 
   var nextId = 0;
-  var pending = {};
-  var eventHandlers = {};
+  var pending = Object.create(null);
+  var eventHandlers = Object.create(null);
   var timeoutMilliseconds = 120000;
   var webview = global.chrome && global.chrome.webview
     ? global.chrome.webview

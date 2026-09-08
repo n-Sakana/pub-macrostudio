@@ -3,10 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading;
 using System.Windows;
 using Microsoft.Win32;
 
@@ -42,160 +39,9 @@ namespace MacroStudio
         }
     }
 
-    internal static class ClipboardRetry
-    {
-        private const int CannotOpenClipboardHResult =
-            unchecked((int)0x800401D0);
-        private const int MaximumAttempts = 10;
-        private const int RetryDelayMilliseconds = 50;
-
-        [DllImport("user32.dll")]
-        private static extern IntPtr GetOpenClipboardWindow();
-
-        [DllImport("user32.dll")]
-        private static extern uint GetWindowThreadProcessId(
-            IntPtr window,
-            out uint processId);
-
-        internal static void Execute(
-            string errorCode,
-            string errorMessage,
-            Action operation,
-            Action<int> wait,
-            Func<string> inspectOwner,
-            Action<int, bool, IList<string>> report)
-        {
-            if (operation == null)
-            {
-                throw new ArgumentNullException("operation");
-            }
-            if (wait == null)
-            {
-                throw new ArgumentNullException("wait");
-            }
-
-            int retryCount = 0;
-            List<string> owners = new List<string>();
-            int attempt;
-            for (attempt = 1; attempt <= MaximumAttempts; attempt++)
-            {
-                try
-                {
-                    operation();
-                    Report(report, retryCount, true, owners);
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    bool clipboardBusy =
-                        ex.HResult == CannotOpenClipboardHResult;
-                    if (clipboardBusy)
-                    {
-                        owners.Add(InspectOwner(inspectOwner));
-                    }
-                    bool canRetry =
-                        clipboardBusy &&
-                        attempt < MaximumAttempts;
-                    if (!canRetry)
-                    {
-                        Report(report, retryCount, false, owners);
-                        throw new HostActionException(
-                            errorCode,
-                            errorMessage,
-                            null,
-                            ex);
-                    }
-                }
-
-                retryCount++;
-                wait(RetryDelayMilliseconds);
-            }
-        }
-
-        internal static string InspectOpenClipboardOwner()
-        {
-            IntPtr window = GetOpenClipboardWindow();
-            if (window == IntPtr.Zero)
-            {
-                return "none";
-            }
-
-            uint processId;
-            GetWindowThreadProcessId(window, out processId);
-            if (processId == 0)
-            {
-                return "unknown pid=0";
-            }
-
-            string processName = "unknown";
-            try
-            {
-                using (Process process = Process.GetProcessById(
-                    checked((int)processId)))
-                {
-                    processName = process.ProcessName;
-                }
-            }
-            catch
-            {
-            }
-            return processName + " pid=" +
-                processId.ToString(CultureInfo.InvariantCulture);
-        }
-
-        private static string InspectOwner(Func<string> inspectOwner)
-        {
-            if (inspectOwner == null)
-            {
-                return "unavailable";
-            }
-            try
-            {
-                string value = inspectOwner();
-                return string.IsNullOrEmpty(value) ? "unavailable" : value;
-            }
-            catch
-            {
-                return "unavailable";
-            }
-        }
-
-        private static void Report(
-            Action<int, bool, IList<string>> report,
-            int retryCount,
-            bool succeeded,
-            IList<string> owners)
-        {
-            if (report == null)
-            {
-                return;
-            }
-            try
-            {
-                report(retryCount, succeeded, owners);
-            }
-            catch
-            {
-            }
-        }
-    }
-
     public sealed class HostServices
     {
         private static readonly object LogLock = new object();
-
-        // The record of what a run confirmed. It is written for the log
-        // and for anyone reading the folder afterwards; nothing reads it
-        // back into a running session.
-        private const string RunManifestName = "run-manifest.json";
-
-        // Everything one run produces lives inside MacroStudio itself,
-        // never beside the workbook it read. The deliverables and the one
-        // file handed to the chat are separate trees under the same run
-        // name, one level deep each.
-        private const string ExportsRoot = "exports";
-        private const string TempRoot = "temp";
-        private const string AiCodeFileName = "source-code-for-ai.md";
 
         private readonly Window owner;
         private readonly string baseDir;
@@ -205,7 +51,6 @@ namespace MacroStudio
         // refuses to write an answer that was based on older code.
         private string attachedSourceSignature;
         private string runFolderPath;
-        private string handoffFolderPath;
 
         public HostServices(Window owner, string baseDir)
         {
@@ -223,7 +68,6 @@ namespace MacroStudio
             attachedBookPath = string.Empty;
             attachedSourceSignature = null;
             runFolderPath = string.Empty;
-            handoffFolderPath = string.Empty;
         }
 
         // The order of the cards is the order of the file names, with a
@@ -270,19 +114,15 @@ namespace MacroStudio
                 StringComparison.OrdinalIgnoreCase);
         }
 
-        private List<Dictionary<string, object>> ReadPresetGroup(
-            string folderName)
+        public Dictionary<string, object> GetAppInfo()
         {
             List<Dictionary<string, object>> presets =
                 new List<Dictionary<string, object>>();
-            string groupRoot = Path.Combine(
-                baseDir,
-                "presets",
-                folderName);
-            if (Directory.Exists(groupRoot))
+            string presetRoot = Path.Combine(baseDir, "presets");
+            if (Directory.Exists(presetRoot))
             {
                 string[] files = Directory.GetFiles(
-                    groupRoot,
+                    presetRoot,
                     "*.md",
                     SearchOption.TopDirectoryOnly);
                 Array.Sort(files, ComparePresetFiles);
@@ -302,9 +142,7 @@ namespace MacroStudio
                         new Dictionary<string, object>();
                     preset.Add(
                         "file",
-                        Path.Combine(
-                            folderName,
-                            Path.GetFileName(files[index])));
+                        Path.GetFileName(files[index]));
 
                     // The preset markdown is parsed in the UI, so the
                     // preset name and its sections have exactly one
@@ -325,27 +163,10 @@ namespace MacroStudio
                     presets.Add(preset);
                 }
             }
-            return presets;
-        }
-
-        // The stage is still decided by the folder a file sits in, and
-        // there is one set of folders for the whole run: the diagnosis,
-        // the repair templates, and the change-scope choices. The host
-        // reports what is on disk and reads none of it - which heading a
-        // repair template stands under, and whether a scope permits the
-        // shape of the project to change, are written in the files and
-        // parsed in the UI.
-        public Dictionary<string, object> GetAppInfo()
-        {
-            Dictionary<string, object> presets =
-                new Dictionary<string, object>();
-            presets.Add("diagnose", ReadPresetGroup("01_\u8A3A\u65AD"));
-            presets.Add("repair", ReadPresetGroup("02_\u6539\u4FEE"));
-            presets.Add("scope", ReadPresetGroup("03_\u5909\u66F4\u7BC4\u56F2"));
 
             Dictionary<string, object> result =
                 new Dictionary<string, object>();
-            result.Add("version", "beta 2.0.0");
+            result.Add("version", "beta 1.1.1-audit.1");
             result.Add("presets", presets);
             result.Add(
                 "buildFileLabel",
@@ -358,8 +179,8 @@ namespace MacroStudio
             OpenFileDialog dialog = new OpenFileDialog();
             dialog.Title = "Select an Excel macro workbook";
             dialog.Filter =
-                "Excel macro workbooks (*.xlsm;*.xlam;*.xlsb)" +
-                "|*.xlsm;*.xlam;*.xlsb|All files (*.*)|*.*";
+                "Excel macro workbooks (*.xlsm;*.xlam;*.xlsb;*.xls)" +
+                "|*.xlsm;*.xlam;*.xlsb;*.xls|All files (*.*)|*.*";
             dialog.FilterIndex = 1;
             dialog.Multiselect = false;
             dialog.CheckFileExists = true;
@@ -382,92 +203,6 @@ namespace MacroStudio
                 new Dictionary<string, object>();
             result.Add("path", dialog.FileName);
             return result;
-        }
-
-        // A location for the reader to point at instead of typing. The
-        // same dialog the workbook is chosen with, opened on folders:
-        // they walk into the one they mean and press Open. Nothing is
-        // read or written - the path comes back as text they can still
-        // check and edit, exactly as if they had typed it.
-        public Dictionary<string, object> PickLocation()
-        {
-            OpenFileDialog dialog = new OpenFileDialog();
-            Dictionary<string, object> result;
-            string chosen;
-            string folder;
-            bool? selected;
-
-            dialog.Title = "Select a folder";
-            dialog.CheckFileExists = false;
-            dialog.CheckPathExists = true;
-            dialog.ValidateNames = false;
-            dialog.Multiselect = false;
-            dialog.FileName = "folder";
-
-            if (owner == null)
-            {
-                selected = dialog.ShowDialog();
-            }
-            else
-            {
-                selected = dialog.ShowDialog(owner);
-            }
-            if (selected != true)
-            {
-                return null;
-            }
-            chosen = dialog.FileName;
-            folder = Path.GetDirectoryName(chosen);
-            if (string.IsNullOrEmpty(folder))
-            {
-                return null;
-            }
-            result = new Dictionary<string, object>();
-            result.Add(
-                "path",
-                folder.EndsWith("\\", StringComparison.Ordinal)
-                    ? folder
-                    : folder + "\\");
-            return result;
-        }
-
-        private static Dictionary<string, object> CreateInventory(
-            string fullPath,
-            VbaProjectData project)
-        {
-            BookInventory inventory;
-            Dictionary<string, object> item =
-                new Dictionary<string, object>();
-            byte[] bookBytes;
-
-            try
-            {
-                bookBytes = File.ReadAllBytes(fullPath);
-            }
-            catch (IOException)
-            {
-                bookBytes = null;
-            }
-            catch (UnauthorizedAccessException)
-            {
-                bookBytes = null;
-            }
-            inventory = BookInventoryReader.Read(
-                fullPath,
-                bookBytes,
-                project);
-            item.Add("sha256", inventory.Sha256);
-            item.Add("sizeBytes", inventory.SizeBytes);
-            item.Add("modifiedUtc", inventory.ModifiedUtc);
-            item.Add("references", inventory.References.ToArray());
-            item.Add("connections", inventory.Connections.ToArray());
-            item.Add("barcodeFonts", inventory.BarcodeFonts.ToArray());
-            item.Add("hasPowerQuery", inventory.HasPowerQuery);
-            item.Add("activeXCount", inventory.ActiveXCount);
-            item.Add("externalLinkCount", inventory.ExternalLinkCount);
-            item.Add("hasVbaSignature", inventory.HasVbaSignature);
-            item.Add("complete", inventory.Complete);
-            return item;
         }
 
         public Dictionary<string, object> AttachBook(string path)
@@ -518,16 +253,11 @@ namespace MacroStudio
             // internal bookkeeping was off, instead of warning about
             // everything in the same breath.
             result.Add("read", CreateReadReport(project));
-            // Everything in the workbook that is not VBA code. This tool
-            // does not change any of it, so the screen and the handover
-            // memo can only name it and hand it to a person.
-            result.Add("inventory", CreateInventory(fullPath, project));
 
             attachedBookPath = fullPath;
             attachedSourceSignature =
                 BookIO.CreateSourceSignature(project);
             runFolderPath = string.Empty;
-            handoffFolderPath = string.Empty;
             runArtifacts.Clear();
             return result;
         }
@@ -544,9 +274,8 @@ namespace MacroStudio
 
             report.Add(
                 "level",
-                !project.HasReadWarnings
-                    ? "clean"
-                    : doubt ? "sourceDoubt" : "structureOnly");
+                doubt ? "sourceDoubt"
+                    : !project.HasReadWarnings ? "clean" : "structureOnly");
             report.Add("partialModules", project.PartialSourceModules);
             report.Add(
                 "recoveredOffsetModules",
@@ -635,33 +364,12 @@ namespace MacroStudio
             return result;
         }
 
-        public Dictionary<string, object> ReadRequestTemplate(string name)
+        public Dictionary<string, object> ReadRequestTemplate()
         {
-            if (string.IsNullOrEmpty(name) ||
-                !Regex.IsMatch(name, "^[a-z-]+$"))
-            {
-                throw new HostActionException(
-                    "E-GEN-02",
-                    "The request template name is invalid.");
-            }
-
-            string templateRoot = Path.GetFullPath(
-                Path.Combine(baseDir, "templates"));
-            string rootPrefix = templateRoot.TrimEnd(
-                Path.DirectorySeparatorChar,
-                Path.AltDirectorySeparatorChar) +
-                Path.DirectorySeparatorChar;
-            string path = Path.GetFullPath(Path.Combine(
-                templateRoot,
-                name + ".txt"));
-            if (!path.StartsWith(
-                rootPrefix,
-                StringComparison.OrdinalIgnoreCase))
-            {
-                throw new HostActionException(
-                    "E-GEN-02",
-                    "The request template is outside the templates directory.");
-            }
+            string path = Path.Combine(
+                baseDir,
+                "templates",
+                "request-template.txt");
             string content;
             try
             {
@@ -684,142 +392,40 @@ namespace MacroStudio
             return result;
         }
 
-        public Dictionary<string, object> GetTargetEnvironment()
-        {
-            string path = Path.Combine(
-                baseDir,
-                "environment",
-                "target-environment.json");
-            string content;
-            try
-            {
-                // The host is only the strict UTF-8 transport. Schema
-                // validation and prompt rendering have one implementation in
-                // assets/js/target-environment.js.
-                content = File.ReadAllText(
-                    path,
-                    new UTF8Encoding(false, true));
-            }
-            catch (Exception ex)
-            {
-                Dictionary<string, object> errorData =
-                    new Dictionary<string, object>();
-                errorData.Add("validationId", "ENV-READ");
-                throw new HostActionException(
-                    "E-ENV-01",
-                    "The target environment file could not be read.",
-                    errorData,
-                    ex);
-            }
-
-            Dictionary<string, object> result =
-                new Dictionary<string, object>();
-            result.Add("content", content);
-            return result;
-        }
-
         // Every run gets one folder next to the workbook:
-        // <book folder>\MacroStudio\<book base>_<timestamp>.
-        // The first request of a run creates it and its immutable
-        // source-code.md; later stages only add or generation-replace
-        // their own run artifact. The diagnosis request always comes
-        // first, and the repair request that follows needs the same
-        // folder and the same record of the workbook as it was read.
+        // <book folder>\MacroStudio\<book base>_<timestamp>        // The request, the code file, the rebuilt workbook and the
+        // diff report all land there.
         public Dictionary<string, object> WriteRequestFiles(
-            string stage,
             string outputTimestamp,
             string request,
-            string code,
-            string aiCode)
+            string code)
         {
-            bool diagnose = string.Equals(
-                stage,
-                "diagnose",
-                StringComparison.Ordinal);
-            bool repair = string.Equals(
-                stage,
-                "repair",
-                StringComparison.Ordinal);
-            bool first = string.IsNullOrEmpty(runFolderPath);
-            if ((!diagnose && !repair) || request == null ||
-                (first && code == null))
+            if (request == null || code == null)
             {
                 throw new HostActionException(
                     "E-GEN-01",
-                    "The request stage or content is missing.");
+                    "The request or code content is missing.");
             }
             ValidateOutputTimestamp(outputTimestamp);
 
             string sourcePath = RequireAttachedBook("E-GEN-01");
-            string folder;
-            string handoffFolder;
-            string requestPath;
+            string folder = null;
+            string requestPath = null;
             string codePath = null;
-            string aiCodePath = null;
-            string attachText = aiCode == null ? code : aiCode;
+            bool requestCreated = false;
+            bool requestFilesCreated = false;
             try
             {
-                if (first)
-                {
-                    folder = CreateNewRunFolder(
-                        sourcePath,
-                        outputTimestamp);
-                    requestPath = Path.Combine(
-                        folder,
-                        diagnose
-                            ? "diagnose-request.md"
-                            : "repair-request.md");
-                    codePath = Path.Combine(folder, "source-code.md");
-                    WriteInitialDiagnosisFiles(
-                        folder,
-                        requestPath,
-                        request,
-                        codePath,
-                        code);
-                }
-                else
-                {
-                    folder = RequireRunFolder();
-                    requestPath = Path.Combine(
-                        folder,
-                        diagnose
-                            ? "diagnose-request.md"
-                            : "repair-request.md");
-                    WriteRunFileAtomically(
-                        requestPath,
-                        request,
-                        runArtifacts.Contains(requestPath));
-                    codePath = Path.Combine(folder, "source-code.md");
-                    if (!runArtifacts.Contains(codePath) ||
-                        !File.Exists(codePath))
-                    {
-                        throw new HostActionException(
-                            "E-GEN-01",
-                            "The source code file for this run is missing.");
-                    }
-                }
-
-                // The one file the chat is actually given. It is written
-                // every time a request is made, because the fixed-path
-                // route hands over code the machine already rewrote while
-                // source-code.md above stays the workbook as it was read.
-                handoffFolder = CreateHandoffFolder(
-                    sourcePath,
-                    outputTimestamp);
-                aiCodePath = Path.Combine(handoffFolder, AiCodeFileName);
-                if (attachText != null)
-                {
-                    WriteRunFileAtomically(
-                        aiCodePath,
-                        attachText,
-                        runArtifacts.Contains(aiCodePath));
-                }
-                else if (!File.Exists(aiCodePath))
-                {
-                    throw new HostActionException(
-                        "E-GEN-01",
-                        "The code file for the chat is missing.");
-                }
+                // Preparing a request starts a new run, so it never
+                // reuses the folder of the previous one, and nothing an
+                // earlier run wrote counts as this run's own output.
+                folder = CreateRunFolder(sourcePath, outputTimestamp, true);
+                requestPath = Path.Combine(folder, "request.md");
+                codePath = Path.Combine(folder, "source-code.md");
+                WriteTextFile(requestPath, request);
+                requestCreated = true;
+                WriteTextFile(codePath, code);
+                requestFilesCreated = true;
             }
             catch (HostActionException)
             {
@@ -833,145 +439,37 @@ namespace MacroStudio
                     null,
                     ex);
             }
+            finally
+            {
+                if (!requestFilesCreated)
+                {
+                    try
+                    {
+                        if (requestCreated) File.Delete(requestPath);
+                        if (folder != null) Directory.Delete(folder, false);
+                    }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+            }
 
             runFolderPath = folder;
-            handoffFolderPath = handoffFolder;
+            runArtifacts.Clear();
             runArtifacts.Add(requestPath);
-            runArtifacts.Add(aiCodePath);
-            if (codePath != null)
-            {
-                runArtifacts.Add(codePath);
-            }
+            runArtifacts.Add(codePath);
             Dictionary<string, object> result =
                 new Dictionary<string, object>();
             result.Add("folderPath", folder);
             result.Add("requestPath", requestPath);
-            result.Add("handoffFolderPath", handoffFolder);
-            result.Add("aiCodePath", aiCodePath);
-            result.Add("aiCodeName", AiCodeFileName);
-            if (codePath != null)
-            {
-                result.Add("codePath", codePath);
-            }
-            return result;
-        }
-
-        public Dictionary<string, object> WriteDiagnosisFile(
-            string outputTimestamp,
-            string markdown)
-        {
-            if (markdown == null)
-            {
-                throw new HostActionException(
-                    "E-GEN-01",
-                    "The diagnosis markdown is missing.");
-            }
-            ValidateOutputTimestamp(outputTimestamp);
-            RequireAttachedBook("E-GEN-01");
-
-            string folder = RequireRunFolder();
-            string path = Path.Combine(folder, "diagnosis.md");
-            try
-            {
-                WriteRunFileAtomically(
-                    path,
-                    markdown,
-                    runArtifacts.Contains(path));
-            }
-            catch (HostActionException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new HostActionException(
-                    "E-GEN-01",
-                    "The diagnosis file could not be created.",
-                    null,
-                    ex);
-            }
-
-            runArtifacts.Add(path);
-            Dictionary<string, object> result =
-                new Dictionary<string, object>();
-            result.Add("path", path);
-            return result;
-        }
-
-        // One record of what this run has confirmed, written beside the
-        // artifacts it describes. The screen, the log, result.md and a
-        // resumed session all read the same values from here, so they
-        // cannot drift apart. The host stores and returns the text; the
-        // shape of it belongs to assets/js/state.js.
-        public Dictionary<string, object> WriteRunManifest(
-            string outputTimestamp,
-            string manifest)
-        {
-            if (manifest == null)
-            {
-                throw new HostActionException(
-                    "E-GEN-01",
-                    "The run manifest is missing.");
-            }
-            ValidateOutputTimestamp(outputTimestamp);
-            RequireAttachedBook("E-GEN-01");
-
-            string folder = RequireRunFolder();
-            string path = Path.Combine(folder, RunManifestName);
-            try
-            {
-                WriteRunFileAtomically(
-                    path,
-                    manifest,
-                    runArtifacts.Contains(path));
-            }
-            catch (HostActionException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new HostActionException(
-                    "E-GEN-01",
-                    "The run manifest could not be written.",
-                    null,
-                    ex);
-            }
-
-            runArtifacts.Add(path);
-            Dictionary<string, object> result =
-                new Dictionary<string, object>();
-            result.Add("path", path);
+            result.Add("codePath", codePath);
             return result;
         }
 
         public Dictionary<string, object> ReadClipboard()
         {
-            string text = null;
-            ClipboardRetry.Execute(
-                "E-GEN-04",
-                "The clipboard could not be read.",
-                delegate()
-                {
-                    text = Clipboard.GetText();
-                },
-                Thread.Sleep,
-                ClipboardRetry.InspectOpenClipboardOwner,
-                delegate(
-                    int retryCount,
-                    bool succeeded,
-                    IList<string> owners)
-                {
-                    ReportClipboardRetry(
-                        "read",
-                        retryCount,
-                        succeeded,
-                        owners);
-                });
-
             Dictionary<string, object> result =
                 new Dictionary<string, object>();
-            result.Add("text", text);
+            result.Add("text", Clipboard.GetText());
             return result;
         }
 
@@ -985,60 +483,23 @@ namespace MacroStudio
                     "The clipboard text is missing.");
             }
 
-            ClipboardRetry.Execute(
-                "E-GEN-03",
-                "The clipboard could not be updated.",
-                delegate()
-                {
-                    Clipboard.SetText(text);
-                },
-                Thread.Sleep,
-                ClipboardRetry.InspectOpenClipboardOwner,
-                delegate(
-                    int retryCount,
-                    bool succeeded,
-                    IList<string> owners)
-                {
-                    ReportClipboardRetry(
-                        "write",
-                        retryCount,
-                        succeeded,
-                        owners);
-                });
+            try
+            {
+                Clipboard.SetText(text);
+            }
+            catch (Exception ex)
+            {
+                throw new HostActionException(
+                    "E-GEN-03",
+                    "The clipboard could not be updated.",
+                    null,
+                    ex);
+            }
 
             Dictionary<string, object> result =
                 new Dictionary<string, object>();
             result.Add("copied", true);
             return result;
-        }
-
-        private void ReportClipboardRetry(
-            string operation,
-            int retryCount,
-            bool succeeded,
-            IList<string> owners)
-        {
-            if (retryCount <= 0)
-            {
-                return;
-            }
-            try
-            {
-                string message =
-                    "clipboard " + operation + " retried " +
-                    retryCount.ToString(CultureInfo.InvariantCulture) +
-                    " times: " + (succeeded ? "success" : "failed");
-                if (!succeeded && owners != null && owners.Count > 0)
-                {
-                    message += "; owners: " + string.Join(", ", owners);
-                }
-                WriteLog(
-                    "WARN",
-                    message);
-            }
-            catch
-            {
-            }
         }
 
         public Dictionary<string, object> BuildBook(
@@ -1170,7 +631,7 @@ namespace MacroStudio
             string folder;
             try
             {
-                folder = CreateRunFolder(sourcePath, outputTimestamp);
+                folder = CreateRunFolder(sourcePath, outputTimestamp, false);
                 outputPath = Path.Combine(
                     folder,
                     ResolveOutputName(sourcePath, outputName));
@@ -1390,213 +851,41 @@ namespace MacroStudio
             return attachedBookPath;
         }
 
-        // The name one run answers to. Both trees use it, so the
-        // deliverables and the file handed to the chat can be told apart
-        // and still be recognised as the same piece of work.
-        private static string RunName(string sourcePath, string timestamp)
-        {
-            return Path.GetFileNameWithoutExtension(sourcePath) +
-                "_" + timestamp;
-        }
-
-        // Everything a run produces lives inside MacroStudio, not beside
-        // the workbook it read. `exports` holds what the reader keeps;
-        // `temp` holds the one file the chat is given. One level each:
-        // the run folder is both the case and the run, so there is
-        // nothing to nest inside it.
-        private string RunTree(string treeName)
-        {
-            return Path.Combine(baseDir, treeName);
-        }
-
-        // The folder is fixed when the first request is written, so every
-        // later output of the same run joins it.
+        // One folder per run, created next to the workbook and reused
+        // for every artifact of that run.
         private string CreateRunFolder(
             string sourcePath,
-            string timestamp)
+            string timestamp,
+            bool newRun)
         {
-            string folder = Path.Combine(
-                RunTree(ExportsRoot),
-                RunName(sourcePath, timestamp));
-
-            if (!string.IsNullOrEmpty(runFolderPath) &&
-                Directory.Exists(runFolderPath))
+            string directory = Path.GetDirectoryName(sourcePath);
+            string name = Path.GetFileNameWithoutExtension(sourcePath);
+            // Keep long workbook names from exceeding the component limit.
+            // The random suffix, not the visible label, supplies uniqueness.
+            if (name.Length > 48)
             {
+                name = name.Substring(0, 48);
+                if (char.IsHighSurrogate(name[name.Length - 1]))
+                    name = name.Substring(0, name.Length - 1);
+            }
+            string root = Path.Combine(directory, "MacroStudio");
+            string folder = Path.Combine(
+                root,
+                name + "_" + timestamp + "_" +
+                    Guid.NewGuid().ToString("N").Substring(0, 12));
+
+            // The folder is fixed when the request is written, so
+            // every later output of the same run joins it.
+            if (!newRun && !string.IsNullOrEmpty(runFolderPath))
+            {
+                if (!Directory.Exists(runFolderPath))
+                {
+                    throw new IOException("The run folder was moved or deleted.");
+                }
                 return runFolderPath;
             }
             Directory.CreateDirectory(folder);
             return folder;
-        }
-
-        private string CreateNewRunFolder(
-            string sourcePath,
-            string timestamp)
-        {
-            string folder = Path.Combine(
-                RunTree(ExportsRoot),
-                RunName(sourcePath, timestamp));
-
-            if (Directory.Exists(folder))
-            {
-                throw new HostActionException(
-                    "E-GEN-01",
-                    "The run folder already exists.");
-            }
-            Directory.CreateDirectory(folder);
-            return folder;
-        }
-
-        // The chat's copy. Only what is actually attached goes here, and
-        // it never mixes with the deliverables: the request text itself
-        // goes to the clipboard, as it always has.
-        private string CreateHandoffFolder(
-            string sourcePath,
-            string timestamp)
-        {
-            string folder = Path.Combine(
-                RunTree(TempRoot),
-                RunName(sourcePath, timestamp));
-
-            Directory.CreateDirectory(folder);
-            return folder;
-        }
-
-        private string RequireRunFolder()
-        {
-            if (string.IsNullOrEmpty(runFolderPath) ||
-                !Directory.Exists(runFolderPath))
-            {
-                throw new HostActionException(
-                    "E-GEN-01",
-                    "The run folder has not been created.");
-            }
-            return runFolderPath;
-        }
-
-        private void WriteInitialDiagnosisFiles(
-            string folder,
-            string requestPath,
-            string request,
-            string codePath,
-            string code)
-        {
-            bool requestCreated = false;
-            bool codeCreated = false;
-            try
-            {
-                WriteRunFileAtomically(requestPath, request, false);
-                requestCreated = true;
-                WriteRunFileAtomically(codePath, code, false);
-                codeCreated = true;
-            }
-            catch
-            {
-                try
-                {
-                    if (codeCreated && File.Exists(codePath))
-                    {
-                        File.Delete(codePath);
-                    }
-                    if (requestCreated && File.Exists(requestPath))
-                    {
-                        File.Delete(requestPath);
-                    }
-                    if (Directory.Exists(folder) &&
-                        Directory.GetFileSystemEntries(folder).Length == 0)
-                    {
-                        Directory.Delete(folder, false);
-                    }
-                }
-                catch
-                {
-                }
-                throw;
-            }
-        }
-
-        private void WriteRunFileAtomically(
-            string outputPath,
-            string content,
-            bool replacing)
-        {
-            bool exists = File.Exists(outputPath);
-            if ((exists && !replacing) || (!exists && replacing))
-            {
-                throw new HostActionException(
-                    "E-GEN-01",
-                    "The run artifact generation is not owned by this run.");
-            }
-
-            string directory = Path.GetDirectoryName(outputPath);
-            string fileName = Path.GetFileName(outputPath);
-            string token = Guid.NewGuid().ToString("N");
-            string temporaryPath = Path.Combine(
-                directory,
-                "." + fileName + "." + token + ".tmp");
-            string backupPath = Path.Combine(
-                directory,
-                "." + fileName + "." + token + ".previous");
-            bool committed = false;
-            try
-            {
-                using (FileStream output = new FileStream(
-                    temporaryPath,
-                    FileMode.CreateNew,
-                    FileAccess.Write,
-                    FileShare.None,
-                    4096,
-                    FileOptions.WriteThrough))
-                using (StreamWriter writer = new StreamWriter(
-                    output,
-                    new UTF8Encoding(true)))
-                {
-                    writer.Write(content);
-                    writer.Flush();
-                    output.Flush(true);
-                }
-
-                if (replacing)
-                {
-                    File.Replace(
-                        temporaryPath,
-                        outputPath,
-                        backupPath,
-                        true);
-                }
-                else
-                {
-                    File.Move(temporaryPath, outputPath);
-                }
-                committed = true;
-            }
-            finally
-            {
-                if (!committed)
-                {
-                    try
-                    {
-                        if (File.Exists(temporaryPath))
-                        {
-                            File.Delete(temporaryPath);
-                        }
-                    }
-                    catch
-                    {
-                    }
-                }
-                try
-                {
-                    if (File.Exists(backupPath))
-                    {
-                        File.Delete(backupPath);
-                    }
-                }
-                catch
-                {
-                    // The target generation is already committed. A stale
-                    // backup is cleanup debt, not a failed transaction.
-                }
-            }
         }
 
         // yyyyMMdd of today, for the fallback names. The screen normally
@@ -1616,9 +905,8 @@ namespace MacroStudio
             string outputName)
         {
             string extension = Path.GetExtension(sourcePath);
-            string fallback =
-                Path.GetFileNameWithoutExtension(sourcePath) +
-                "-Modified-" + TodayStamp() + extension;
+            string fallback = MakeDefaultFileName(sourcePath,
+                "-Modified-" + TodayStamp() + extension);
 
             return ResolveRunFileName(
                 outputName,
@@ -1632,11 +920,25 @@ namespace MacroStudio
             string sourcePath,
             string diffName)
         {
-            string fallback =
-                Path.GetFileNameWithoutExtension(sourcePath) +
-                "-Diff-Report-" + TodayStamp() + ".html";
+            string fallback = MakeDefaultFileName(sourcePath,
+                "-Diff-Report-" + TodayStamp() + ".html");
 
             return ResolveRunFileName(diffName, ".html", fallback);
+        }
+
+        private static string MakeDefaultFileName(string sourcePath, string suffix)
+        {
+            string stem = Path.GetFileNameWithoutExtension(sourcePath);
+            int limit = Math.Max(0, 120 - suffix.Length);
+            if (stem.Length > limit)
+            {
+                stem = stem.Substring(0, limit);
+                if (stem.Length > 0 && char.IsHighSurrogate(stem[stem.Length - 1]))
+                {
+                    stem = stem.Substring(0, stem.Length - 1);
+                }
+            }
+            return stem + suffix;
         }
 
         private static string ResolveRunFileName(
@@ -1650,12 +952,16 @@ namespace MacroStudio
 
             if (candidate.Length == 0)
             {
-                return fallback;
+                candidate = fallback;
             }
             if (candidate.Length > 120 ||
                 candidate.IndexOfAny(
                     Path.GetInvalidFileNameChars()) >= 0 ||
-                candidate.IndexOf("..", StringComparison.Ordinal) >= 0 ||
+                candidate.EndsWith(".", StringComparison.Ordinal) ||
+                System.Text.RegularExpressions.Regex.IsMatch(candidate,
+                    @"^(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³])(\.|$)",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase |
+                    System.Text.RegularExpressions.RegexOptions.CultureInvariant) ||
                 !string.Equals(
                     Path.GetExtension(candidate),
                     extension,
@@ -1670,16 +976,36 @@ namespace MacroStudio
 
         private void WriteTextFile(string path, string content)
         {
-            using (FileStream output = new FileStream(
-                path,
-                FileMode.Create,
-                FileAccess.Write,
-                FileShare.None))
-            using (StreamWriter writer = new StreamWriter(
-                output,
-                new UTF8Encoding(true)))
+            WriteAtomicText(path, content, false);
+        }
+
+        private static void WriteAtomicText(string path, string content, bool replace)
+        {
+            string temporary = OutputFiles.TemporaryPath(path);
+            bool created = false;
+            try
             {
-                writer.Write(content);
+                using (FileStream output = new FileStream(temporary,
+                    FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                    created = true;
+                    using (StreamWriter writer = new StreamWriter(
+                        output, new UTF8Encoding(true)))
+                    {
+                        writer.Write(content);
+                    }
+                }
+                OutputFiles.Publish(temporary, path, replace);
+                created = false;
+            }
+            finally
+            {
+                if (created)
+                {
+                    try { File.Delete(temporary); }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
             }
         }
 
@@ -1709,39 +1035,7 @@ namespace MacroStudio
             string outputPath = Path.Combine(
                 folder,
                 fileName);
-            bool replacing = runArtifacts.Contains(outputPath);
-            bool created = false;
-            try
-            {
-                using (FileStream output = new FileStream(
-                    outputPath,
-                    replacing ? FileMode.Create : FileMode.CreateNew,
-                    FileAccess.Write,
-                    FileShare.None))
-                {
-                    created = !replacing;
-                    using (StreamWriter writer = new StreamWriter(
-                        output,
-                        new UTF8Encoding(true)))
-                    {
-                        writer.Write(content);
-                    }
-                }
-            }
-            catch
-            {
-                try
-                {
-                    if (created && File.Exists(outputPath))
-                    {
-                        File.Delete(outputPath);
-                    }
-                }
-                catch
-                {
-                }
-                throw;
-            }
+            WriteAtomicText(outputPath, content, runArtifacts.Contains(outputPath));
             runArtifacts.Add(outputPath);
             return outputPath;
         }
@@ -1890,10 +1184,10 @@ namespace MacroStudio
             Dictionary<string, object> data =
                 new Dictionary<string, object>();
             data.Add("outputPath", build.OutputPath);
-            data.Add("results", results);
             // The output no longer carries the signature the source had.
             // Only the screen can tell the reader to sign it again.
             data.Add("signatureRemoved", build.SignatureRemoved);
+            data.Add("results", results);
             return data;
         }
     }

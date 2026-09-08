@@ -10,34 +10,20 @@
   var disclosureOpen = {};
   var newModuleNameDraft = "";
   var pasteEditDraft = "";
-  // Whether the review screen's code area fills the whole client area.
-  // A class on <body> and nothing else: toggling it never rebuilds the
-  // DOM, so the diff scroll position, the text selection and a half-typed
-  // manual edit all survive the round trip. Leaving the screen restores.
-  var codeMaximized = false;
-  // Saying "this answer is not the one" is a decision the reader makes on
-  // the review screen; it is not part of whether the reply could be read.
-  var rejectionOpen = false;
-  var rejectionReasonDraft = "";
-  // The last manifest actually written, so an unchanged run does not
-  // rewrite its own record on every repaint.
-  var lastSavedManifest = null;
   var pendingEditDiscardAction = null;
-  var pendingEditDiscardMode = "draft";
   var dropActive = false;
   var dragDepth = 0;
-  var targetEnvironment = null;
-  var targetEnvironmentError = null;
-  var targetEnvironmentLoading = false;
-  var targetEnvironmentLoadId = 0;
+
+  var typeNames = {
+    document: "ドキュメントモジュール",
+    form: "フォームモジュール",
+    standard: "標準モジュール",
+    "class": "クラスモジュール"
+  };
+
   var attachErrorMessages = {
-    // Covers every way the read can fail before we ever establish the file
-    // is a workbook: it is gone, it is locked, it is too large, or it does
-    // not read as a workbook container at all (0 バイト・途中で切れた・
-    // 拡張子だけ .xlsm). It must not name one cause as if it were certain.
     "E-ATTACH-02":
-      "ファイルを読み取れませんでした。ブックとして読み取れる形式ではないか、" +
-      "ファイルの移動・削除・アクセス権に問題がある可能性があります。",
+      "ファイルを読み取れませんでした。移動や削除がないか、アクセス権を確認してください。",
     "E-ATTACH-03":
       "このブックにはマクロがありません。選んだファイルが正しいか確認してください。",
     "E-ATTACH-04":
@@ -48,13 +34,8 @@
   // Attach failures the run cannot continue past. They are shown on the
   // screen itself instead of a toast that fades: nothing else can happen
   // until a different file is chosen, so the reason has to stay visible.
-  var blockingAttachErrors = [
-    "E-ATTACH-02",
-    "E-ATTACH-03",
-    "E-ATTACH-04"
-  ];
+  var blockingAttachErrors = ["E-ATTACH-03", "E-ATTACH-04"];
   var attachErrorTitles = {
-    "E-ATTACH-02": "読み取れませんでした",
     "E-ATTACH-03": "マクロが見つかりません",
     "E-ATTACH-04": "パスワードで保護されています"
   };
@@ -65,17 +46,11 @@
     "E-GEN-02":
       "依頼テンプレートを読み込めませんでした。templates\\request-template.txt の存在、UTF-8 形式、差し込み変数を確認してください。",
     "E-GEN-03":
-      "依頼文をクリップボードへコピーできませんでした。少し待って、もう一度お試しください。",
-    "E-GEN-04":
-      "クリップボードからAIの返答を読み取れませんでした。" +
-      "ほかのアプリがクリップボードを使っている可能性があります。" +
-      "少し待ってもう一度お試しください。Ctrl+Vでも貼り付けられます。",
+      "依頼文をクリップボードへコピーできませんでした。［依頼文をもう一度コピー］でやり直してください。",
     "E-PASTE-01":
       "貼り付けるコードがありません。チャット AI のコードブロックをコピーして、もう一度お試しください。",
     "E-PRESET-01":
       "ひな形を読み取れませんでした。presets フォルダの Markdown を確認してください。",
-    "E-PRESET-02":
-      "診断のひな形は 1 つだけ置いてください。presets\\01_診断 フォルダを確認してください。",
     "E-SYS-01":
       "WebView2 Runtime が見つかりません。起動時の案内に従って配布元へ連絡してください。",
     "E-SYS-02":
@@ -83,6 +58,9 @@
   };
 
   var buildErrorMessages = {
+    "E-BUILD-05":
+      "コードの欠落・部分復旧があるため、安全に書き戻せません。" +
+      "相談用の資料としては使えます。改修するにはExcelで修復したコピーを読み込み直してください。",
     "E-BUILD-01":
       "ビルド処理を完了できませんでした。もう一度ビルドし、再発する場合は管理担当へ連絡してください。",
     "E-BUILD-02":
@@ -162,10 +140,9 @@
     return selected;
   }
 
-  function showToast(message, tone, action) {
+  function showToast(message, tone) {
     var toast;
     var label;
-    var button;
 
     if (!elements || !elements.toastRegion) {
       return;
@@ -191,15 +168,6 @@
       tone === "error" ? "alert" : "status");
     toast.appendChild(label);
     toast.appendChild(createElement("span", "toast-message", message));
-    if (action && action.name && action.label) {
-      button = createElement(
-        "button",
-        "button button--compact toast-action",
-        action.label);
-      button.type = "button";
-      button.setAttribute("data-toast-action", action.name);
-      toast.appendChild(button);
-    }
     elements.toastRegion.appendChild(toast);
 
     toastTimer = global.setTimeout(function () {
@@ -271,15 +239,35 @@
     }, 0);
   }
 
-  // The sprite itself lives in icons.js so the screen renderers can draw
-  // the same shapes without loading the shell.
+  var iconPaths = {
+    file: '<path d="M6 2h8l4 4v16H6z"/><path d="M14 2v5h5"/>',
+    folder: '<path d="M3 6h7l2 2h9v11H3z"/><path d="M3 8V5h7l2 3"/>',
+    copy: '<rect x="8" y="8" width="11" height="12" rx="2"/>' +
+      '<path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h2"/>',
+    check: '<path d="m5 12 4 4L19 6"/>',
+    template: '<path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13 7 4 4"/>',
+    code: '<path d="m8 9-4 3 4 3M16 9l4 3-4 3M14 5l-4 14"/>',
+    arrowLeft: '<path d="m15 18-6-6 6-6"/>',
+    arrowRight: '<path d="m9 18 6-6-6-6"/>',
+    arrowUp: '<path d="m6 15 6-6 6 6"/>',
+    arrowDown: '<path d="m6 9 6 6 6-6"/>',
+    restart: '<path d="M4 4v6h6"/><path d="M5.5 15a8 8 0 1 0 .8-7.7L4 10"/>',
+    chevron: '<path d="m9 6 6 6-6 6"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/>' +
+      '<path d="M12 8h.01"/>'
+  };
+
   function createIcon(name, className) {
     var element = createElement(
       "span",
       "flow-icon " + (className || ""));
 
     element.setAttribute("aria-hidden", "true");
-    element.innerHTML = global.MacroStudioIcons.markup(name);
+    element.innerHTML =
+      '<svg viewBox="0 0 24 24">' +
+      (iconPaths[name] || iconPaths.file) +
+      "</svg>";
     return element;
   }
 
@@ -320,48 +308,6 @@
     return createElement("p", "task-intro", message);
   }
 
-  // A run that has already finished, seen from a screen the reader
-  // walked back to.
-  //
-  // Going back off the completion screen is allowed - someone who
-  // arrived there by mistake, or who wants to read the review again,
-  // should not be trapped. What must not happen is the run quietly
-  // looking unfinished: the workbook and its folder are on disk, and
-  // pressing [次へ] from here builds a second generation. Saying so is
-  // the difference between "you may go back" and "nothing happened".
-  function isBuildComplete(state) {
-    return Boolean(state &&
-      state.buildResult &&
-      state.buildResult.status !== "error" &&
-      state.buildTimestamp);
-  }
-
-  function createCompletedNotice(state) {
-    var note;
-    var folder;
-
-    if (!isBuildComplete(state)) {
-      return null;
-    }
-    note = createElement("section", "panel completed-notice");
-    note.setAttribute("role", "status");
-    note.appendChild(createElement(
-      "h2",
-      "completed-notice-title",
-      "この実行は完了しています"));
-    note.appendChild(createElement(
-      "p",
-      "",
-      "作成済みの改修済みブックと関連ファイルは、そのまま残っています。" +
-        "この画面から進めると、同じフォルダーへもう一度作成します。"));
-    folder = state.runFolder || state.handoffFolder;
-    if (folder) {
-      note.appendChild(createElement("code", "completed-notice-path",
-        String(folder)));
-    }
-    return note;
-  }
-
   function createTask(className) {
     return createElement(
       "section",
@@ -384,9 +330,7 @@
   // detail opens in place under a label that says what it opens.
   function createDisclosure(key, label, content, options) {
     var settings = options || {};
-    var open = Object.prototype.hasOwnProperty.call(disclosureOpen, key)
-      ? disclosureOpen[key] === true
-      : settings.openByDefault === true;
+    var open = disclosureOpen[key] === true;
     var box = createElement(
       "div",
       "disclosure " + (settings.className || ""));
@@ -432,20 +376,9 @@
       blockingAttachErrors.indexOf(error.code) >= 0;
   }
 
-  // book: the workbook that is still loaded, if there is one.
-  //
-  // A refused file is never read, so whatever was loaded before is still
-  // the workbook this run is about - which is why [次へ] stays enabled.
-  // Seen from the screen that was not obvious: a red card with a live
-  // [次へ] under it reads as "it failed, but go on anyway". Disabling
-  // [次へ] would have been the wrong fix, because it punishes the
-  // reader for a file they already abandoned, and dropping the loaded
-  // workbook would be worse still - it throws away work over a mistyped
-  // pick. So the card names the workbook that is still in hand.
-  function createAttachErrorCard(error, book) {
+  function createAttachErrorCard(error) {
     var card = createElement("section", "inline-error-card");
     var code = error.code;
-    var keptName = book && book.name ? String(book.name) : "";
 
     card.setAttribute("role", "alert");
     card.appendChild(createElement("span", "inline-error-code", code));
@@ -457,113 +390,577 @@
       "p",
       "",
       attachErrorMessages[code]));
-    if (keptName) {
-      card.appendChild(createElement(
-        "p",
-        "inline-error-kept",
-        "読み込み済みのブックは " + keptName +
-          " のままです。このまま次へ進めます。"));
-    }
     return card;
   }
 
-  function createTargetEnvironmentErrorCard(error) {
-    var card = createElement("section", "inline-error-card");
-
-    card.setAttribute("role", "alert");
-    card.appendChild(createElement(
-      "span",
-      "inline-error-code",
-      "E-ENV-01"));
-    card.appendChild(createElement(
-      "h2",
-      "",
-      "想定動作環境を読み込めません"));
-    card.appendChild(createElement(
-      "p",
-      "",
-      "environment\\target-environment.json を確認してください。"));
-    if (error && error.message) {
-      card.appendChild(createElement(
-        "p",
-        "inline-error-detail",
-        String(error.message)));
-    }
-    return card;
-  }
-
-  function isTargetEnvironmentReady() {
-    return targetEnvironment !== null &&
-      targetEnvironmentError === null &&
-      !targetEnvironmentLoading;
-  }
-
-  // The presets folder can be edited while the app is open, so this is
-  // worked out from the current state rather than cached at start-up.
-  function isDiagnosisPresetReady() {
-    return resolveDiagnosisPreset(
-      global.MacroStudioState.getState()).ok === true;
-  }
-
-  function createDiagnosisPresetErrorCard() {
-    var card = createElement("div", "inline-error-card");
-
-    card.setAttribute("role", "alert");
-    card.appendChild(createElement(
-      "span",
-      "inline-error-code",
-      "E-PRESET-02"));
-    card.appendChild(createElement(
-      "h2",
-      "",
-      "診断のひな形を 1 つにしてください"));
-    card.appendChild(createElement(
-      "p",
-      "",
-      "presets\\01_診断 に有効な Markdown を 1 つだけ置いてください。"));
-    return card;
-  }
-
-  function getCatalog(state) {
-    return state && state.appInfo && state.appInfo.catalog
-      ? state.appInfo.catalog
-      : null;
-  }
-
-  // Every repair template the presets folder holds. Every run is offered
-  // the same list; what changes between runs is which of them the
-  // diagnosis points at.
   function getPresetEntries(state) {
-    var catalog = getCatalog(state);
+    var presets = state.appInfo && state.appInfo.presets
+      ? state.appInfo.presets
+      : [];
 
-    return catalog && Array.isArray(catalog.repair) ? catalog.repair : [];
+    return global.MacroStudioPreset.describeAll(presets);
   }
 
-  function resolveDiagnosisPreset(state) {
-    var catalog = getCatalog(state);
-    var entries = catalog && Array.isArray(catalog.diagnose)
-      ? catalog.diagnose
-      : [];
-    var valid = entries.filter(function (entry) {
+  // ---- screen 0: choose the workbook ----
+
+  function createScreen0(state) {
+    var task = createTask("");
+    var zone;
+    var loaded;
+    var details;
+
+    task.appendChild(createTaskIntro(state.book
+      ? "このブックでよければ、右下の「次へ」へ進みます。"
+      : "対象のブックを、ここへドラッグするか選んでください。"));
+
+    if (isBlockingAttachError(state.lastError)) {
+      task.appendChild(createAttachErrorCard(state.lastError));
+    }
+
+    if (state.book) {
+      loaded = createElement("div", "loaded-zone");
+      details = createElement("div", "loaded-zone-details");
+      details.appendChild(createElement("h2", "", state.book.name));
+      details.appendChild(createElement(
+        "p",
+        "loaded-zone-path",
+        state.book.path));
+      loaded.appendChild(createDropIcon());
+      loaded.appendChild(details);
+      loaded.appendChild(createFlowButton("選び直す", "pick-book", {
+        icon: "folder",
+        compact: true,
+        disabled: state.busyAction !== null
+      }));
+      task.appendChild(loaded);
+      return task;
+    }
+
+    zone = createElement("button", "drop-zone");
+    zone.type = "button";
+    zone.setAttribute("data-action", "pick-book");
+    zone.disabled = state.busyAction !== null;
+    zone.appendChild(createDropIcon());
+    zone.appendChild(createElement(
+      "h2",
+      "",
+      state.busyAction === "attachBook"
+        ? "読み込んでいます"
+        : "Excelブックをここにドロップ"));
+    zone.appendChild(createElement(
+      "p",
+      "",
+      "またはクリックしてファイルを選ぶ"));
+    task.appendChild(zone);
+    return task;
+  }
+
+  // ---- screen 1: what was read ----
+
+  function createStatCard(label, value) {
+    var card = createElement("div", "stat-card");
+
+    card.appendChild(createElement("div", "stat-label", label));
+    card.appendChild(createElement("div", "stat-value", value));
+    return card;
+  }
+
+  function createReadDetail(state) {
+    var wrap = createElement("div", "read-detail");
+    var main = createElement("div", "book-main");
+    var fileCard = createElement("div", "file-card");
+    var fileName = createElement("div", "file-name");
+    var strip = createElement("div", "module-strip");
+
+    fileName.appendChild(createElement("span", "file-kind", "XLS"));
+    fileName.appendChild(createElement("span", "", state.book.name));
+    fileCard.appendChild(fileName);
+    fileCard.appendChild(createElement(
+      "div",
+      "file-path",
+      state.book.path));
+    main.appendChild(fileCard);
+    main.appendChild(createStatCard(
+      "モジュール",
+      String(state.modules.length)));
+    main.appendChild(createStatCard(
+      "合計行数",
+      String(state.book.totalLines)));
+    main.appendChild(createStatCard(
+      "コードの読み取り",
+      state.book.read && state.book.read.level === "sourceDoubt"
+        ? "一部不明"
+        : "全モジュール"));
+    wrap.appendChild(main);
+    if (state.book.read) {
+      wrap.appendChild(createElement(
+        "p",
+        "read-note",
+        state.book.read.detail));
+    }
+
+    state.modules.forEach(function (module) {
+      var chip = createElement("span", "module-chip", module.name);
+
+      chip.title = module.name + "（" + module.lineCount + " 行）";
+      strip.appendChild(chip);
+    });
+    wrap.appendChild(strip);
+    return wrap;
+  }
+
+  function createScreen1(state) {
+    var task = createTask("task--wide");
+    var headline = createElement("div", "headline-card");
+
+    headline.appendChild(createIcon("check", "headline-icon"));
+    headline.appendChild(createElement(
+      "div",
+      "headline-text",
+      state.book.name + " から " + state.modules.length +
+        "モジュール・" + state.book.totalLines + "行を読み込みました"));
+    // The read result stays on this screen after the toast is gone, and
+    // it only looks like a warning when there is something to act on.
+    if (state.book.read) {
+      headline.appendChild(createElement(
+        "p",
+        state.book.read.level === "sourceDoubt"
+          ? "headline-warning"
+          : "headline-note",
+        state.book.read.headline + state.book.read.detail));
+    }
+    task.appendChild(headline);
+    task.appendChild(createDisclosure(
+      "read-detail",
+      "読み取った内容を見る",
+      createReadDetail(state),
+      { note: "モジュール名と行数" }));
+    return task;
+  }
+
+  // ---- screen 2: what this run is for ----
+
+  var MODE_CHOICES = [
+    {
+      mode: "refactor",
+      icon: "template",
+      title: "AIで改修する",
+      description:
+        "AIの返答を取り込んで、改修済みのブックをこのアプリで作ります。"
+    },
+    {
+      mode: "diagnose",
+      icon: "code",
+      title: "AIで相談する",
+      description:
+        "AIチャットへ渡す依頼文とコードを作ります。ブックは変更しません。"
+    }
+  ];
+
+  function createModeCard(state, choice) {
+    var selected = state.mode === choice.mode;
+    var card = createElement("button", "choice-card");
+    var body = createElement("span", "choice-body");
+    var mark = createElement("span", "choice-state");
+
+    card.type = "button";
+    card.setAttribute("data-action", "select-mode");
+    card.setAttribute("data-mode", choice.mode);
+    card.classList.toggle("is-selected", selected);
+    card.setAttribute("aria-pressed", selected ? "true" : "false");
+    card.disabled = state.busyAction !== null;
+    card.appendChild(createIcon(choice.icon, "choice-icon"));
+    body.appendChild(createElement("span", "choice-title", choice.title));
+    body.appendChild(
+      createElement("span", "choice-description", choice.description));
+    card.appendChild(body);
+    if (selected) {
+      mark.appendChild(createIcon("check", "flow-icon--small"));
+    }
+    card.appendChild(mark);
+    return card;
+  }
+
+  function createScreenMode(state) {
+    var task = createTask("");
+    var list = createElement("div", "choice-list");
+
+    // No workbook has been read yet on this screen, so nothing here may
+    // point at "this macro": there is none, and the only macro in sight
+    // would be the app itself.
+    task.appendChild(createTaskIntro(
+      "これからすることを、ひとつ選んでください。"));
+    MODE_CHOICES.forEach(function (choice) {
+      list.appendChild(createModeCard(state, choice));
+    });
+    task.appendChild(list);
+    task.appendChild(createSimpleStart(state));
+    return task;
+  }
+
+  // The short way in, offered quietly beside the two main choices so it
+  // never reads as a third one.
+  function createSimpleStart(state) {
+    var row = createElement("div", "simple-start");
+    var button = createFlowButton(
+      "簡易モードで始める",
+      "start-simple",
+      { compact: true, disabled: state.busyAction !== null });
+
+    button.title =
+      "ブックを選び、直したいことを書くだけで進みます";
+    row.appendChild(button);
+    return row;
+  }
+
+  // ---- screen 3: what kind of request ----
+
+  function createPurposeCard(state, entry) {
+    var selected = state.presetFile === entry.file;
+    var card = createElement("button", "choice-card");
+    var body = createElement("span", "choice-body");
+    var mark = createElement("span", "choice-state");
+
+    card.type = "button";
+    card.setAttribute("data-action", "select-purpose");
+    card.setAttribute("data-preset-file", entry.file);
+    card.classList.toggle("is-selected", selected);
+    card.setAttribute("aria-pressed", selected ? "true" : "false");
+    card.disabled = state.busyAction !== null;
+    card.appendChild(createIcon("template", "choice-icon"));
+    body.appendChild(createElement("span", "choice-title", entry.name));
+    // The line under the name is the preset's own "## 説明" and nothing
+    // else. The request and the output rules are addressed to the chat AI,
+    // so borrowing a sentence from them would put text written for another
+    // reader on this screen. A preset without that section shows its name
+    // alone.
+    if (entry.description) {
+      body.appendChild(createElement(
+        "span",
+        "choice-description",
+        entry.description));
+    }
+    card.appendChild(body);
+    if (selected) {
+      mark.appendChild(createIcon("check", "flow-icon--small"));
+    }
+    card.appendChild(mark);
+    return card;
+  }
+
+  function createScreen2(state) {
+    var task = createTask("");
+    var entries = getPresetEntries(state).filter(function (entry) {
+      return !entry.valid || entry.mode === state.mode;
+    });
+    var list = createElement("div", "choice-list");
+    var invalid = entries.filter(function (entry) {
+      return !entry.valid;
+    });
+    var usable = entries.filter(function (entry) {
       return entry.valid;
     });
+    var errorBox;
+    var errorList;
 
-    if (valid.length !== 1) {
-      return {
-        ok: false,
-        code: "E-PRESET-02",
-        entry: null,
-        validCount: valid.length,
-        entries: entries
-      };
+    task.appendChild(createTaskIntro(
+      global.MacroStudioScreens.isDiagnose(state)
+        ? "聞きたいことに近いものを、ひとつ選んでください。"
+        : "したい改修に近いものを、ひとつ選んでください。"));
+
+    usable.forEach(function (entry) {
+      list.appendChild(createPurposeCard(state, entry));
+    });
+    if (usable.length === 0) {
+      list.appendChild(createElement(
+        "p",
+        "preset-empty",
+        "選べる依頼がありません。presets フォルダの Markdown を" +
+          "確認してください。"));
     }
-    return {
-      ok: true,
-      code: "",
-      entry: valid[0],
-      validCount: 1,
-      entries: entries
-    };
+    task.appendChild(list);
+
+    if (invalid.length > 0) {
+      errorBox = createElement("div", "preset-invalid");
+      errorBox.appendChild(createElement(
+        "p",
+        "preset-invalid-label",
+        "読み込めないひな形が " + invalid.length + " 件あります"));
+      errorList = createElement("ul", "preset-invalid-list");
+      invalid.forEach(function (entry) {
+        var item = createElement("li", "preset-invalid-item");
+
+        item.setAttribute("data-preset-invalid-file", entry.file);
+        item.appendChild(
+          createElement("code", "preset-invalid-file", entry.file));
+        item.appendChild(
+          createElement("span", "preset-invalid-message", entry.message));
+        errorList.appendChild(item);
+      });
+      errorBox.appendChild(errorList);
+      task.appendChild(errorBox);
+    }
+    return task;
+  }
+
+  // ---- screen 3: the request itself ----
+
+  function createRequestEditor(state) {
+    var wrap = createElement("div", "request-editor-wrap");
+    var textarea = createElement("textarea", "request-editor");
+
+    textarea.id = "request-text";
+    textarea.value = state.requestText;
+    textarea.spellcheck = false;
+    textarea.placeholder =
+      "例: 新しい端末でも同じ保存先を使えるようにしてください。";
+    textarea.disabled = state.busyAction !== null;
+    wrap.appendChild(textarea);
+    wrap.appendChild(createElement(
+      "p",
+      "editor-note",
+      "この文章と、返答のしかたの指示、コード全文ファイルをAIへ渡します。" +
+        "返答のしかたは " + (state.presetName || "選んだ改修") +
+        " のひな形が持っています。"));
+    return wrap;
+  }
+
+  // An optional way of answering, offered only when the chosen preset
+  // writes the rules for it. Long macros do not always come back in one
+  // reply, so the same request can ask for one module at a time.
+  function createSplitOutputOption(state) {
+    var row = createElement("div", "option-row");
+    var label = createElement("label", "option-label");
+    var input = createElement("input", "option-checkbox");
+
+    input.type = "checkbox";
+    input.id = "split-output";
+    input.checked = state.splitOutput === true;
+    input.disabled = state.busyAction !== null;
+    label.setAttribute("for", "split-output");
+    label.appendChild(input);
+    label.appendChild(createElement(
+      "span",
+      "option-text",
+      "モジュール単位出力（コードが長い時用）"));
+    row.appendChild(label);
+    row.appendChild(createElement(
+      "p",
+      "option-help",
+      state.splitOutput
+        ? "AIは変更するモジュールを1回の返答に1つだけ出し、" +
+          "次を出してよいか聞いてきます。届いた順に取り込むと、" +
+          "MacroStudioが1つの変更へまとめます。"
+        : "コードが長くて返答が途中で切れるときに使います。" +
+          "ふだんは付けなくてかまいません。"));
+    return row;
+  }
+
+  // The short way: one box to write in, and one option for a long
+  // macro. Nothing about presets, ids or output rules appears - those
+  // are settled behind this screen.
+  function createSimpleRequestScreen(state) {
+    var task = createTask("task--wide");
+    var textarea = createElement("textarea", "form-textarea");
+
+    task.appendChild(createTaskIntro(
+      "直したいことを書いてください。"));
+    textarea.id = "simple-request-input";
+    textarea.value = state.requestText;
+    textarea.spellcheck = false;
+    textarea.rows = 8;
+    textarea.disabled = state.busyAction !== null;
+    textarea.setAttribute("data-simple-request", "true");
+    textarea.setAttribute(
+      "placeholder",
+      "例: 実行に時間がかかるので、速くしてください。" +
+        "動きは今までと同じにしてください。");
+    textarea.setAttribute("aria-label", "どのように直しますか");
+    task.appendChild(textarea);
+    if (state.splitOutputRules) {
+      task.appendChild(createSimpleSplitOption(state));
+    }
+    return task;
+  }
+
+  // The same switch as the detailed screen, on the same state and the
+  // same rules, worded for someone who only knows their macro is long.
+  function createSimpleSplitOption(state) {
+    var row = createElement("div", "option-row");
+    var label = createElement("label", "option-label");
+    var input = createElement("input", "option-checkbox");
+
+    input.type = "checkbox";
+    input.id = "split-output";
+    input.checked = state.splitOutput === true;
+    input.disabled = state.busyAction !== null;
+    label.setAttribute("for", "split-output");
+    label.appendChild(input);
+    label.appendChild(createElement(
+      "span",
+      "option-text",
+      "コードが長い場合は、モジュールごとに受け取る"));
+    row.appendChild(label);
+    row.appendChild(createElement(
+      "p",
+      "option-help",
+      state.splitOutput
+        ? "AIは1回の返答に1つずつ出します。届いた順に貼り付けてください。"
+        : "AIの返答が途中で切れるときに使います。"));
+    return row;
+  }
+
+  function createScreen3(state) {
+    var task;
+    var headline;
+    var preview;
+
+    if (global.MacroStudioScreens.isSimple(state)) {
+      return createSimpleRequestScreen(state);
+    }
+    task = createTask("task--wide");
+    headline = createElement("div", "headline-card");
+    preview = state.requestText
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .filter(function (line) {
+        return line.trim().length > 0;
+      })
+      .slice(0, 2)
+      .join(" ");
+
+    task.appendChild(createTaskIntro(
+      "この内容でAIへ依頼します。書き換えたいときだけ開いてください。"));
+    headline.appendChild(createIcon("template", "headline-icon"));
+    headline.appendChild(createElement(
+      "div",
+      "headline-text",
+      state.presetName || "改修依頼"));
+    headline.appendChild(createElement(
+      "p",
+      "headline-preview",
+      preview.length > 92 ? preview.slice(0, 92) + "…" : preview));
+    task.appendChild(headline);
+    if (state.splitOutputRules) {
+      task.appendChild(createSplitOutputOption(state));
+    }
+    task.appendChild(createDisclosure(
+      "request-editor",
+      "依頼文を確認・編集",
+      createRequestEditor(state),
+      { note: state.requestText.length + "文字" }));
+    return task;
+  }
+
+  // ---- screen 4: hand the request to the chat ----
+
+  function createFolderContract(state, withResults) {
+    var box = createElement("div", "folder-contract");
+    var chips = createElement("div", "artifact-chips");
+    var names = ["request.md", "source-code.md"];
+
+    if (withResults) {
+      names = names.concat([
+        state.outputName,
+        global.MacroStudioState.getDiffReportName(
+          state.book,
+          state.outputDateStamp),
+        "result.md"
+      ]);
+    }
+    box.appendChild(createElement(
+      "div",
+      "folder-path",
+      state.runFolder || ""));
+    names.forEach(function (name) {
+      chips.appendChild(createElement("span", "artifact-chip", name));
+    });
+    box.appendChild(chips);
+    return box;
+  }
+
+  // Where the files go is reference material: shown on request, never
+  // in the way of the thing the user came to this screen to do.
+  function createFolderDisclosure(state, key, withResults) {
+    return createDisclosure(
+      key,
+      "作成されるファイルの場所を見る",
+      createFolderContract(state, withResults),
+      { note: "この改修専用のフォルダ" });
+  }
+
+  function createHandoffCard(state, options) {
+    var card = createElement("div", "handoff-card");
+    var number = createElement("div", "handoff-number");
+    var actions = createElement("div", "inline-actions");
+
+    card.classList.toggle("is-done", options.done);
+    if (options.done) {
+      number.appendChild(createIcon("check", "flow-icon--small"));
+    } else {
+      number.textContent = options.step;
+    }
+    card.appendChild(number);
+    card.appendChild(createElement("h2", "", options.title));
+    card.appendChild(createElement("p", "", options.description));
+    if (options.fileName) {
+      card.appendChild(
+        createElement("div", "file-pill", options.fileName));
+    }
+    actions.appendChild(createFlowButton(
+      options.label,
+      options.action,
+      {
+        kind: options.done ? "" : "primary",
+        icon: options.done ? "check" : options.icon,
+        className: options.done ? "is-done" : "",
+        disabled: state.busyAction !== null
+      }));
+    card.appendChild(actions);
+    return card;
+  }
+
+  function createScreen4(state) {
+    var task = createTask("task--wide");
+    var handoff = createElement("div", "handoff");
+
+    task.appendChild(createTaskIntro(
+      state.promptCopied && state.codeFolderOpened
+        ? "依頼文を貼り付け、source-code.md を添付して、AIからの返答を待ちます。"
+        : "依頼文をコピーして、コード全文ファイルと一緒にAIチャットへ渡します。"));
+    handoff.appendChild(createHandoffCard(state, {
+      step: "1",
+      done: state.promptCopied === true,
+      title: "依頼文をチャットへ貼り付ける",
+      description:
+        "ボタンを押すと、AIへの依頼文がクリップボードへコピーされます。",
+      label: state.promptCopied ? "コピーしました" : "依頼文をコピー",
+      action: "copy-request-prompt",
+      icon: "copy"
+    }));
+    handoff.appendChild(createHandoffCard(state, {
+      step: "2",
+      done: state.codeFolderOpened === true,
+      title: "コード全文ファイルを添付する",
+      description:
+        "マクロのコード全文を保存したファイルです。AIチャットに添付してください。",
+      fileName: "source-code.md",
+      label: state.codeFolderOpened
+        ? "フォルダを開きました"
+        : "ファイルの場所を開く",
+      action: "open-run-folder",
+      icon: "folder"
+    }));
+    task.appendChild(handoff);
+    // The code alone often is not enough: the AI answers better when it
+    // can see the sheets the macro reads and writes.
+    task.appendChild(createElement(
+      "p",
+      "handoff-note",
+      "マクロが読み書きするExcelシートやファイルがあれば、" +
+        "それも一緒にAIチャットへ添付すると、より正確な回答が得られます。"));
+    task.appendChild(createFolderDisclosure(state, "handoff-folder", false));
+    return task;
   }
 
   function normalizePastedText(value) {
@@ -722,47 +1119,17 @@
     var untouched = state.modules.filter(function (module) {
       return module.status !== "changed";
     });
-    // A run can carry both kinds of work. The note says what the tool
-    // replaced itself and what the chat reported, in that order,
-    // because that is the order they happened in.
-    var mappingRows = state.appliedMapping && state.appliedMapping.mapping &&
-      Array.isArray(state.appliedMapping.mapping.rows)
-      ? state.appliedMapping.mapping.rows
-      : [];
-    var notes = [];
-    var summary;
-
-    if (mappingRows.length > 0) {
-      notes.push(mappingRows.length +
-        "種類の文字列を、確認した対応表どおりに置き換えました。");
-    }
-    if (state.repairResultEngine !== "対応表による置換" &&
-        state.intakeResult && state.intakeResult.summary) {
-      notes.push(String(state.intakeResult.summary));
-    }
-    summary = notes.join("\n\n");
-
-    function tableText(value) {
-      return String(value === undefined || value === null ? "" : value)
-        .replace(/`/g, "\\`")
-        .replace(/\|/g, "\\|");
-    }
+    var summary = state.intakeResult && state.intakeResult.summary
+      ? String(state.intakeResult.summary)
+      : "";
 
     lines.push("# " + state.book.name + " 改修メモ");
     lines.push("");
     lines.push("- 実行日時: " + formatRunTimestamp(timestamp));
     lines.push("- 依頼の目的: " + (state.presetName || "（指定なし）"));
-    lines.push("- 依頼番号: " + (state.repairRequestId || "（なし）"));
+    lines.push("- 依頼番号: " + (state.requestId || "（なし）"));
     lines.push("- 作成した改修済みブック: " + state.outputName);
     lines.push("- 元のブック: " + state.book.name + "（変更していません）");
-    if (state.bookInventory) {
-      lines.push("- 元のブックの SHA-256: " +
-        (state.bookInventory.sha256 || "（読み取れませんでした）"));
-      lines.push("- 元のブックのサイズ: " +
-        String(state.bookInventory.sizeBytes || 0) + " バイト");
-      lines.push("- 元のブックの更新時刻 (UTC): " +
-        (state.bookInventory.modifiedUtc || "（読み取れませんでした）"));
-    }
     lines.push("");
     lines.push("## 改修内容");
     lines.push("");
@@ -774,26 +1141,6 @@
       lines.push("（返答に要約は入っていませんでした）");
     }
     lines.push("");
-    if (mappingRows.length > 0) {
-      lines.push("## 置換の対応表");
-      lines.push("");
-      lines.push("| 種類 | 置換前 | 置換後 | 件数 | 出現箇所 |");
-      lines.push("|---|---|---|---:|---|");
-      mappingRows.forEach(function (row) {
-        var places = (row.occurrences || []).map(function (occurrence) {
-          return occurrence.module + " / " +
-            (occurrence.procedure || "-") + " / " +
-            occurrence.line + "行目";
-        }).join("、");
-        lines.push(
-          "| " + tableText(row.label || row["class"]) +
-          " | `" + tableText(row.from) +
-          "` | `" + tableText(row.to) +
-          "` | " + String(row.count || 0) +
-          " | " + tableText(places) + " |");
-      });
-      lines.push("");
-    }
     lines.push("## 変更したモジュール");
     lines.push("");
     if (changed.length === 0) {
@@ -825,24 +1172,10 @@
       });
     }
     lines.push("");
-    lines.push(global.MacroStudioHandover.sections(state));
     lines.push("## このフォルダのファイル");
     lines.push("");
-    // Same as the completion screen: the request file exists either way, but
-    // on a skipped diagnosis nobody was handed anything.
-    lines.push(state.diagnosisFilePath
-      ? "- diagnose-request.md … 診断のためAIへ渡した第1依頼"
-      : "- diagnose-request.md … 診断のために用意した第1依頼" +
-        "（この実行では使っていません）");
-    lines.push("- source-code.md … 読み取った時点のコード全文（改修前）");
-    // 診断を飛ばした実行では diagnosis.md は作られない。無い物を並べると
-    // 「すべてこのフォルダにまとまっています」が嘘になる。
-    if (state.diagnosisFilePath) {
-      lines.push("- diagnosis.md … 受理した診断結果");
-    }
-    if (state.repairRequestFilePath) {
-      lines.push("- repair-request.md … 改修のためAIへ渡した第2依頼");
-    }
+    lines.push("- request.md … AIへ渡した依頼文");
+    lines.push("- source-code.md … 改修前のコード全文");
     lines.push("- " + state.outputName + " … 改修済みブック");
     lines.push(
       "- " +
@@ -851,20 +1184,6 @@
         state.outputDateStamp) +
       " … 変更内容（全モジュール）");
     lines.push("- result.md … このメモ");
-    lines.push("- run-manifest.json … この実行の記録");
-    lines.push("");
-    // The attachment copy is prepared with the request, so it exists even when
-    // no AI was involved. Saying "the code attached to the AI" on a run that
-    // never asked one is the same false claim as the line above.
-    if (state.diagnosisFilePath || state.repairRequestFilePath) {
-      lines.push("AIへ添付したコードは、この実行と同じ名前の temp フォルダーに" +
-        "`source-code-for-ai.md` として置いてあります。上の source-code.md は" +
-        "読み取った時点のままです。");
-    } else {
-      lines.push("この実行では AI へ何も渡していません。依頼に添えるつもりで" +
-        "用意したコードは、この実行と同じ名前の temp フォルダーに" +
-        "`source-code-for-ai.md` として残っています。");
-    }
     lines.push("");
     return lines.join("\r\n");
   }
@@ -896,31 +1215,6 @@
       modules.push(item);
     });
     return modules;
-  }
-
-  // The one icon-only control in the toolbars: grow the code area to the
-  // whole client area, and come back. The shapes are the ordinary
-  // expand / shrink arrow pairs, the state is aria-pressed, and the name
-  // says which way it will go next - so a screen reader and a tooltip
-  // both read as an action, not a state.
-  function createCodeMaxButton(state) {
-    var label = codeMaximized
-      ? "元の表示に戻す"
-      : "コードを画面全体に広げる";
-    var button = createElement(
-      "button",
-      "button button--compact button--icon code-max-toggle");
-
-    button.type = "button";
-    button.setAttribute("data-action", "toggle-code-max");
-    button.setAttribute("aria-pressed", codeMaximized ? "true" : "false");
-    button.setAttribute("aria-label", label);
-    button.title = label;
-    button.appendChild(createIcon(
-      codeMaximized ? "restore" : "maximize",
-      "flow-icon--small"));
-    button.disabled = state.busyAction !== null;
-    return button;
   }
 
   function createDiffWorkspace(state, module) {
@@ -1009,7 +1303,6 @@
     editButton.title = "貼り付けたコードを右の欄で直接修正します";
     editButton.disabled = state.busyAction !== null;
     actions.appendChild(editButton);
-    actions.appendChild(createCodeMaxButton(state));
 
     toolbar.appendChild(resultGroup);
     toolbar.appendChild(actions);
@@ -1072,7 +1365,6 @@
     cancel.disabled = state.busyAction !== null;
     actions.appendChild(apply);
     actions.appendChild(cancel);
-    actions.appendChild(createCodeMaxButton(state));
     toolbar.appendChild(resultGroup);
     toolbar.appendChild(actions);
 
@@ -1171,7 +1463,12 @@
   //
   // The tree is grouped the way the VBE project tree is, so a module is
   // found where the user expects it rather than in one flat list.
-  var MODULE_GROUPS = ["standard", "class", "form", "document"];
+  var MODULE_GROUPS = [
+    { type: "standard", title: "標準モジュール" },
+    { type: "class", title: "クラスモジュール" },
+    { type: "form", title: "フォームモジュール" },
+    { type: "document", title: "シートモジュール" }
+  ];
 
   function createModuleItem(state, module) {
     var item = createElement("li", "");
@@ -1203,7 +1500,7 @@
     pane.appendChild(createElement("div", "module-pane-title", title));
     MODULE_GROUPS.forEach(function (group) {
       var members = shown.filter(function (module) {
-        return module.type === group;
+        return module.type === group.type;
       });
       var list;
 
@@ -1213,7 +1510,7 @@
       pane.appendChild(createElement(
         "div",
         "module-group-title",
-        members[0].typeLabel || group));
+        group.title));
       list = createElement("ul", "module-list");
       members.forEach(function (module) {
         list.appendChild(createModuleItem(state, module));
@@ -1229,6 +1526,431 @@
   // there are and which one this is; long forms keep the ends and the
   // neighbourhood of the current question, and fold the rest away.
   var BEAD_LIMIT = 9;
+
+  function getBeadPositions(total, current) {
+    var positions = [];
+    var index;
+
+    if (total <= BEAD_LIMIT) {
+      for (index = 0; index < total; index += 1) {
+        positions.push(index);
+      }
+      return positions;
+    }
+    [0, 1].forEach(function (index) {
+      positions.push(index);
+    });
+    for (index = current - 1; index <= current + 1; index += 1) {
+      if (index > 1 && index < total - 2) {
+        positions.push(index);
+      }
+    }
+    [total - 2, total - 1].forEach(function (index) {
+      positions.push(index);
+    });
+    return positions.filter(function (value, at, all) {
+      return all.indexOf(value) === at;
+    }).sort(function (a, b) {
+      return a - b;
+    });
+  }
+
+  function isAnswered(state, index) {
+    return String(state.answers[String(index)] || "").trim().length > 0;
+  }
+
+  function createBeadTrack(state) {
+    var wrap = createElement("div", "bead-rail");
+    var track = createElement("div", "bead-track");
+    var total = state.questions.length;
+    var positions = getBeadPositions(total, state.questionIndex);
+    var previous = null;
+
+    positions.forEach(function (index) {
+      var bead;
+
+      if (previous !== null && index - previous > 1) {
+        track.appendChild(createElement("span", "bead-gap", ""));
+      }
+      bead = createElement("button", "bead", String(index + 1));
+      bead.type = "button";
+      bead.setAttribute("data-action", "go-question");
+      bead.setAttribute("data-index", String(index));
+      bead.setAttribute(
+        "aria-label",
+        (index + 1) + "問目" +
+          (isAnswered(state, index) ? "（回答済み）" : ""));
+      bead.setAttribute(
+        "aria-current",
+        index === state.questionIndex ? "step" : "false");
+      bead.classList.toggle("is-current", index === state.questionIndex);
+      bead.classList.toggle("is-answered", isAnswered(state, index));
+      bead.disabled = state.busyAction !== null;
+      track.appendChild(bead);
+      previous = index;
+    });
+    wrap.appendChild(track);
+    return wrap;
+  }
+
+  function createChoiceField(state, question, index) {
+    var wrap = createElement("div", "form-choices");
+
+    question.choices.forEach(function (choice) {
+      var button = createElement("button", "form-chip", choice);
+      var selected = state.answers[String(index)] === choice;
+
+      button.type = "button";
+      button.setAttribute("data-action", "answer-choice");
+      button.setAttribute("data-question", String(index));
+      button.setAttribute("data-value", choice);
+      button.setAttribute("aria-pressed", selected ? "true" : "false");
+      button.classList.toggle("is-selected", selected);
+      button.disabled = state.busyAction !== null;
+      wrap.appendChild(button);
+    });
+    return wrap;
+  }
+
+  // With one question per screen there is room to write properly.
+  function createTextField(state, index) {
+    var input = createElement("textarea", "form-textarea");
+
+    input.id = "answer-" + index;
+    input.value = state.answers[String(index)] || "";
+    input.spellcheck = false;
+    input.rows = 5;
+    input.setAttribute("data-question", String(index));
+    input.setAttribute("placeholder", "分かる範囲で書いてください");
+    input.disabled = state.busyAction !== null;
+    return input;
+  }
+
+  function createQuestionArrow(state, direction) {
+    var forward = direction > 0;
+    var button = createElement(
+      "button",
+      "question-arrow question-arrow--" + (forward ? "next" : "previous"));
+    var target = state.questionIndex + direction;
+
+    button.type = "button";
+    button.setAttribute("data-action", "go-question");
+    button.setAttribute("data-index", String(target));
+    button.setAttribute(
+      "aria-label",
+      forward ? "次の質問へ" : "前の質問へ");
+    button.appendChild(createIcon(
+      forward ? "arrowRight" : "arrowLeft",
+      "flow-icon--small"));
+    button.disabled = state.busyAction !== null ||
+      target < 0 ||
+      target >= state.questions.length;
+    return button;
+  }
+
+  function createScreenQuestions(state) {
+    var task = createTask("task--wide");
+    var question = state.questions[state.questionIndex];
+    var card = createElement("div", "question-card");
+    var body = createElement("div", "question-body");
+
+    if (!question) {
+      task.appendChild(createTaskIntro("質問がありません。"));
+      return task;
+    }
+
+    task.appendChild(createBeadTrack(state));
+    body.appendChild(createElement(
+      "p",
+      "question-count",
+      (state.questionIndex + 1) + " / " + state.questions.length));
+    body.appendChild(createElement("h2", "question-text", question.text));
+    body.appendChild(question.choices.length > 0
+      ? createChoiceField(state, question, state.questionIndex)
+      : createTextField(state, state.questionIndex));
+    card.appendChild(createQuestionArrow(state, -1));
+    card.appendChild(body);
+    card.appendChild(createQuestionArrow(state, 1));
+    task.appendChild(card);
+    task.appendChild(createElement(
+      "p",
+      "question-note",
+      "分かるところだけで大丈夫です。答えた内容が依頼文に入ります。"));
+    return task;
+  }
+
+  // The answers become a block the user can read and edit on the next
+  // screen, so nothing reaches the chat unseen.
+  function composeRequestWithAnswers(state) {
+    var lines = [];
+
+    state.questions.forEach(function (question, index) {
+      var answer = String(state.answers[String(index)] || "").trim();
+
+      if (answer.length === 0) {
+        return;
+      }
+      lines.push("- " + question.text);
+      answer.replace(/\r\n/g, "\n").split("\n").forEach(function (line) {
+        lines.push("  " + line);
+      });
+    });
+    if (lines.length === 0) {
+      return state.requestBase;
+    }
+    return state.requestBase + "\r\n\r\n" +
+      "【質問への回答】\r\n" + lines.join("\r\n");
+  }
+
+  function answerQuestion(index, value) {
+    var state = global.MacroStudioState.getState();
+    var key = String(index);
+    var next = state.answers[key] === value ? "" : value;
+
+    if (state.busyAction) {
+      return false;
+    }
+    return global.MacroStudioState.setAnswer(Number(index), next);
+  }
+
+  // Moving between questions is its own control, kept away from the
+  // fixed back / next pair that moves between screens.
+  function goToQuestion(index) {
+    if (global.MacroStudioState.getState().busyAction) {
+      return false;
+    }
+    return global.MacroStudioState.setQuestionIndex(Number(index));
+  }
+
+  // ---- screen 5: take the whole answer in at once ----
+
+  function createSummaryText(summary) {
+    var box = createElement("div", "intake-summary");
+
+    String(summary)
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .forEach(function (line) {
+        box.appendChild(createElement("p", "intake-summary-line", line));
+      });
+    return box;
+  }
+
+  // What came in, said once. The AI's own account of the change sits
+  // behind a disclosure so it never pushes the button off the screen.
+  function createIntakeResult(state) {
+    var result = state.intakeResult || {};
+    var imported = global.MacroStudioScreens.countImported(state);
+    var headline = createElement("div", "headline-card");
+    var wrap = createElement("div", "intake-result");
+
+    headline.appendChild(createIcon("check", "headline-icon"));
+    headline.appendChild(createElement(
+      "div",
+      "headline-text",
+      imported + "個のモジュールを取り込みました"));
+    headline.appendChild(createElement(
+      "p",
+      "headline-preview",
+      (result.added > 0
+        ? "既存 " + result.existing + "個・新規 " + result.added + "個"
+        : "既存 " + result.existing + "個") +
+        "。内容は次の画面で確認できます。"));
+    if (result.kindWarning) {
+      headline.appendChild(createElement(
+        "p",
+        "headline-warning",
+        result.kindWarning));
+    }
+    wrap.appendChild(headline);
+    if (result.summary) {
+      wrap.appendChild(createDisclosure(
+        "intake-summary",
+        "AIが書いた改修内容を見る",
+        createSummaryText(result.summary),
+        { note: "AIの説明" }));
+    }
+    return wrap;
+  }
+
+
+  // What has arrived so far when the answer comes one module at a time,
+  // and what is still outstanding.
+  function createPartProgress(state) {
+    var api = global.MacroStudioResponse;
+    var parts = state.intakeParts;
+    var total = parts && parts.total ? parts.total : 0;
+    var box = createElement("div", "intake-parts");
+    var list = createElement("div", "intake-part-list");
+    var missing = api.describeMissingParts(parts);
+
+    box.appendChild(createElement(
+      "div",
+      "intake-part-count",
+      total > 0
+        ? parts.parts.length + " / " + total + "個を受け取りました"
+        : "まだ受け取っていません"));
+    (parts && parts.parts ? parts.parts : []).forEach(function (entry) {
+      var row = createElement("div", "intake-part-row");
+
+      row.appendChild(createIcon("check", "flow-icon--small"));
+      row.appendChild(createElement(
+        "span",
+        "intake-part-number",
+        api.formatPartNumber(entry.index)));
+      row.appendChild(createElement("span", "", entry.name));
+      list.appendChild(row);
+    });
+    box.appendChild(list);
+    if (missing) {
+      box.appendChild(createElement("p", "intake-part-missing", missing));
+    }
+    return box;
+  }
+
+  // What came back when the answer was "there is nothing to change":
+  // which of the two verdicts it was, and the reason it gave. The
+  // reason is the AI's own words, shown as it wrote them.
+  function createNoChangeResult(state) {
+    var result = global.MacroStudioScreens.getNoChangeResult(state);
+    var described = describeNoChange(result.verdict);
+    var headline = createElement("div", "headline-card");
+    var wrap = createElement("div", "intake-result");
+
+    headline.appendChild(createIcon("info", "headline-icon"));
+    headline.appendChild(createElement(
+      "div",
+      "headline-text",
+      described.label));
+    headline.appendChild(createElement(
+      "p",
+      "headline-preview",
+      described.note));
+    wrap.appendChild(headline);
+    // The reason is the whole of this result, so it is on the screen,
+    // not behind something to open.
+    wrap.appendChild(createSummaryText(result.summary));
+    return wrap;
+  }
+
+  function createScreen5(state) {
+    var api = global.MacroStudioScreens;
+    var task = createTask("task--wide");
+    var imported = api.countImported(state);
+    var split = api.isSplitOutput(state);
+    var started = split && api.getIntakePartTotal(state) > 0;
+    var noChange = api.isNoChange(state);
+    var target = createElement("div", "paste-target");
+    var guide = createElement("div", "intake-guide");
+    var actions = createElement("div", "inline-actions");
+    var steps = split
+      ? [
+        ["1", "AIの返答の", "コードブロック", "をコピーする"],
+        ["2", "下のボタンで", "そのモジュールを取り込む", ""],
+        ["3", "AIへ", "次のモジュールを出すよう返事", "する"]
+      ]
+      : [
+        ["1", "AIの返答の", "コードブロック", "をコピーする"],
+        ["2", "下のボタンで", "まとめて取り込む", ""],
+        ["3", "次の画面で", "内容を確認", "する"]
+      ];
+
+    task.appendChild(createTaskIntro(
+      noChange
+        ? "AIは、変更するモジュールは無いと返してきました。"
+        : imported > 0
+          ? "取り込みました。右下の「次へ」で内容を確認します。"
+          : split
+            ? "モジュールごとに返ってくるコードブロックを、" +
+              "届いた順に取り込んでください。"
+            : "AIの返答にあるコードブロックをコピーして、" +
+              "ボタンを押してください。"));
+
+    // Even after a package has come in, the way to take a corrected
+    // answer instead stays on this screen.
+    if (noChange) {
+      task.appendChild(createNoChangeResult(state));
+    } else if (imported > 0) {
+      task.appendChild(createIntakeResult(state));
+    } else {
+      steps.forEach(function (item) {
+        var step = createElement("div", "intake-step");
+        var text = createElement("span", "intake-step-text");
+
+        step.appendChild(
+          createElement("span", "intake-step-number", item[0]));
+        text.appendChild(createElement("span", "", item[1]));
+        text.appendChild(createElement("strong", "", item[2]));
+        if (item[3]) {
+          text.appendChild(createElement("span", "", item[3]));
+        }
+        step.appendChild(text);
+        guide.appendChild(step);
+      });
+      task.appendChild(guide);
+      if (started) {
+        task.appendChild(createPartProgress(state));
+      }
+    }
+
+    target.appendChild(createIcon(
+      imported > 0 || noChange ? "check" : "code",
+      "drop-icon"));
+    target.appendChild(createElement(
+      "h2",
+      "",
+      noChange
+        ? "変更するモジュールはありませんでした"
+        : imported > 0
+          ? imported + "個のモジュールを取り込みました"
+          : split
+            ? "モジュールを1つずつ取り込みます"
+            : "AIの返答をここへ取り込みます"));
+    target.appendChild(createElement(
+      "p",
+      "",
+      noChange
+        ? "改修済みブックは作りません。" +
+          "別の返答を受け取ったときは、取り込み直せます。"
+        : imported > 0
+          ? "取り込み直すときは、もう一度コピーしてからボタンを押します。"
+          : "コードブロック全体をコピーしてから、ボタンを押してください。"));
+    // Taking a different answer instead always stays available. With
+    // one paste that means pasting again; with one module per answer the
+    // collection is emptied first, then filled from module 00 again.
+    if (imported > 0 && split) {
+      actions.appendChild(createFlowButton(
+        "最初から取り込み直す",
+        "restart-intake",
+        { icon: "copy", disabled: state.busyAction !== null }));
+    } else {
+      actions.appendChild(createFlowButton(
+        state.busyAction === "readClipboard"
+          ? "読み取っています"
+          : imported > 0 || noChange
+            ? "取り込み直す"
+            : started
+              ? "次のモジュールを取り込む"
+              : "クリップボードからAIの返答を取り込む",
+        "import-response",
+        {
+          kind: imported > 0 || noChange ? "" : "primary",
+          icon: "copy",
+          disabled: state.busyAction !== null
+        }));
+      if (started) {
+        actions.appendChild(createFlowButton(
+          "最初から取り込み直す",
+          "restart-intake",
+          { disabled: state.busyAction !== null }));
+      }
+    }
+    target.appendChild(actions);
+    task.appendChild(target);
+    return task;
+  }
+
+  // ---- screen 6: confirm what came in ----
 
   function createChangeDetail(state) {
     var layout = createElement("div", "code-layout");
@@ -1251,154 +1973,38 @@
     return layout;
   }
 
-  // The reader has said the answer is wrong. What goes back to the chat
-  // is that reason plus the request this answer was for, in the shape the
-  // template asked replies to come in - so the next reply can be taken in
-  // through the same door as the first.
-  function createRejectionRequestText(state) {
-    var lines = [];
-    var reason = String(rejectionReasonDraft || "").trim();
-
-    lines.push("さきほどの返答は採用できませんでした。");
-    lines.push("次の点を直して、同じ依頼のまま返し直してください。");
-    lines.push("");
-    lines.push("【採用しない理由】");
-    lines.push(reason);
-    lines.push("");
-    lines.push("【この依頼】");
-    if (state.presetName) {
-      lines.push("ひな形: " + state.presetName);
-    }
-    if (state.repairRequestId) {
-      lines.push("依頼ID: " + state.repairRequestId);
-    }
-    if (state.book && state.book.name) {
-      lines.push("対象ブック: " + state.book.name);
-    }
-    if (state.outputRules) {
-      lines.push("");
-      lines.push(String(state.outputRules));
-    }
-    return lines.join("\r\n");
-  }
-
-  function setRejectionReason(value) {
-    rejectionReasonDraft = String(value === undefined ||
-      value === null ? "" : value);
-    return true;
-  }
-
-  // Redraw when there is a shell to draw into. announce() takes the same
-  // precaution: the screen builders are used on their own by the tests,
-  // where nothing has been mounted.
-  function repaint() {
-    if (!elements) {
-      return false;
-    }
-    render(global.MacroStudioState.getState());
-    return true;
-  }
-
-  function openRejection() {
-    rejectionOpen = true;
-    repaint();
-    return true;
-  }
-
-  function cancelRejection() {
-    rejectionOpen = false;
-    rejectionReasonDraft = "";
-    repaint();
-    return true;
-  }
-
-  function copyRejectionRequest() {
-    var state = global.MacroStudioState.getState();
-    var reason = String(rejectionReasonDraft || "").trim();
-
-    if (!reason || state.busyAction) {
-      return Promise.resolve(false);
-    }
-    global.MacroStudioState.setBusyAction("copyRejection");
-    return global.hostBridge.request("writeClipboard", {
-      text: createRejectionRequestText(state)
-    }).then(function () {
-      global.MacroStudioState.setBusyAction(null);
-      recordWarning("repair answer rejected by reader; correction request " +
-        "copied (reason length " + reason.length + ")");
-      showToast(
-        "修正依頼文をコピーしました。AIへ貼り付けて、" +
-          "新しい回答を［戻る］の画面で取り込み直してください。",
-        "success");
-      return true;
-    }, function (error) {
-      global.MacroStudioState.setBusyAction(null);
-      handleHostError(error || {code: "E-GEN-03"}, "", {
-        name: "retry-copy-rejection",
-        label: "もう一度コピー"
-      });
-      return false;
-    });
-  }
-
-  // Taking the answer in and deciding to keep it are two different
-  // things, so they are two different elements. This one is the decision.
-  function createRejectionPanel(state) {
-    var box = createElement("div", "rejection");
-    var field;
-    var row;
-    var copy;
-
-    if (!rejectionOpen) {
-      row = createElement("div", "step-actions");
-      row.appendChild(createFlowButton(
-        "この回答は採用しない",
-        "reject-repair-answer",
-        {}));
-      box.appendChild(row);
-      return box;
-    }
-    box.appendChild(createElement(
-      "label",
-      "form-label",
-      "採用しない理由（AIへの修正依頼文に入ります）"));
-    field = createElement("textarea", "form-textarea");
-    field.id = "rejection-reason";
-    field.rows = 3;
-    field.value = rejectionReasonDraft;
-    field.disabled = state.busyAction !== null;
-    field.setAttribute("data-app-input", "rejection-reason");
-    field.setAttribute("aria-label", "採用しない理由");
-    box.appendChild(field);
-    // What happens next is read before the button that does it, and it
-    // stays above the buttons: a toast sits at the bottom of the screen,
-    // and a line underneath the last control is the line it covers.
-    box.appendChild(createElement(
-      "p",
-      "task-note",
-      "コピーした文をAIへ渡し、返ってきた新しい回答を［戻る］の画面で" +
-        "取り込み直します。"));
-    row = createElement("div", "step-actions");
-    copy = createFlowButton(
-      "修正依頼文をコピー",
-      "copy-rejection-request",
-      {kind: "primary"});
-    copy.disabled = state.busyAction !== null ||
-      String(rejectionReasonDraft || "").trim().length === 0;
-    row.appendChild(copy);
-    row.appendChild(createFlowButton(
-      "やめる",
-      "cancel-reject-repair-answer",
-      {}));
-    box.appendChild(row);
-    return box;
-  }
-
   // The review screen shows what came in. Deciding to keep it is the
   // act of pressing next, so there is no separate accept button.
-  // What is on screen is what the reply changed. The structural checks
-  // that let it in say nothing about whether the change is right, so
-  // this screen never reports them as "no problems found".
+  // The short way shows what the AI said it changed, and nothing else:
+  // no module list and no diff. The checks behind it are the same ones
+  // the detailed screen relies on - they have already run by now.
+  function createSimpleReviewScreen(state) {
+    var task = createTask("task--wide");
+    var headline = createElement("div", "headline-card");
+    var summary = state.intakeResult && state.intakeResult.summary
+      ? String(state.intakeResult.summary)
+      : "";
+
+    task.appendChild(createTaskIntro(
+      "AIが直した内容です。"));
+    headline.appendChild(createIcon("code", "headline-icon"));
+    headline.appendChild(createElement(
+      "div",
+      "headline-text",
+      "改修内容"));
+    task.appendChild(headline);
+    if (summary) {
+      task.appendChild(createSummaryText(summary));
+    } else {
+      task.appendChild(createElement(
+        "p",
+        "headline-preview",
+        "AIからの説明はありませんでした。" +
+          "そのまま改修へ進めます。"));
+    }
+    return task;
+  }
+
   function createScreen6(state) {
     var api = global.MacroStudioScreens;
     var changed;
@@ -1407,41 +2013,34 @@
     var task;
     var headline;
     var kindWarning;
-    var facts;
 
+    if (api.isSimple(state)) {
+      return createSimpleReviewScreen(state);
+    }
     changed = api.countChanged(state);
     unchanged = api.countUnchangedImports(state);
-    open = Object.prototype.hasOwnProperty.call(disclosureOpen, "change-detail")
-      ? disclosureOpen["change-detail"] === true
-      : true;
-    // The tall layout is for reading the diff. While a reason is being
-    // written the diff is not what the reader is looking at, so the
-    // screen goes back to its natural height and scrolls as one.
-    task = createTask("task--wide" +
-      (open && !rejectionOpen ? " task--fill" : ""));
+    open = disclosureOpen["change-detail"] === true;
+    task = createTask("task--wide" + (open ? " task--fill" : ""));
     headline = createElement("div", "headline-card");
     kindWarning = state.intakeResult && state.intakeResult.kindWarning
       ? state.intakeResult.kindWarning
       : "";
-    facts = changed + "個のモジュールに変更があります" +
-      (unchanged > 0 ? "（" + unchanged + "個は変更なし）" : "");
 
     task.appendChild(createTaskIntro(
-      "取り込んだ内容です。変更箇所を確かめて、右下の「次へ」で" +
-        "ブックの作成へ進みます。"));
+      "取り込んだ内容です。右下の「次へ」でブックの作成へ進みます。"));
 
     headline.appendChild(createIcon("code", "headline-icon"));
-    // The deterministic replacement never asks an AI anything, so this screen
-    // must not say an answer came back. Ask where the change came from, not
-    // whether modules carry pasted code: the replacement fills pastedCode too,
-    // so counting imports called every replacement an AI answer.
     headline.appendChild(createElement(
       "div",
       "headline-text",
-      state.repairResultEngine === "対応表による置換"
-        ? "対応表どおりに置き換えました"
-        : "AIの回答を取り込みました"));
-    headline.appendChild(createElement("p", "headline-preview", facts));
+      changed + "個のモジュールへ変更を取り込みました" +
+        (unchanged > 0 ? "（" + unchanged + "個は変更なし）" : "")));
+    headline.appendChild(createElement(
+      "p",
+      "headline-preview",
+      kindWarning
+        ? "確かめてほしい点があります。中身を見てください。"
+        : "問題は見つかりません。中身を見るときは下を開いてください。"));
     // A warning never hides inside the disclosure.
     if (kindWarning) {
       headline.appendChild(createElement(
@@ -1457,60 +2056,9 @@
       createChangeDetail(state),
       {
         className: "disclosure--fill",
-        note: changed + "モジュール",
-        openByDefault: true
+        note: changed + "モジュール"
       }));
-    // Rejecting an answer and writing a correction request only mean something
-    // when an AI actually answered. On the replacement route there is nobody to
-    // send the correction to, so the panel stays away.
-    if (state.repairResultEngine !== "対応表による置換") {
-      task.appendChild(createRejectionPanel(state));
-    }
     return task;
-  }
-
-  function getRunArtifactNames(state, withResults) {
-    var names = ["diagnose-request.md", "source-code.md"];
-
-    if (state.diagnosisFilePath) {
-      names.push("diagnosis.md");
-    }
-    if (state.repairRequestFilePath) {
-      names.push("repair-request.md");
-    }
-    if (withResults) {
-      names = names.concat([
-        state.outputName,
-        global.MacroStudioState.getDiffReportName(
-          state.book,
-          state.outputDateStamp),
-        "result.md"
-      ]);
-    }
-    return names;
-  }
-
-  function createFolderContract(state, withResults) {
-    var box = createElement("div", "folder-contract");
-    var chips = createElement("div", "artifact-chips");
-
-    box.appendChild(createElement(
-      "div",
-      "folder-path",
-      state.runFolder || ""));
-    getRunArtifactNames(state, withResults).forEach(function (name) {
-      chips.appendChild(createElement("span", "artifact-chip", name));
-    });
-    box.appendChild(chips);
-    return box;
-  }
-
-  function createFolderDisclosure(state, key, withResults) {
-    return createDisclosure(
-      key,
-      "作成されるファイルの場所を見る",
-      createFolderContract(state, withResults),
-      { note: "この改修専用のフォルダ" });
   }
 
   function createBuildStatusIcon(tone) {
@@ -1636,20 +2184,21 @@
     input.value = state.outputName;
     input.spellcheck = false;
     input.disabled = state.busyAction !== null;
-    var nameProblem = api.getOutputNameProblem(state);
-
     if (!api.isOutputNameValid(state)) {
       input.setAttribute("aria-invalid", "true");
+      input.setAttribute("aria-describedby", "output-name-error");
+      var nameHelp = createElement("p", "field-help",
+        "120文字以内で、Windowsで使用できるファイル名にしてください。" +
+        "NUL・CONなどの予約名や、パス区切り文字は使えません。");
+      nameHelp.id = "output-name-error";
+      panel.appendChild(nameHelp);
     }
     panel.appendChild(label);
     panel.appendChild(input);
-    // A red box on its own does not say what is wrong. When the name is
-    // refused, put the reason here instead of the standing extension note.
     panel.appendChild(createElement(
       "p",
-      nameProblem ? "field-help field-help--problem" : "field-help",
-      nameProblem ||
-        "拡張子は " + (state.book ? state.book.ext : "") + " のままにします。"));
+      "field-help",
+      "拡張子は " + (state.book ? state.book.ext : "") + " のままにします。"));
     task.appendChild(panel);
     task.appendChild(createFolderDisclosure(state, "output-folder", true));
     return task;
@@ -1697,27 +2246,10 @@
     var panel = createElement("div", "panel success-panel");
     var actions = createElement("div", "completion-actions");
     var list = createElement("div", "result-list");
-    // Both files are written on the way into screen 1, before the reader gets
-    // to decide whether to use a diagnosis at all. Calling them "handed to the
-    // AI" on a run that skipped the diagnosis states something that did not
-    // happen. They are still in the folder, so keep listing them - just say
-    // what they actually are.
     var rows = [
-      [state.diagnosisFilePath
-        ? "診断のためAIへ渡した第1依頼"
-        : "診断のために用意した第1依頼（この実行では使っていません）",
-        "diagnose-request.md"],
+      ["AIへ渡した依頼文", "request.md"],
       ["元マクロのコード全文", "source-code.md"]
     ];
-
-    // 診断を飛ばした実行では diagnosis.md は無い。チェック印を付けて並べると
-    // 出力フォルダを開いた人が、在るはずの物を探すことになる。
-    if (state.diagnosisFilePath) {
-      rows.push(["受理した診断結果", "diagnosis.md"]);
-    }
-    if (state.repairRequestFilePath) {
-      rows.push(["改修のためAIへ渡した第2依頼", "repair-request.md"]);
-    }
 
     // A build that failed is the one ending that looks different: it
     // has no folder to show and something to try again.
@@ -1810,63 +2342,23 @@
           "付いていません。コードを書き換えたため、元の署名は" +
           "内容と一致しなくなります。配布する前に署名し直してください。"));
     }
-    // The result comes first: the workbook is built and the folder is one
-    // press away. What is left to do is real, but it is not the headline,
-    // so it opens from a line that says how much of it there is.
-    panel.appendChild(createRemainingWork(state));
     task.appendChild(panel);
     return task;
   }
 
-  // What this run could not do. The memo beside the workbook already
-  // says it, so this shows those parts of the memo word for word rather
-  // than laying the same facts out a second way in code. It is drawn
-  // with the component the target environment uses, because it is the
-  // same thing: a file, shown as written.
-  function createRemainingWork(state) {
-    var body = createElement("div", "remaining-work");
-    var workflow = global.MacroStudioWorkflow;
-    var markdown = createResultMarkdown(state);
-    var sections = ["テスト仕様・結果", "既知の制約"];
-    var text = sections.map(function (heading) {
-      return workflow.markdownSection(markdown, heading);
-    }).filter(function (part) {
-      return part.length > 0;
-    }).join("\r\n\r\n");
-    var count = (text.match(/^- \[ \] /gm) || []).length;
-
-    body.appendChild(createElement(
-      "p",
-      "remaining-note",
-      "このツールはマクロを実行しません。次の確認は行っていません。" +
-        "同じ内容が result.md にも入っています。"));
-    body.appendChild(workflow.sourceBlock(text));
-    return createDisclosure(
-      "remaining-work",
-      "このあと人が確かめること",
-      body,
-      { note: count + " 件" });
-  }
-
   // ---- shell rendering ----
 
-  function createWorkflowScreen(index) {
-    return function (state) {
-      return global.MacroStudioWorkflow.build(index, state);
-    };
-  }
-
-  // Screens 0-5 live in screens/workflow.js: the workbook, the two
-  // diagnosis pages, the choice of work and change scope, the repair
-  // input and the repair hand-over. The established review, output,
-  // build and done builders remain the β1.10 implementations.
+  // Same order as the screen table: the work is chosen first, then the
+  // workbook is read.
   var screenBuilders = [
-    createWorkflowScreen(0),
-    createWorkflowScreen(1),
-    createWorkflowScreen(2),
-    createWorkflowScreen(3),
-    createWorkflowScreen(4),
-    createWorkflowScreen(5),
+    createScreenMode,
+    createScreen0,
+    createScreen1,
+    createScreen2,
+    createScreenQuestions,
+    createScreen3,
+    createScreen4,
+    createScreen5,
     createScreen6,
     createScreen7,
     createScreenBuilding,
@@ -1919,7 +2411,7 @@
         createElement("li", "progress-slot"));
     }
     elements.progressFill.style.width =
-      (described.major / global.MacroStudioScreens.majors.length * 100) + "%";
+      ((state.screen + 1) / global.MacroStudioScreens.count * 100) + "%";
   }
 
   // The footer is not rebuilt on every render. Rebuilding swapped the
@@ -1940,10 +2432,14 @@
     var api = global.MacroStudioScreens;
     var done = api.isTerminal(state, state.screen);
     var forwardAction = done ? "finish" : "go-next";
-    // The forward control is [次へ] on every screen. Renaming it on one
-    // of them made the reader look for a different button there, and the
-    // longer label broke onto three lines inside a fixed-width button.
-    var forwardLabel = done ? "完了" : "次へ";
+    // The short way builds straight from the review screen, so the one
+    // button there says what pressing it does.
+    var forwardLabel = done
+      ? "完了"
+      : (api.isSimple(state) &&
+          state.screen === api.reviewScreen
+        ? "マクロを改修"
+        : "次へ");
     var forwardReady = done
       ? api.canFinish(state, state.screen)
       : global.MacroStudioState.canGoNext();
@@ -1951,11 +2447,6 @@
       '[data-action="go-back"]');
     var forward = elements.footerActions.querySelector(
       '[data-action="go-next"],[data-action="finish"]');
-
-    if (state.screen === api.diagnoseScreen &&
-        (!isTargetEnvironmentReady() || !isDiagnosisPresetReady())) {
-      forwardReady = false;
-    }
 
     if (!back) {
       back = createFlowButton("戻る", "go-back", { icon: "arrowLeft" });
@@ -1988,6 +2479,44 @@
 
   // True when the only thing that moved is which card is selected, so
   // the screen can be painted rather than rebuilt.
+  function paintSelection(state) {
+    var screen = elements.main.querySelector(".screen");
+    var cards;
+
+    if (!screen ||
+        screen.getAttribute("data-screen") !== String(state.screen)) {
+      return false;
+    }
+    cards = screen.querySelectorAll(
+      '[data-action="select-mode"],[data-action="select-purpose"]');
+    if (cards.length === 0) {
+      return false;
+    }
+    Array.prototype.forEach.call(cards, function (card) {
+      // Compare against whichever key this card carries: a null on
+      // both sides would otherwise mark every card selected.
+      var mode = card.getAttribute("data-mode");
+      var file = card.getAttribute("data-preset-file");
+      var selected = mode !== null
+        ? mode === state.mode
+        : file !== null && file === state.presetFile;
+      var mark = card.querySelector(".choice-state");
+
+      card.classList.toggle("is-selected", selected);
+      card.setAttribute("aria-pressed", selected ? "true" : "false");
+      card.disabled = state.busyAction !== null;
+      if (!mark) {
+        return;
+      }
+      if (selected && mark.children.length === 0) {
+        mark.appendChild(createIcon("check", "flow-icon--small"));
+      } else if (!selected && mark.children.length > 0) {
+        mark.textContent = "";
+      }
+    });
+    return true;
+  }
+
   // The box the person is writing in, if there is one.
   //
   // Typing goes through the state, and the state repaints the screen.
@@ -1996,24 +2525,6 @@
   // and any half-finished IME word with it, so one keystroke throws
   // away the next. Whenever such a box has the focus, the screen is
   // patched in place instead of rebuilt.
-  // The field someone is part-way through writing in. Rebuilding one of
-  // those loses the caret, the selection and any half-finished IME
-  // composition, so the screen is patched around it instead.
-  //
-  // A checkbox is not one of those. It holds nothing unsaved, and
-  // treating it as an editor meant a tick could keep a whole outdated
-  // half of the screen alive beside the new one.
-  var WRITTEN_IN_TYPES = {
-    "": true,
-    text: true,
-    search: true,
-    url: true,
-    tel: true,
-    email: true,
-    password: true,
-    number: true
-  };
-
   function focusedEditor() {
     var node = document.activeElement;
 
@@ -2023,13 +2534,9 @@
     if (node.isContentEditable === true) {
       return node;
     }
-    if (node.tagName === "TEXTAREA") {
-      return node;
-    }
-    if (node.tagName !== "INPUT") {
-      return null;
-    }
-    return WRITTEN_IN_TYPES[String(node.type || "").toLowerCase()] === true
+    return node.tagName === "INPUT" ||
+      node.tagName === "TEXTAREA" ||
+      node.tagName === "SELECT"
       ? node
       : null;
   }
@@ -2087,7 +2594,6 @@
     var index;
     var existing;
     var last;
-    var surplus;
 
     for (index = 0; index < incoming.length; index += 1) {
       existing = current.childNodes[index];
@@ -2103,18 +2609,12 @@
         current.replaceChild(incoming[index], existing);
       }
     }
-    // Everything past the end of the new screen is gone from it. Only
-    // the one node holding the field being written in may stay; stopping
-    // at the first such node left every older node behind it alive, so
-    // the screen kept a stale copy of itself below the current one.
-    surplus = Array.prototype.slice.call(
-      current.childNodes,
-      incoming.length);
-    for (index = surplus.length - 1; index >= 0; index -= 1) {
-      last = surplus[index];
-      if (!holdsEditor(last, keep)) {
-        current.removeChild(last);
+    while (current.childNodes.length > incoming.length) {
+      last = current.lastChild;
+      if (holdsEditor(last, keep)) {
+        break;
       }
+      current.removeChild(last);
     }
   }
 
@@ -2137,10 +2637,9 @@
     var described = global.MacroStudioScreens.describe(state, state.screen);
     var screen = createElement("section", "screen");
     var header = createElement("header", "screen-header");
-    var workspace = createElement("div", "workspace screen-body");
+    var workspace = createElement("div", "workspace");
     var live;
     var keep;
-    var completedNotice;
 
     screen.setAttribute("data-screen", String(state.screen));
     if (direction) {
@@ -2156,31 +2655,11 @@
       createElement("span", "screen-meta", described.meta));
     screen.appendChild(header);
 
-    // Only the review screen is a code layout. Asking and importing now
-    // share one ordinary screen, so it is centred like the rest.
-    if (state.screen === global.MacroStudioScreens.reviewScreen) {
+    if (state.screen === global.MacroStudioScreens.intakeScreen ||
+        state.screen === global.MacroStudioScreens.reviewScreen) {
       workspace.classList.add("workspace--code");
     } else {
       workspace.classList.add("workspace--centered");
-    }
-    if (state.screen === global.MacroStudioScreens.diagnoseScreen &&
-        targetEnvironmentError) {
-      workspace.appendChild(
-        createTargetEnvironmentErrorCard(targetEnvironmentError));
-    }
-    if (state.screen === global.MacroStudioScreens.diagnoseScreen &&
-        !isDiagnosisPresetReady()) {
-      workspace.appendChild(createDiagnosisPresetErrorCard());
-    }
-    // Shown on every screen the reader can walk back to, not just the
-    // one before the build: [戻る] can be pressed all the way to the
-    // start, and the created files stay created the whole way.
-    if (state.screen !== global.MacroStudioScreens.doneScreen &&
-        state.screen !== global.MacroStudioScreens.buildScreen) {
-      completedNotice = createCompletedNotice(state);
-      if (completedNotice) {
-        workspace.appendChild(completedNotice);
-      }
     }
     workspace.appendChild(screenBuilders[state.screen](state));
     screen.appendChild(workspace);
@@ -2208,49 +2687,24 @@
         lastRenderedScreen !== state.screen) {
       direction = state.screen > lastRenderedScreen ? "forward" : "back";
     }
-    // The repair preset folder is re-read every time findings are shown.
-    if (state.screen === global.MacroStudioScreens.findingsScreen &&
-        lastRenderedScreen !== global.MacroStudioScreens.findingsScreen &&
+    // The preset folder is re-read every time the list is shown.
+    if (state.screen === global.MacroStudioScreens.purposeScreen &&
+        lastRenderedScreen !== global.MacroStudioScreens.purposeScreen &&
         global.hostBridge) {
-      lastRenderedScreen = global.MacroStudioScreens.findingsScreen;
+      lastRenderedScreen = global.MacroStudioScreens.purposeScreen;
       loadAppInfo();
     }
-    // The environment file is deliberately re-read whenever the first
-    // diagnosis-stage screen is entered. Editing the file does not require an
-    // application restart.
-    if (state.screen === global.MacroStudioScreens.diagnoseScreen &&
-        lastRenderedScreen !== global.MacroStudioScreens.diagnoseScreen &&
-        global.hostBridge) {
-      lastRenderedScreen = global.MacroStudioScreens.diagnoseScreen;
-      loadTargetEnvironment();
-    }
-    // The rejection form belongs to one visit to the review screen. It
-    // does not follow the reader onto the next one.
-    if (state.screen !== global.MacroStudioScreens.reviewScreen &&
-        rejectionOpen) {
-      rejectionOpen = false;
-      rejectionReasonDraft = "";
-    }
-    // The maximized code area belongs to the review screen. Leaving the
-    // screen - by any door - brings the frame back, so no other screen
-    // is ever drawn without its navigation.
-    if (state.screen !== global.MacroStudioScreens.reviewScreen &&
-        codeMaximized) {
-      toggleCodeMax(false);
-    }
     lastRenderedScreen = state.screen;
-    saveRunManifest();
     renderProgress(state);
-    renderMain(state, direction);
+    if (!paintSelection(state)) {
+      renderMain(state, direction);
+    }
     renderFooter(state);
     if (state.screen !== global.MacroStudioScreens.buildScreen) {
       buildStarted = false;
     } else if (!buildStarted) {
       buildStarted = true;
       buildBook();
-    }
-    if (global.MacroStudioWorkflow) {
-      global.MacroStudioWorkflow.enter(state);
     }
   }
 
@@ -2277,7 +2731,7 @@
     var names;
     var reason;
 
-    if (!data || data.warning !== true) {
+    if (!data || (data.warning !== true && level !== "sourceDoubt")) {
       return null;
     }
     // Without the host's breakdown nothing can be separated, so the
@@ -2291,8 +2745,10 @@
         detail: names.length > 0
           ? names.join("、") +
             " のコードが途中までの可能性があります。" +
-            "改修前後のコードを確認してください。"
-          : "改修前後のコードを確認してください。"
+            "このブックは相談用の読み取りのみ対応します。" +
+            "改修版の作成には、正常なブックを読み直してください。"
+          : "このブックは相談用の読み取りのみ対応します。" +
+            "改修版の作成には、正常なブックを読み直してください。"
       };
     }
 
@@ -2362,7 +2818,7 @@
     });
   }
 
-  function handleHostError(error, path, toastAction) {
+  function handleHostError(error, path) {
     var code = error.code || "E-SYS-02";
     var viewError = {
       code: code,
@@ -2374,37 +2830,21 @@
     if (isBlockingAttachError(viewError)) {
       clearToast();
     } else {
-      showToast(viewError.message, "error", toastAction);
+      showToast(viewError.message, "error");
     }
     recordClientError(error, path);
     return null;
   }
 
-  function recordLog(level, message) {
-    var request;
-
-    try {
-      request = global.hostBridge.request("writeLog", {
-        level: level,
-        message: message
-      });
-      if (request && typeof request.then === "function") {
-        request.then(function () {
-          return null;
-        }, function () {
-          return null;
-        });
-      }
-    } catch (ignore) {
-    }
-  }
-
   function recordInfo(message) {
-    recordLog("INFO", message);
-  }
-
-  function recordWarning(message) {
-    recordLog("WARN", message);
+    global.hostBridge.request("writeLog", {
+      level: "INFO",
+      message: message
+    }).then(function () {
+      return null;
+    }, function () {
+      return null;
+    });
   }
 
   function failBuild(error) {
@@ -2516,6 +2956,9 @@
         message: error.message
       }));
     }
+
+    // Lock before the first asynchronous step, not after assets load.
+    global.MacroStudioState.setBusyAction("buildBook");
 
     // Failing to build the report never cancels a workbook that can be
     // built, so the assets are read before the build starts and a
@@ -2634,6 +3077,7 @@
       path: state.runFolder
     }).then(function () {
       global.MacroStudioState.setLastError(null);
+      global.MacroStudioState.setHandoffProgress(null, true);
       global.MacroStudioState.setBusyAction(null);
       announce("出力フォルダをエクスプローラーで開きました。");
       return state.runFolder;
@@ -2664,16 +3108,6 @@
     elements.discardModal.showModal();
   }
 
-  function describeInventoryForLog(inventory) {
-    if (!inventory) {
-      return "";
-    }
-    return " sha256=" + String(inventory.sha256 || "unknown") +
-      " sizeBytes=" + String(inventory.sizeBytes || 0) +
-      " modifiedUtc=" + String(inventory.modifiedUtc || "unknown") +
-      " inventoryComplete=" + (inventory.complete === false ? "no" : "yes");
-  }
-
   function performAttachPath(path) {
     var state = global.MacroStudioState.getState();
 
@@ -2684,7 +3118,13 @@
     global.MacroStudioState.setBusyAction("attachBook");
     return global.hostBridge.request(
       "attachBook",
-      { path: path }
+      { path: path },
+      {
+        timeoutMilliseconds: 0,
+        onSlow: function () {
+          showToast("ブックを読み込み中です。処理は続いています。", "warning");
+        }
+      }
     ).then(function (data) {
       var warningMessage;
 
@@ -2692,7 +3132,6 @@
       data.book.warning = data.warning === true;
       data.book.read = describeReadResult(data);
       global.MacroStudioState.setBook(data.book, data.modules);
-      global.MacroStudioState.setBookInventory(data.inventory || null);
       global.MacroStudioState.setBusyAction(null);
       clearToast();
       warningMessage = data.book.read;
@@ -2704,15 +3143,9 @@
       announce(
         data.book.name + "、" +
         data.modules.length + " モジュールを読み込みました。");
-      // Guide A asks for the version, timestamp and hash of what was
-      // taken in to be recorded. It is tracking, not something the
-      // reader acts on, so it goes to the log and the memo rather than
-      // onto the way through.
-      lastSavedManifest = null;
       recordInfo(
         "attach: " + data.book.path +
-        " (" + data.modules.length + " modules)" +
-        describeInventoryForLog(data.inventory));
+        " (" + data.modules.length + " modules)");
       return data;
     }, function (error) {
       handleHostError(error, path);
@@ -2748,13 +3181,565 @@
     }
 
     global.MacroStudioState.setBusyAction("pickBook");
-    return global.hostBridge.request("pickBook").then(
+    return global.hostBridge.request("pickBook", {}, {
+      timeoutMilliseconds: 0
+    }).then(
       function (result) {
         global.MacroStudioState.setBusyAction(null);
         if (!result) {
           return null;
         }
         return attachPath(result.path);
+      },
+      function (error) {
+        handleHostError(error, "");
+        global.MacroStudioState.setBusyAction(null);
+        return null;
+      });
+  }
+
+  function fillRequestId(text, requestId) {
+    return String(text === undefined || text === null ? "" : text)
+      .split("{{REQUEST_ID}}")
+      .join(requestId || "");
+  }
+
+  // Choosing the purpose loads one preset file and mints the request
+  // id that ties this request to the answer it will get back.
+  function selectMode(mode) {
+    if (global.MacroStudioState.getState().busyAction) {
+      return false;
+    }
+    global.MacroStudioState.setMode(mode);
+    global.MacroStudioState.setLastError(null);
+    clearToast();
+    return true;
+  }
+
+  function startSimple() {
+    if (global.MacroStudioState.getState().busyAction) {
+      return false;
+    }
+    global.MacroStudioState.startSimple();
+    clearToast();
+    announce("簡易モードで始めます。ブックを選んでください。");
+    return true;
+  }
+
+  // The short way asks the user what to change instead of offering
+  // purposes, but the answer still has to come back in the shape the
+  // importer accepts. Those rules live in the presets and nowhere else,
+  // so one is read here for its output rules alone - its own request
+  // text is replaced by what the user wrote. A preset that cannot answer
+  // both ways is not usable, because the long-code option must stay
+  // available.
+  function findSimplePreset(state) {
+    var chosen = null;
+
+    getPresetEntries(state).forEach(function (entry) {
+      if (chosen ||
+          !entry.valid ||
+          entry.mode !== "refactor" ||
+          !entry.splitOutput) {
+        return;
+      }
+      chosen = entry;
+    });
+    return chosen;
+  }
+
+  // Called when the short way reaches the request screen. The request id
+  // is minted here, exactly as choosing a purpose would.
+  function prepareSimpleRequest() {
+    var state = global.MacroStudioState.getState();
+    var entry;
+
+    // Always a promise: the caller waits on it before moving the flow
+    // on, so a refusal has to arrive the same way an answer does.
+    if (!state.simple || state.busyAction || state.requestId) {
+      return Promise.resolve(null);
+    }
+    entry = findSimplePreset(state);
+    if (!entry) {
+      handleHostError({
+        code: "E-PRESET-01",
+        data: {
+          userMessage: "依頼の形式を読み取れませんでした。" +
+            "presets フォルダを確認してください。"
+        }
+      }, "");
+      return Promise.resolve(null);
+    }
+    return selectPurpose(entry.file).then(function (result) {
+      if (!result) {
+        return null;
+      }
+      // What the user writes replaces the preset's own request text.
+      global.MacroStudioState.setRequestBase("");
+      global.MacroStudioState.setRequestText("");
+      return result;
+    });
+  }
+
+  // Turning the option on changes which rules the request carries, so
+  // anything already taken in under the other shape is dropped.
+  function setSplitOutput(enabled) {
+    var state = global.MacroStudioState.getState();
+
+    if (state.busyAction || !state.splitOutputRules) {
+      return false;
+    }
+    if (!global.MacroStudioState.setSplitOutput(enabled)) {
+      return false;
+    }
+    clearToast();
+    announce(enabled
+      ? "モジュール単位出力を使います。AIは1回の返答に1つのモジュールだけ出します。"
+      : "モジュール単位出力をやめました。AIは1回の返答にまとめて出します。");
+    return true;
+  }
+
+  function selectPurpose(file) {
+    var state = global.MacroStudioState.getState();
+
+    if (!file || state.busyAction) {
+      return Promise.resolve(null);
+    }
+
+    global.MacroStudioState.setBusyAction("readPreset");
+    return global.hostBridge.request(
+      "readPreset",
+      { file: file }
+    ).then(function (result) {
+      var parsed = global.MacroStudioPreset.parse(result.content);
+      var requestId;
+
+      // The file is read again on every press, so a file that broke
+      // since the list was built must not be applied.
+      if (!parsed.valid) {
+        global.MacroStudioState.setBusyAction(null);
+        handleHostError({
+          code: "E-PRESET-01",
+          message: file + ": " + parsed.message,
+          data: {
+            userMessage: file + " を読み取れませんでした。" +
+              parsed.message
+          }
+        }, file);
+        loadAppInfo();
+        return null;
+      }
+
+      requestId = global.MacroStudioResponse.createRequestId();
+      global.MacroStudioState.setLastError(null);
+      global.MacroStudioState.setPurpose(
+        file,
+        parsed.name,
+        requestId,
+        parsed.questions);
+      global.MacroStudioState.setRequestBase(
+        fillRequestId(parsed.instruction.body, requestId));
+      global.MacroStudioState.setRequestText(
+        fillRequestId(parsed.instruction.body, requestId));
+      global.MacroStudioState.setOutputRules({
+        presetFile: file,
+        presetName: parsed.name,
+        title: parsed.output.title,
+        body: fillRequestId(parsed.output.body, requestId)
+      });
+      // Only a preset that writes the one-module-per-reply rules can
+      // offer that option; nothing here supplies a substitute wording.
+      global.MacroStudioState.setSplitOutputRules(parsed.splitOutput
+        ? {
+          presetFile: file,
+          presetName: parsed.name,
+          title: parsed.splitOutput.title,
+          body: fillRequestId(parsed.splitOutput.body, requestId)
+        }
+        : null);
+      global.MacroStudioState.setBusyAction(null);
+      clearToast();
+      announce(parsed.name + " を選びました。");
+      return result;
+    }, function (error) {
+      handleHostError(error, "");
+      global.MacroStudioState.setBusyAction(null);
+      return null;
+    });
+  }
+
+  // Leaving the request screen creates this run's folder and writes
+  // both files into it, so every later output lands in the same place.
+  function prepareRequest() {
+    var state = global.MacroStudioState.getState();
+    var timestamp = createOutputTimestamp(new Date());
+
+    if (state.busyAction || state.requestText.trim().length === 0) {
+      return Promise.resolve(null);
+    }
+
+    global.MacroStudioState.setBusyAction("prepareRequest");
+    return global.hostBridge.request(
+      "readRequestTemplate"
+    ).then(function (templateResult) {
+      var codeContent;
+      var prompt;
+      // Whichever way of answering the user chose, the wording comes
+      // from the same preset file.
+      var outputRules = state.splitOutput && state.splitOutputRules
+        ? state.splitOutputRules
+        : state.outputRules;
+
+      try {
+        prompt = fillRequestId(
+          global.MacroStudioPrompt.buildRequestPrompt({
+            template: templateResult.content,
+            requestText: state.requestText,
+            outputRules: outputRules,
+            requestId: state.requestId,
+            book: state.book,
+            modules: global.MacroStudioState.getBookModules(),
+            codeFileName: "source-code.md"
+          }),
+          state.requestId);
+        codeContent = global.MacroStudioPrompt.buildCodeFile({
+          book: state.book,
+          modules: global.MacroStudioState.getBookModules(),
+          generatedAt: createCodeFileTimestamp(new Date())
+        });
+      } catch (error) {
+        handleHostError({
+          code: "E-GEN-02",
+          message: error.message
+        }, "");
+        global.MacroStudioState.setBusyAction(null);
+        return null;
+      }
+
+      return global.hostBridge.request("writeRequestFiles", {
+        outputTimestamp: timestamp,
+        request: prompt,
+        code: codeContent
+      }).then(function (result) {
+        global.MacroStudioState.setRunFolder(result.folderPath);
+        global.MacroStudioState.setRequestFilePath(result.codePath);
+        global.MacroStudioState.setRequestPrompt(prompt);
+        global.MacroStudioState.setHandoffProgress(false, false);
+        global.MacroStudioState.setLastError(null);
+        global.MacroStudioState.setBusyAction(null);
+        clearToast();
+        recordInfo("request folder created: " + result.folderPath);
+        announce("依頼文とコード全文ファイルを作成しました。");
+        return result;
+      }, function (error) {
+        handleHostError(error, "");
+        global.MacroStudioState.setBusyAction(null);
+        return null;
+      });
+    }, function (error) {
+      handleHostError(error, "");
+      global.MacroStudioState.setBusyAction(null);
+      return null;
+    });
+  }
+
+  function copyRequestPrompt() {
+    var state = global.MacroStudioState.getState();
+
+    if (state.busyAction || !state.requestPrompt) {
+      return Promise.resolve(null);
+    }
+
+    global.MacroStudioState.setBusyAction("writeClipboard");
+    return global.hostBridge.request(
+      "writeClipboard",
+      { text: state.requestPrompt }
+    ).then(function () {
+      global.MacroStudioState.setLastError(null);
+      global.MacroStudioState.setHandoffProgress(true, null);
+      global.MacroStudioState.setBusyAction(null);
+      showToast("依頼文をクリップボードへコピーしました。", "success");
+      announce("依頼文をクリップボードへコピーしました。");
+      return true;
+    }, function (error) {
+      handleHostError(error, "");
+      global.MacroStudioState.setBusyAction(null);
+      return null;
+    });
+  }
+
+  // Accepting and discarding both ask first: this is where a change
+  // enters the build, or leaves it.
+  function showIntakeError(message) {
+    var error = {
+      code: "E-INTAKE-01",
+      message: message
+    };
+    var button;
+
+    global.MacroStudioState.setLastError(error);
+    showToast(message, "error");
+    button = document.querySelector('[data-action="import-response"]');
+    if (button) {
+      button.focus();
+    }
+    error.stack = (new Error("Response package refused.")).stack;
+    recordClientError(error, "");
+    return false;
+  }
+
+  // A whole package - one paste, or the parts merged back together - is
+  // applied against the workbook's own modules. A module an earlier
+  // answer added is not one of them, so a replacement package is never
+  // measured against the answer it replaces.
+  function applyWholePackage(state, parsed) {
+    var bookModules = global.MacroStudioState.getBookModules();
+    var described = global.MacroStudioResponse.describe(
+      parsed,
+      bookModules);
+    var items = [];
+    var nameError = "";
+    var kindWarning;
+
+    described.modules.forEach(function (item) {
+      var normalized = normalizePastedText(item.code);
+      var existing = null;
+      var rows;
+
+      bookModules.some(function (module) {
+        if (module.name.toLowerCase() === item.name.toLowerCase()) {
+          existing = module;
+          return true;
+        }
+        return false;
+      });
+      if (normalized.length === 0) {
+        nameError = global.MacroStudioResponse.messages.emptyModule;
+        return;
+      }
+      if (!existing) {
+        // Adding a module is limited to standard modules: that is the
+        // only kind this app can write into a workbook.
+        if (item.kind !== "standard") {
+          nameError =
+            "新しく増やせるのは標準モジュールだけです。" +
+            "AIへ、追加する補助モジュールは標準モジュールにするよう" +
+            "伝えて、もう一度お試しください。";
+          return;
+        }
+        nameError = nameError ||
+          getNewModuleNameError({ modules: bookModules }, item.name);
+        if (nameError) {
+          return;
+        }
+      }
+      // Formatting-only normalisation is not a macro modification.
+      if (existing && normalizePastedText(existing.code) === normalized) {
+        normalized = existing.code;
+      }
+      rows = global.MacroStudioDiff.compare(
+        existing ? existing.code || "" : "",
+        normalized);
+      items.push({
+        name: existing ? existing.name : item.name,
+        code: normalized,
+        changedLineCount:
+          global.MacroStudioDiff.countChangedLines(rows),
+        lineCount: global.MacroStudioDiff.toLines(normalized).length
+      });
+    });
+
+    if (nameError) {
+      return showIntakeError(nameError);
+    }
+    if (items.length === 0) {
+      return showIntakeError(
+        global.MacroStudioResponse.messages.noSentinel);
+    }
+
+    kindWarning = global.MacroStudioResponse.describeKindWarning(
+      described.kindWarnings);
+    global.MacroStudioState.importPackage(items);
+    global.MacroStudioState.setIntakeResult({
+      total: items.length,
+      existing: described.existing,
+      added: described.added,
+      summary: described.summary || "",
+      kindWarning: kindWarning
+    });
+    global.MacroStudioState.setLastError(null);
+    clearToast();
+    if (kindWarning) {
+      showToast(kindWarning, "warning");
+      announce(kindWarning);
+      recordInfo("kind corrected: " + described.kindWarnings.map(
+        function (warning) {
+          return warning.name + " " + warning.answered +
+            "->" + warning.actual;
+        }).join(", "));
+      return true;
+    }
+    showToast(
+      items.length + "個のモジュールを取り込みました。",
+      "success");
+    announce(items.length + "個のモジュールを取り込みました。");
+    recordInfo("package imported: " + items.length + " modules");
+    return true;
+  }
+
+  // One module per answer. Each part is collected and checked against
+  // the ones already in; only when every declared module has arrived is
+  // the whole thing applied, as one package.
+  function applySplitPart(state, parsed) {
+    var api = global.MacroStudioResponse;
+    var added = api.addPart(state.intakeParts, parsed);
+    var message;
+    var received;
+
+    if (!added.ok) {
+      return showIntakeError(added.message);
+    }
+    // Starting another split answer invalidates the old complete one.
+    // Otherwise Next could build yesterday's answer while a new part
+    // collection is still incomplete.
+    if (state.intakeRequestId || state.noChangeResult) {
+      global.MacroStudioState.discardImportedModules();
+    }
+    global.MacroStudioState.setIntakeParts(added.collection);
+    global.MacroStudioState.setLastError(null);
+    clearToast();
+    if (!added.complete) {
+      received = parsed.modules[0];
+      message = (added.added
+        ? "モジュール" + api.formatPartNumber(parsed.part.index) +
+          "（" + received.name + "）を受け取りました。"
+        : "そのモジュールはすでに受け取っています。") +
+        api.describeMissingParts(added.collection);
+      showToast(message, "success");
+      announce(message);
+      recordInfo(
+        "split part received: " +
+        api.formatPartNumber(parsed.part.index) + "/" +
+        api.formatPartNumber(parsed.part.total) +
+        " (" + added.collection.parts.length + " collected)");
+      return true;
+    }
+    recordInfo(
+      "split parts complete: " +
+      added.collection.parts.length + " modules");
+    return applyWholePackage(
+      global.MacroStudioState.getState(),
+      api.mergeParts(added.collection));
+  }
+
+  // One answer, one press: the package is parsed, checked against the
+  // request id, and every module in it is applied together. With the
+  // module-by-module option the same press takes in one part.
+  // What the two verdicts mean for the person reading them. How an
+  // answer is asked to declare them belongs to the preset templates;
+  // this is only how the declared result is reported back. Each verdict
+  // is named here rather than being reached by falling through, so a
+  // third one could never quietly be shown as one of these two.
+  var noChangeWords = {
+    UNNECESSARY: {
+      label: "改修は不要と判断されました",
+      note: "いまのマクロのままで依頼の内容を満たしている、という" +
+        "返答です。下の理由を読んで、納得できないときは依頼文を" +
+        "書き直して、AIへもう一度渡してください。"
+    },
+    IMPOSSIBLE: {
+      label: "この依頼では改修できないと判断されました",
+      note: "渡したモジュールを書き換える形では対応できない、という" +
+        "返答です。下の理由を読んで、依頼の書き方を変えるか、" +
+        "別のやり方を考えてください。"
+    }
+  };
+
+  function describeNoChange(verdict) {
+    return Object.prototype.hasOwnProperty.call(noChangeWords, verdict)
+      ? noChangeWords[verdict]
+      : {
+        label: "変更なしと判断されました",
+        note: "変更するモジュールは無い、という返答です。" +
+          "下の理由を読んで、どうするか決めてください。"
+      };
+  }
+
+  // An answer that concludes nothing should change is a result, so it
+  // is taken in and shown. There is no diff to look at and no workbook
+  // to build, so the run stops on this screen instead of going on.
+  function applyNoChange(parsed) {
+    var described = describeNoChange(parsed.noChange);
+
+    global.MacroStudioState.setNoChangeResult(
+      parsed.noChange,
+      parsed.summary || "");
+    global.MacroStudioState.setLastError(null);
+    clearToast();
+    showToast(described.label + "。", "info");
+    announce(described.label + "。");
+    recordInfo("no change reported: " + parsed.noChange);
+    return true;
+  }
+
+  function applyResponsePackage(text) {
+    var state = global.MacroStudioState.getState();
+    var parsed = global.MacroStudioResponse.parse(text, state.requestId);
+
+    if (!parsed.ok) {
+      return showIntakeError(parsed.message);
+    }
+    // A verdict of "nothing to change" is a whole answer however the
+    // run asked for its modules, so it is taken before the split path
+    // can sit waiting for a module 00 that is never coming.
+    if (parsed.noChange) {
+      return applyNoChange(parsed);
+    }
+    if (global.MacroStudioScreens.isSplitOutput(state)) {
+      return applySplitPart(state, parsed);
+    }
+    // A part on its own is not the whole answer, so it is refused
+    // instead of being taken in as if it were.
+    if (parsed.part) {
+      return showIntakeError(
+        global.MacroStudioResponse.messages.partUnexpected);
+    }
+    return applyWholePackage(state, parsed);
+  }
+
+  // Emptying the intake, so a contradicting or muddled set of parts can
+  // be collected again from the beginning.
+  function restartIntake() {
+    var state = global.MacroStudioState.getState();
+
+    if (state.busyAction) {
+      return false;
+    }
+    global.MacroStudioState.discardImportedModules();
+    global.MacroStudioState.setLastError(null);
+    clearToast();
+    announce("取り込んだ内容を空にしました。もう一度取り込めます。");
+    recordInfo("intake restarted");
+    return true;
+  }
+
+  function importResponsePackage() {
+    var state = global.MacroStudioState.getState();
+
+    if (state.busyAction) {
+      return Promise.resolve(null);
+    }
+    if (!state.requestId) {
+      showIntakeError(
+        "先に依頼文を作ってください。依頼の画面へ戻ると作成できます。");
+      return Promise.resolve(null);
+    }
+
+    global.MacroStudioState.setBusyAction("readClipboard");
+    return global.hostBridge.request("readClipboard").then(
+      function (result) {
+        global.MacroStudioState.setBusyAction(null);
+        return applyResponsePackage(result.text || "");
       },
       function (error) {
         handleHostError(error, "");
@@ -2817,6 +3802,11 @@
       return false;
     }
 
+    // Use the same equivalence rule as whole-package intake. A manual
+    // edit that merely loses the final newline must not become a change.
+    if (normalizePastedText(module.code || "") === normalizedText) {
+      normalizedText = module.code;
+    }
     rows = global.MacroStudioDiff.compare(
       module.code || "",
       normalizedText);
@@ -2866,47 +3856,8 @@
       return true;
     }
     pendingEditDiscardAction = action;
-    pendingEditDiscardMode = "draft";
-    setEditDiscardCopy("draft");
     elements.editDiscardModal.showModal();
     return false;
-  }
-
-  function setEditDiscardCopy(mode) {
-    var title = document.getElementById("edit-discard-modal-title");
-    var body = elements && elements.editDiscardModal
-      ? elements.editDiscardModal.querySelector("p")
-      : null;
-    var confirm = document.getElementById("edit-discard-confirm");
-    var manual = mode === "deterministic";
-
-    if (title) {
-      title.textContent = manual
-        ? "手動修正を破棄して置き換えますか？"
-        : "未反映の修正を破棄しますか？";
-    }
-    if (body) {
-      body.textContent = manual
-        ? "確認画面で加えた手動修正は失われます。" +
-          "元のブックから、現在の対応表で作り直します。"
-        : "手動修正でまだ反映していない変更があります。" +
-          "このまま進むと破棄されます。";
-    }
-    if (confirm) {
-      confirm.textContent = manual ? "破棄して置き換える" : "破棄して続行";
-    }
-  }
-
-  function confirmDiscardManualChanges(action) {
-    if (typeof action !== "function" || !elements ||
-        !elements.editDiscardModal) {
-      return false;
-    }
-    pendingEditDiscardAction = action;
-    pendingEditDiscardMode = "deterministic";
-    setEditDiscardCopy("deterministic");
-    elements.editDiscardModal.showModal();
-    return true;
   }
 
   function beginEditPaste() {
@@ -3020,44 +3971,12 @@
       counter);
   }
 
-  function saveRunManifest() {
-    var manifest = global.MacroStudioState.createRunManifest();
-    var text;
-
-    if (!manifest) {
-      return Promise.resolve(null);
-    }
-    text = JSON.stringify(manifest, null, 2);
-    if (text === lastSavedManifest) {
-      return Promise.resolve(null);
-    }
-    lastSavedManifest = text;
-    return global.hostBridge.request("writeRunManifest", {
-      outputTimestamp: manifest.outputTimestamp,
-      manifest: text
-    }).then(function (result) {
-      return result;
-    }, function () {
-      // The artifacts are still correct; only the record of them is
-      // missing, and saying so is better than pretending it is there.
-      lastSavedManifest = null;
-      recordWarning("run manifest could not be written");
-      return null;
-    });
-  }
-
   function loadAppInfo() {
     return global.hostBridge.request("getAppInfo").then(
       function (appInfo) {
         // A rediscovery that comes back without a preset list is not
         // an empty presets folder: keep what the app already has.
-        if (appInfo && appInfo.presets &&
-            Array.isArray(appInfo.presets.repair)) {
-          // The whole presets folder, described once. The stage is still
-          // the folder's answer; which heading a template stands under
-          // and whether a scope permits structural change are the files'.
-          appInfo.catalog = global.MacroStudioPreset.describeCatalog(
-            appInfo.presets);
+        if (appInfo && Array.isArray(appInfo.presets)) {
           global.MacroStudioState.setAppInfo(appInfo);
         }
         return appInfo;
@@ -3065,69 +3984,6 @@
       function (error) {
         handleHostError(error, "");
         return null;
-      });
-  }
-
-  function finishTargetEnvironmentLoad(loadId, profile, error) {
-    var canonical = "";
-
-    if (loadId !== targetEnvironmentLoadId) {
-      return profile;
-    }
-    targetEnvironmentLoading = false;
-    targetEnvironment = profile;
-    targetEnvironmentError = error;
-    if (profile && global.MacroStudioTargetEnvironment) {
-      canonical = global.MacroStudioTargetEnvironment.renderForPrompt(profile);
-    }
-    if (global.MacroStudioState) {
-      global.MacroStudioState.setTargetEnvironment(profile, canonical);
-    }
-    return profile;
-  }
-
-  function loadTargetEnvironment() {
-    var loadId = targetEnvironmentLoadId + 1;
-
-    targetEnvironmentLoadId = loadId;
-    targetEnvironmentLoading = true;
-    return global.hostBridge.request("getTargetEnvironment").then(
-      function (result) {
-        try {
-          if (!global.MacroStudioTargetEnvironment) {
-            throw {
-              code: "E-ENV-01",
-              message: "環境定義の検証機能を読み込めませんでした。"
-            };
-          }
-          return finishTargetEnvironmentLoad(
-            loadId,
-            global.MacroStudioTargetEnvironment.parse(
-              result && result.content),
-            null);
-        } catch (error) {
-          return finishTargetEnvironmentLoad(loadId, null, {
-            code: "E-ENV-01",
-            validationId: error && error.validationId
-              ? String(error.validationId)
-              : "ENV-FIELD",
-            message: error && error.message
-              ? String(error.message)
-              : "環境定義の内容が正しくありません。"
-          });
-        }
-      },
-      function (error) {
-        return finishTargetEnvironmentLoad(loadId, null, {
-          code: "E-ENV-01",
-          validationId: error && error.data &&
-            error.data.validationId
-            ? String(error.data.validationId)
-            : "ENV-READ",
-          message: error && error.message
-            ? String(error.message)
-            : "環境定義ファイルを読み取れませんでした。"
-        });
       });
   }
 
@@ -3144,15 +4000,37 @@
   function goNext() {
     var state = global.MacroStudioState.getState();
 
-    if (state.screen === global.MacroStudioScreens.diagnoseScreen &&
-        (!isTargetEnvironmentReady() || !isDiagnosisPresetReady())) {
-      return false;
-    }
     if (!global.MacroStudioState.canGoNext()) {
       return false;
     }
-    if (global.MacroStudioWorkflow &&
-        global.MacroStudioWorkflow.handleNext(state)) {
+    if (state.screen === global.MacroStudioScreens.questionScreen) {
+      global.MacroStudioState.setRequestText(
+        composeRequestWithAnswers(state));
+    }
+    // The short way has no purpose screen, so the request id and the
+    // answer rules are taken on the way to where the user writes.
+    if (state.simple &&
+        state.screen === global.MacroStudioScreens.bookScreen &&
+        !state.requestId) {
+      prepareSimpleRequest().then(function (result) {
+        if (result) {
+          global.MacroStudioState.goNext();
+          elements.main.focus();
+        }
+        return result;
+      });
+      return true;
+    }
+    // Leaving the request screen is where the run folder and its two
+    // files are written.
+    if (state.screen === global.MacroStudioScreens.handoffScreen - 1) {
+      prepareRequest().then(function (result) {
+        if (result) {
+          global.MacroStudioState.goNext();
+          elements.main.focus();
+        }
+        return result;
+      });
       return true;
     }
     if (global.MacroStudioState.goNext()) {
@@ -3241,46 +4119,6 @@
     }
   }
 
-  // Grow the review code area to the client area, or come back. A class
-  // toggle and an attribute pass over the buttons already in the page -
-  // never a re-render, so the scroll position, the selection and a
-  // half-typed manual edit survive the round trip in both directions.
-  function applyCodeMax() {
-    var label = codeMaximized
-      ? "元の表示に戻す"
-      : "コードを画面全体に広げる";
-    var buttons;
-
-    document.body.classList.toggle("code-maximized", codeMaximized);
-    if (!elements) {
-      return;
-    }
-    buttons = elements.main.querySelectorAll(
-      '[data-action="toggle-code-max"]');
-    Array.prototype.forEach.call(buttons, function (button) {
-      button.setAttribute(
-        "aria-pressed",
-        codeMaximized ? "true" : "false");
-      button.setAttribute("aria-label", label);
-      button.title = label;
-      button.textContent = "";
-      button.appendChild(createIcon(
-        codeMaximized ? "restore" : "maximize",
-        "flow-icon--small"));
-    });
-  }
-
-  function toggleCodeMax(force) {
-    var next = typeof force === "boolean" ? force : !codeMaximized;
-
-    if (next === codeMaximized) {
-      return false;
-    }
-    codeMaximized = next;
-    applyCodeMax();
-    return true;
-  }
-
   function toggleDisclosure(key) {
     var box = document.querySelector(
       '[data-disclosure-box="' + key + '"]');
@@ -3314,10 +4152,6 @@
     }
 
     action = button.getAttribute("data-action");
-    if (global.MacroStudioWorkflow &&
-        global.MacroStudioWorkflow.handleAction(action, button, event)) {
-      return;
-    }
     if (action === "pick-book") {
       pickBook();
     } else if (action === "replace-book") {
@@ -3326,6 +4160,26 @@
       });
     } else if (action === "toggle-disclosure") {
       toggleDisclosure(button.getAttribute("data-disclosure"));
+    } else if (action === "select-mode") {
+      selectMode(button.getAttribute("data-mode"));
+    } else if (action === "start-simple") {
+      startSimple();
+    } else if (action === "go-question") {
+      goToQuestion(button.getAttribute("data-index"));
+    } else if (action === "answer-choice") {
+      answerQuestion(
+        button.getAttribute("data-question"),
+        button.getAttribute("data-value"));
+    } else if (action === "select-purpose") {
+      selectPurpose(button.getAttribute("data-preset-file"));
+    } else if (action === "copy-request-prompt") {
+      copyRequestPrompt();
+    } else if (action === "open-run-folder") {
+      openRunFolder();
+    } else if (action === "import-response") {
+      importResponsePackage();
+    } else if (action === "restart-intake") {
+      restartIntake();
     } else if (action === "select-module") {
       selectModuleFromPane(button.getAttribute("data-module-name"));
     } else if (action === "edit-paste") {
@@ -3334,8 +4188,6 @@
       applyPasteEdit();
     } else if (action === "cancel-paste-edit") {
       requestCancelPasteEdit();
-    } else if (action === "toggle-code-max") {
-      toggleCodeMax();
     } else if (action === "toggle-diff-context") {
       toggleSelectedDiffContext();
     } else if (action === "toggle-diff-wrap") {
@@ -3346,50 +4198,38 @@
       jumpSelectedDiff(1);
     } else if (action === "retry-build") {
       retryBuild();
-    } else if (action === "open-run-folder") {
-      openRunFolder();
-    } else if (action === "reject-repair-answer") {
-      openRejection();
-    } else if (action === "cancel-reject-repair-answer") {
-      cancelRejection();
-    } else if (action === "copy-rejection-request") {
-      copyRejectionRequest();
-    }
-  }
-
-  function onToastClick(event) {
-    var button = event.target.closest("[data-toast-action]");
-
-    if (!button || button.disabled) {
-      return;
-    }
-    if (button.getAttribute("data-toast-action") ===
-        "retry-copy-request" && global.MacroStudioWorkflow) {
-      global.MacroStudioWorkflow.retryCopyPrompt();
-    }
-    if (button.getAttribute("data-toast-action") === "retry-copy-rejection") {
-      copyRejectionRequest();
     }
   }
 
   function onMainInput(event) {
-    if (global.MacroStudioWorkflow &&
-        global.MacroStudioWorkflow.handleInput(event.target)) {
+    if (event.target.hasAttribute &&
+        event.target.hasAttribute("data-question")) {
+      global.MacroStudioState.setAnswer(
+        Number(event.target.getAttribute("data-question")),
+        event.target.value);
       return;
     }
     if (event.target.id === "paste-edit-textarea") {
       pasteEditDraft = event.target.value;
       return;
     }
-    if (event.target.id === "rejection-reason") {
-      setRejectionReason(event.target.value);
-      // The copy button opens as soon as there is a reason to send.
-      repaint();
-      return;
-    }
     if (event.target.id === "output-name") {
       global.MacroStudioState.setOutputName(event.target.value);
+      return;
     }
+    if (event.target.id === "split-output") {
+      setSplitOutput(event.target.checked === true);
+      return;
+    }
+    if (event.target.id === "simple-request-input") {
+      global.MacroStudioState.setRequestText(event.target.value);
+      return;
+    }
+    if (event.target.id !== "request-text") {
+      return;
+    }
+    event.target.removeAttribute("aria-invalid");
+    global.MacroStudioState.setRequestText(event.target.value);
   }
 
   // Ctrl+V on the intake screen does the same as the button.
@@ -3397,9 +4237,8 @@
     var state = global.MacroStudioState.getState();
     var text = "";
 
-    if (!global.MacroStudioWorkflow || state.busyAction ||
-        (state.screen !== global.MacroStudioScreens.diagnoseScreen &&
-         state.screen !== global.MacroStudioScreens.repairScreen)) {
+    if (state.screen !== global.MacroStudioScreens.intakeScreen ||
+        state.busyAction) {
       return;
     }
     if (state.pasteEditing ||
@@ -3413,23 +4252,12 @@
       text = event.clipboardData.getData("text") || "";
     }
     event.preventDefault();
-    global.MacroStudioWorkflow.handlePaste(text, state);
+    applyResponsePackage(text);
   }
 
   function onDocumentKeyDown(event) {
     var state = global.MacroStudioState.getState();
 
-    if (global.MacroStudioWorkflow &&
-        global.MacroStudioWorkflow.handleKeyDown(event)) {
-      return;
-    }
-    // While the code area fills the window the frame is hidden, so the
-    // keyboard way back cannot live on a button alone. Esc restores.
-    if (codeMaximized && event.key === "Escape") {
-      event.preventDefault();
-      toggleCodeMax(false);
-      return;
-    }
     if (state.screen !== global.MacroStudioScreens.reviewScreen ||
         state.pasteEditing ||
         state.busyAction ||
@@ -3506,6 +4334,14 @@
     if (!files || files.length === 0) {
       return;
     }
+    if (files.length !== 1) {
+      showToast("ブックは1つずつ選んでください。複数ファイルは読み込みませんでした。", "warning");
+      return;
+    }
+    if (global.MacroStudioState.getState().busyAction) {
+      showToast("処理中のため読み込みませんでした。完了後にもう一度選んでください。", "warning");
+      return;
+    }
 
     global.hostBridge.resolveDroppedFiles(files).then(
       function (paths) {
@@ -3553,7 +4389,6 @@
     elements.main.addEventListener("click", onMainClick);
     elements.main.addEventListener("input", onMainInput);
     elements.footerActions.addEventListener("click", onFooterClick);
-    elements.toastRegion.addEventListener("click", onToastClick);
     document.addEventListener("paste", onDocumentPaste);
     document.addEventListener("dragenter", onWindowDragOver);
     document.addEventListener("dragover", onWindowDragOver);
@@ -3590,7 +4425,6 @@
     });
     elements.editDiscardCancel.addEventListener("click", function () {
       pendingEditDiscardAction = null;
-      pendingEditDiscardMode = "draft";
       elements.editDiscardModal.close();
       announce("手動修正に戻りました。");
       global.setTimeout(function () {
@@ -3603,26 +4437,18 @@
     });
     elements.editDiscardConfirm.addEventListener("click", function () {
       var action = pendingEditDiscardAction;
-      var mode = pendingEditDiscardMode;
-      var completed = true;
 
       pendingEditDiscardAction = null;
-      pendingEditDiscardMode = "draft";
       elements.editDiscardModal.close();
       pasteEditDraft = "";
       global.MacroStudioState.cancelPasteEdit();
+      announce("未反映の修正を破棄しました。");
       if (action) {
-        completed = action() !== false;
+        action();
       }
-      announce(mode === "deterministic"
-        ? (completed
-          ? "手動修正を破棄し、対応表から置き換え直しました。"
-          : "置き換えられなかったため、手動修正を保持しています。")
-        : "未反映の修正を破棄しました。");
     });
     elements.editDiscardModal.addEventListener("cancel", function () {
       pendingEditDiscardAction = null;
-      pendingEditDiscardMode = "draft";
       announce("手動修正に戻りました。");
     });
     global.MacroStudioState.subscribe(render);
@@ -3634,6 +4460,14 @@
 
     global.hostBridge.on("bookDropped", function (data) {
       setDropActive(false);
+      if (data.paths && data.paths.length !== 1) {
+        showToast("ブックは1つずつ選んでください。複数ファイルは読み込みませんでした。", "warning");
+        return;
+      }
+      if (global.MacroStudioState.getState().busyAction) {
+        showToast("処理中のため読み込みませんでした。完了後にもう一度選んでください。", "warning");
+        return;
+      }
       attachPath(data.path);
     });
     loadAppInfo();
@@ -3646,8 +4480,13 @@
     handleHostError: handleHostError,
     attachPath: attachPath,
     pickBook: pickBook,
+    selectPurpose: selectPurpose,
+    applyResponsePackage: applyResponsePackage,
+    importResponsePackage: importResponsePackage,
     toggleDisclosure: toggleDisclosure,
-    createIcon: createIcon,
+    prepareRequest: prepareRequest,
+    copyRequestPrompt: copyRequestPrompt,
+    openRunFolder: openRunFolder,
     goNext: goNext,
     goBack: goBack,
     goToScreen: goToScreen,
@@ -3666,10 +4505,13 @@
     joinFinalCode: joinFinalCode,
     createBuildModules: createBuildModules,
     createResultMarkdown: createResultMarkdown,
+    createIntakeScreen: createScreen5,
     createDoneScreen: createScreenDone,
+    createModeScreen: createScreenMode,
+    createRequestScreen: createScreen3,
     createReviewScreen: createScreen6,
-    toggleCodeMax: toggleCodeMax,
-    isCodeMaximized: function () { return codeMaximized; },
+    createBookScreen: createScreen0,
+    createPurposeScreen: createScreen2,
     buildBook: buildBook,
     retryBuild: retryBuild,
     finishFlow: finishFlow,
@@ -3678,33 +4520,16 @@
     applyPasteEdit: applyPasteEdit,
     requestCancelPasteEdit: requestCancelPasteEdit,
     isEditDraftDirty: isEditDraftDirty,
-    confirmDiscardManualChanges: confirmDiscardManualChanges,
+    applyResponsePackage: applyResponsePackage,
+    importResponsePackage: importResponsePackage,
+    restartIntake: restartIntake,
+    setSplitOutput: setSplitOutput,
+    toggleDisclosure: toggleDisclosure,
+    selectMode: selectMode,
+    answerQuestion: answerQuestion,
+    goToQuestion: goToQuestion,
+    composeRequestWithAnswers: composeRequestWithAnswers,
     loadAppInfo: loadAppInfo,
-    saveRunManifest: saveRunManifest,
-
-    resolveDiagnosisPreset: resolveDiagnosisPreset,
-    getDiagnosisPresetStatus: function () {
-      return resolveDiagnosisPreset(
-        global.MacroStudioState.getState());
-    },
-    loadTargetEnvironment: loadTargetEnvironment,
-    getTargetEnvironment: function () {
-      return targetEnvironment;
-    },
-    getTargetEnvironmentError: function () {
-      return targetEnvironmentError;
-    },
-    isBlockingAttachError: isBlockingAttachError,
-    createAttachErrorCard: createAttachErrorCard,
-    announce: announce,
-    recordInfo: recordInfo,
-    recordWarning: recordWarning,
-    setRejectionReason: setRejectionReason,
-    openRejection: openRejection,
-    cancelRejection: cancelRejection,
-    copyRejectionRequest: copyRejectionRequest,
-    createRejectionRequestText: createRejectionRequestText,
-    isRejectionOpen: function () { return rejectionOpen; },
     loadDemoState: global.MacroStudioState.loadDemoState
   };
 

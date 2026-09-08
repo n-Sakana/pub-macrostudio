@@ -13,12 +13,7 @@
     "TOTAL_LINE_COUNT",
     "MODULE_LIST",
     "CODE_FILE_NAME",
-    "TARGET_ENVIRONMENT",
-    "OUTSIDE_CODE",
-    "GRADING_BASIS",
-    "CHANGE_SCOPE",
-    "DIAGNOSIS",
-    "SELECTED_FINDINGS"
+    "SOURCE_READ_STATUS"
   ];
   var REQUIRED_PLACEHOLDER_NAMES = [
     "REQUEST_TEXT"
@@ -141,6 +136,17 @@
       requireString(module.ext, "Module extension");
   }
 
+  function sourceReadStatus(book) {
+    var read = book && book.read;
+    if (read && read.level === "sourceDoubt") {
+      return "【読み取り上の注意】コードが欠落・途中までの可能性があります。" +
+        String(read.headline || "") + String(read.detail || "") +
+        "読み取れた範囲だけで判断し、不明な点を推測で補わず明示してください。";
+    }
+    return "読み取り処理が取得したコードを省略せず添付しています。" +
+      "外部ファイル・参照設定・実行環境など、この資料だけでは判断できない点は明示してください。";
+  }
+
   function buildCodeFile(options) {
     var lines = [];
     var ordered = [];
@@ -160,6 +166,8 @@
     lines.push(" " + bookName + " - VBA Source Code");
     lines.push(" Generated: " + generatedAt);
     lines.push(CODE_BANNER);
+    lines.push("");
+    lines.push(sourceReadStatus(options.book));
     lines.push("");
     lines.push("MODULE INDEX");
     lines.push(INDEX_LINE);
@@ -215,7 +223,7 @@
     return lines.join(CRLF).replace(/(?:\r\n)+$/, "") + CRLF;
   }
 
-  function validateTemplate(template, requiredNames) {
+  function validateTemplate(template) {
     var placeholderPattern = /\{\{([^{}\r\n]*)\}\}/g;
     var seen = {};
     var match;
@@ -244,7 +252,7 @@
       throw new Error("The request template has a malformed placeholder.");
     }
 
-    requiredNames.forEach(function (name) {
+    REQUIRED_PLACEHOLDER_NAMES.forEach(function (name) {
       if (!seen[name]) {
         throw new Error(
           "The request template is missing {{" + name + "}}.");
@@ -292,7 +300,6 @@
     var book;
     var modules;
     var variables;
-    var requiredNames = REQUIRED_PLACEHOLDER_NAMES.slice();
 
     if (!options || !options.book ||
         !Array.isArray(options.modules)) {
@@ -302,26 +309,7 @@
     template = requireString(
       options.template,
       "Request template");
-    if (Object.prototype.hasOwnProperty.call(
-      options,
-      "targetEnvironment")) {
-      requiredNames.push("TARGET_ENVIRONMENT");
-    }
-    if (Object.prototype.hasOwnProperty.call(options, "outsideCode")) {
-      requiredNames.push("OUTSIDE_CODE");
-    }
-    if (Object.prototype.hasOwnProperty.call(options, "changeScope")) {
-      requiredNames.push("CHANGE_SCOPE");
-    }
-    if (Object.prototype.hasOwnProperty.call(options, "diagnosis")) {
-      requiredNames.push("DIAGNOSIS");
-    }
-    if (Object.prototype.hasOwnProperty.call(
-      options,
-      "selectedFindings")) {
-      requiredNames.push("SELECTED_FINDINGS");
-    }
-    validateTemplate(template, requiredNames);
+    validateTemplate(template);
     requestText = normalizeCrLf(
       requireString(options.requestText, "Request text"));
     book = options.book;
@@ -329,6 +317,7 @@
     variables = {
       REQUEST_TEXT: requestText,
       OUTPUT_RULES: formatOutputRules(options.outputRules),
+      SOURCE_READ_STATUS: sourceReadStatus(book),
       REQUEST_ID: options.requestId === undefined ||
         options.requestId === null
         ? ""
@@ -339,48 +328,7 @@
       MODULE_LIST: buildModuleList(modules),
       CODE_FILE_NAME: requireString(
         options.codeFileName,
-        "Code file name"),
-      TARGET_ENVIRONMENT:
-        Object.prototype.hasOwnProperty.call(
-          options,
-          "targetEnvironment")
-          ? requireString(
-            options.targetEnvironment,
-            "Target environment")
-          : "",
-      // What the workbook carries besides code. The reader is not asked
-      // to fetch it or paste it: the tool already read it, so it travels
-      // with the request.
-      OUTSIDE_CODE:
-        Object.prototype.hasOwnProperty.call(options, "outsideCode")
-          ? requireString(options.outsideCode, "Outside code facts")
-          : "",
-      // The criteria a scoring diagnosis grades against, taken from the
-      // repair template of the same entrance. Empty when the entrance
-      // has no single repair template to name, which is also when its
-      // diagnosis template does not ask for one.
-      GRADING_BASIS:
-        Object.prototype.hasOwnProperty.call(options, "gradingBasis")
-          ? requireString(options.gradingBasis, "Grading basis")
-          : "",
-      // How far the code may change, in the change-scope template's own
-      // words. The app carries the text and never composes it: what
-      // "minimal" forbids is written in the file the reader can open, and
-      // the same file's one-word declaration is what the intake enforces.
-      CHANGE_SCOPE:
-        Object.prototype.hasOwnProperty.call(options, "changeScope")
-          ? requireString(options.changeScope, "Change scope")
-          : "",
-      DIAGNOSIS:
-        Object.prototype.hasOwnProperty.call(options, "diagnosis")
-          ? requireString(options.diagnosis, "Diagnosis")
-          : "",
-      SELECTED_FINDINGS:
-        Object.prototype.hasOwnProperty.call(options, "selectedFindings")
-          ? requireString(
-            options.selectedFindings,
-            "Selected findings")
-          : ""
+        "Code file name")
     };
 
     return renderTemplate(template, variables);

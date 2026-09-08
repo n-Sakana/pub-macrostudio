@@ -82,30 +82,16 @@
   padding: var(--space-6);
 }
 
-.workspace.screen-body {
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-
-.screen-body .task {
-  max-height: none;
-}
-
-/* The column is pinned to the width of the workspace. Without an explicit
-   track the implicit column is auto-sized, which means max-content, and
-   max-content is not reduced by overflow-wrap: a long file name still
-   reports the width it would take on a single unwrapped line. A workbook
-   whose name ran to a couple of hundred characters stretched the track to
-   several times the window width, and justify-items then centred the
-   content column inside that track and pushed it off the right-hand side,
-   leaving the left half of the screen empty and the card clipped.
-   minmax(0, 1fr) keeps the track at the container's width, so an oversized
-   descendant overflows inside .task instead of displacing the column. */
 .workspace--centered {
   display: grid;
-  align-items: start;
-  grid-template-columns: minmax(0, 1fr);
-  justify-items: center;
+  overflow-y: auto;
+  place-items: safe center;
+}
+
+/* Regular forms must scroll rather than shrink and clip their fields on
+   small/scaled displays. Full-height code editors keep their own scrollers. */
+.workspace--centered > .task:not(.task--fill) {
+  max-height: none;
 }
 
 .workspace--code {
@@ -136,21 +122,6 @@
 
 .task--wide {
   width: min(var(--content-flow-wide-w), 100%);
-}
-
-/* Nothing in the flow is allowed to push the screen sideways. A long
-   identifier, a long path or a long Japanese sentence wraps in place.
-   break-word, not anywhere: the shortest line a box may be squeezed to
-   stays the longest word, so a box can never end up one glyph wide. */
-.task p,
-.task li,
-.task span,
-.task strong,
-.task code,
-.task h2,
-.task h3,
-.task label {
-  overflow-wrap: break-word;
 }
 
 .task--fill {
@@ -266,15 +237,6 @@
   height: var(--btn-h-sm);
   padding: 0 var(--space-3);
   font-size: var(--type-meta-size);
-}
-
-/* A square button that is its icon: the accessible name and the tooltip
-   carry the words. Only for operations whose icon is a settled
-   convention (maximize / restore); anything less familiar keeps its
-   label. */
-.button--icon {
-  width: var(--btn-h-sm);
-  padding: 0;
 }
 
 .button:disabled {
@@ -400,13 +362,6 @@
   margin: 0;
 }
 
-/* The path shortens with an ellipsis; the button beside it does not
-   shorten at all. Letting it shrink broke a two-character label
-   across two lines as soon as a workbook sat in a deep folder. */
-.loaded-zone .button {
-  flex: 0 0 auto;
-}
-
 .loaded-zone-details {
   min-width: 0;
   flex: 1 1 auto;
@@ -449,57 +404,6 @@
   margin: 0;
   color: var(--text-sub);
   font-size: var(--type-meta-size);
-}
-
-/* The workbook that is still loaded, said inside the refusal. It is the
-   answer to "why is 次へ still live", so it reads as ordinary text
-   rather than as more of the warning. */
-.inline-error-kept {
-  margin-top: var(--space-2) !important;
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--danger);
-  color: var(--text-main) !important;
-}
-
-/* The one thing on the book screen the reader has to act on later. */
-.signature-warning {
-  margin: var(--space-3) 0 0;
-  padding: var(--space-3);
-  border: 1px solid var(--caution);
-  border-radius: var(--radius-sm);
-  color: var(--caution-text);
-  font-size: var(--type-meta-size);
-  line-height: var(--type-label-line);
-}
-
-/* A run that finished, seen from a screen the reader walked back to. */
-.completed-notice {
-  margin-bottom: var(--space-3);
-  padding: var(--space-4);
-  border: 1px solid var(--success);
-  border-radius: var(--radius-md);
-  background: var(--success-soft);
-}
-
-.completed-notice-title {
-  margin: 0 0 var(--space-1);
-  color: var(--success-text);
-  font-size: var(--type-section-size);
-}
-
-.completed-notice p {
-  margin: 0;
-  color: var(--text-sub);
-  font-size: var(--type-meta-size);
-}
-
-.completed-notice-path {
-  display: block;
-  margin-top: var(--space-2);
-  overflow-wrap: anywhere;
-  color: var(--text-sub);
-  font-family: var(--font-code);
-  font-size: var(--type-micro-size);
 }
 
 .book-panel {
@@ -594,9 +498,6 @@
   gap: var(--space-3);
 }
 
-/* Four columns, each sized for what it holds: the checkbox, the icon,
-   the words, and the mark. The mark column takes its own width, so a
-   label in it cannot be pushed past the card's edge. */
 .choice-card {
   display: grid;
   width: 100%;
@@ -607,7 +508,7 @@
   border-radius: var(--radius-md);
   background: var(--surface);
   gap: var(--space-3);
-  grid-template-columns: auto var(--icon-xl) minmax(0, 1fr) auto;
+  grid-template-columns: var(--icon-xl) minmax(0, 1fr) var(--icon-lg);
   text-align: left;
 }
 
@@ -691,29 +592,6 @@
   color: var(--text-muted);
   font-size: var(--type-meta-size);
   line-height: var(--type-label-line);
-}
-
-/* A card cannot hold a real input, so the box is drawn. It has to read
-   as the same control as every other checkbox in the flow, because it
-   is the same decision: this one, and possibly that one too. */
-.choice-checkbox {
-  display: grid;
-  width: var(--intake-step-number-size);
-  height: var(--intake-step-number-size);
-  place-items: center;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text-on-accent);
-}
-
-.choice-card.is-selected .choice-checkbox {
-  border-color: var(--accent);
-  background: var(--accent);
-}
-
-.choice-card:hover:not(:disabled) .choice-checkbox {
-  border-color: var(--accent);
 }
 
 .choice-state,
@@ -1345,13 +1223,6 @@
   font-size: var(--type-meta-size);
 }
 
-/* The same line carries the standing note and, when the field is refused,
-   the reason. Muted grey reads as "for your information", which is the
-   wrong voice for the thing blocking the next step. */
-.field-help--problem {
-  color: var(--danger-text);
-}
-
 /* An optional choice on the request screen. It sits beside the main
    path, never in it: leaving it alone is the normal way through. */
 
@@ -1656,11 +1527,7 @@
   font-weight: var(--weight-regular);
 }
 
-/* A row that opened onto a text field used to live here, wearing the
-   sunken grey of a control that cannot be used. A field the reader may
-   fill in is not folded away at all now - see .field in components.css.
-
-   The body grows in place instead of the page jumping. */
+/* The body grows in place instead of the page jumping. */
 .disclosure-body {
   display: grid;
   grid-template-rows: 0fr;
@@ -1796,30 +1663,6 @@
   border-radius: var(--radius-md);
   color: var(--text-muted);
   font-size: var(--type-meta-size);
-}
-
-/* Taking the answer in and deciding to keep it are separate, so the
-   decision sits apart from the notice that the answer arrived. */
-.rejection {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border-subtle);
-  gap: var(--space-2);
-}
-
-.rejection .form-label {
-  display: block;
-}
-
-.rejection .step-actions {
-  margin-top: 0;
-}
-
-.rejection .task-note {
-  margin: 0;
 }
 
 /* ---- what the answer says it did ---- */

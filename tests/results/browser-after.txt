@@ -1,0 +1,18 @@
+test_busy_build_guard_applies_before_report_asset_fetch (__main__.BrowserTests.test_busy_build_guard_applies_before_report_asset_fetch) ... ok
+test_consultation_finishes_without_import_or_build (__main__.BrowserTests.test_consultation_finishes_without_import_or_build) ... ok
+test_edited_issued_request_disables_old_answer (__main__.BrowserTests.test_edited_issued_request_disables_old_answer) ... ok
+test_host_error_recovers_busy_state_and_can_retry (__main__.BrowserTests.test_host_error_recovers_busy_state_and_can_retry) ... ok
+test_incomplete_source_blocks_refactor_early_with_guidance (__main__.BrowserTests.test_incomplete_source_blocks_refactor_early_with_guidance) ... ok
+test_invalid_filename_has_visible_feedback_and_blocks_forward (__main__.BrowserTests.test_invalid_filename_has_visible_feedback_and_blocks_forward) ... ok
+test_multiple_host_dropped_files_are_not_silently_selected (__main__.BrowserTests.test_multiple_host_dropped_files_are_not_silently_selected) ... ok
+test_new_split_answer_invalidates_previous_complete_answer (__main__.BrowserTests.test_new_split_answer_invalidates_previous_complete_answer) ... ok
+test_nochange_shows_reason_and_does_not_build (__main__.BrowserTests.test_nochange_shows_reason_and_does_not_build) ... ok
+test_normal_flow_builds_once_and_report_is_standalone (__main__.BrowserTests.test_normal_flow_builds_once_and_report_is_standalone) ... ok
+test_simple_flow_reaches_build_without_name_screen (__main__.BrowserTests.test_simple_flow_reaches_build_without_name_screen) ... ok
+test_small_viewport_footer_visible_and_theme_toggle_works (__main__.BrowserTests.test_small_viewport_footer_visible_and_theme_toggle_works) ... ok
+test_split_answer_rejects_incomplete_and_accepts_out_of_order (__main__.BrowserTests.test_split_answer_rejects_incomplete_and_accepts_out_of_order) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 21.726s
+
+OK
